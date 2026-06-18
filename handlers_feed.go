@@ -106,7 +106,6 @@ func handlerFollowing(s *state, _ command, user database.User) error {
 func handlerBrowse(s *state, cmd command, user database.User) error {
 	fs := flag.NewFlagSet("browse", flag.ContinueOnError)
 	limit := fs.Int("limit", 2, "number of posts to show")
-	page := fs.Int("page", 1, "page number (1-based)")
 	feed := fs.String("feed", "", "filter by feed name (substring match)")
 	sortDir := fs.String("sort", "desc", "sort by publish date: asc or desc")
 	if err := fs.Parse(cmd.Args); err != nil {
@@ -116,27 +115,16 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 	if *sortDir != "asc" && *sortDir != "desc" {
 		return fmt.Errorf("invalid sort %q: use 'asc' or 'desc'", *sortDir)
 	}
-	if *limit < 1 {
-		return fmt.Errorf("limit must be at least 1")
-	}
-	if *page < 1 {
-		return fmt.Errorf("page must be at least 1")
-	}
-
-	offset := (*page - 1) * *limit
 
 	posts, err := s.Db.GetPostsForUserFiltered(context.Background(), database.GetPostsForUserFilteredParams{
-		UserID:     user.ID,
-		FeedName:   *feed,
-		SortDir:    *sortDir,
-		PostOffset: int32(offset),
-		PostLimit:  int32(*limit),
+		UserID:    user.ID,
+		FeedName:  *feed,
+		SortDir:   *sortDir,
+		PostLimit: int32(*limit),
 	})
 	if err != nil {
 		return fmt.Errorf("error fetching posts: %v", err)
 	}
-
-	fmt.Printf("Page %d (showing up to %d posts)\n\n", *page, *limit)
 
 	for _, p := range posts {
 		fmt.Printf("--- %s ---\n", p.Title)
