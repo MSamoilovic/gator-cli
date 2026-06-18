@@ -99,3 +99,62 @@ func (q *Queries) GetPostsForUser(ctx context.Context, arg GetPostsForUserParams
 	}
 	return items, nil
 }
+
+const getPostsForUserFiltered = `-- name: GetPostsForUserFiltered :many
+SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id FROM posts
+JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
+JOIN feeds ON posts.feed_id = feeds.id
+WHERE feed_follows.user_id = $1
+  AND ($2::text = '' OR feeds.name ILIKE '%' || $2::text || '%')
+ORDER BY
+  CASE WHEN $3::text = 'asc' THEN posts.published_at END ASC NULLS LAST,
+  posts.published_at DESC NULLS LAST
+LIMIT $5
+OFFSET $4
+`
+
+type GetPostsForUserFilteredParams struct {
+	UserID     uuid.UUID
+	FeedName   string
+	SortDir    string
+	PostOffset int32
+	PostLimit  int32
+}
+
+func (q *Queries) GetPostsForUserFiltered(ctx context.Context, arg GetPostsForUserFilteredParams) ([]Post, error) {
+	rows, err := q.db.QueryContext(ctx, getPostsForUserFiltered,
+		arg.UserID,
+		arg.FeedName,
+		arg.SortDir,
+		arg.PostOffset,
+		arg.PostLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Post
+	for rows.Next() {
+		var i Post
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Title,
+			&i.Url,
+			&i.Description,
+			&i.PublishedAt,
+			&i.FeedID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
