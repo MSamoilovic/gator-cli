@@ -6,6 +6,17 @@ RETURNING *;
 -- name: GetPostByUrl :one
 SELECT * FROM posts WHERE url = $1;
 
+-- name: SearchPostsForUser :many
+SELECT posts.* FROM posts
+JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
+WHERE feed_follows.user_id = @user_id
+  AND (
+    posts.title ILIKE '%' || @query::text || '%'
+    OR posts.description ILIKE '%' || @query::text || '%'
+  )
+ORDER BY posts.published_at DESC NULLS LAST
+LIMIT @post_limit;
+
 -- name: GetPostsForUser :many
 SELECT posts.* FROM posts
 JOIN feed_follows ON posts.feed_id = feed_follows.feed_id

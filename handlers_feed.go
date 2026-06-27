@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 
 	"gator-ci/internal/database"
@@ -137,6 +139,43 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 	return nil
 }
 
+func handlerSearch(s *state, cmd command, user database.User) error {
+	fs := flag.NewFlagSet("search", flag.ContinueOnError)
+	limit := fs.Int("limit", 10, "number of results to show")
+	if err := fs.Parse(cmd.Args); err != nil {
+		return err
+	}
+
+	query := strings.Join(fs.Args(), " ")
+	if query == "" {
+		return fmt.Errorf("usage: search <query> [--limit N]")
+	}
+
+	posts, err := s.Db.SearchPostsForUser(context.Background(), database.SearchPostsForUserParams{
+		UserID:    user.ID,
+		Query:     query,
+		PostLimit: int32(*limit),
+	})
+	if err != nil {
+		return fmt.Errorf("error searching posts: %v", err)
+	}
+
+	if len(posts) == 0 {
+		fmt.Printf("No posts found matching %q\n", query)
+		return nil
+	}
+
+	for _, p := range posts {
+		fmt.Printf("--- %s ---\n", p.Title)
+		fmt.Printf("URL: %s\n", p.Url)
+		if p.Description.Valid {
+			fmt.Printf("%s\n", p.Description.String)
+		}
+		fmt.Println()
+	}
+	return nil
+}
+
 func handlerFeeds(s *state, _ command) error {
 	feeds, err := s.Db.GetFeeds(context.Background())
 	if err != nil {
@@ -167,12 +206,24 @@ func parsePubDate(s string) sql.NullTime {
 }
 
 func scrapeFeeds(s *state) {
-	feed, err := s.Db.GetNextFeedToFetch(context.Background())
+	feeds, err := s.Db.GetFeedsToFetch(context.Background())
 	if err != nil {
-		fmt.Println("error getting next feed:", err)
+		fmt.Println("error getting feeds:", err)
 		return
 	}
 
+	var wg sync.WaitGroup
+	for _, feed := range feeds {
+		wg.Add(1)
+		go func(feed database.Feed) {
+			defer wg.Done()
+			scrapeFeed(s, feed)
+		}(feed)
+	}
+	wg.Wait()
+}
+
+func scrapeFeed(s *state, feed database.Feed) {
 	if err := s.Db.MarkFeedFetched(context.Background(), feed.ID); err != nil {
 		fmt.Println("error marking feed fetched:", err)
 		return
@@ -180,7 +231,7 @@ func scrapeFeeds(s *state) {
 
 	rssFeed, err := fetchFeed(context.Background(), feed.Url)
 	if err != nil {
-		fmt.Println("error fetching feed:", err)
+		fmt.Printf("error fetching feed %s: %v\n", feed.Name, err)
 		return
 	}
 
