@@ -5,15 +5,28 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
-	"gator-ci/internal/database"
+	"gator-cli/internal/database"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
+
+func followFeed(s *state, userID, feedID uuid.UUID) (database.CreateFeedFollowRow, error) {
+	return s.Db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    userID,
+		FeedID:    feedID,
+	})
+}
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 2 {
@@ -32,18 +45,11 @@ func handlerAddFeed(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("error creating feed: %v", err)
 	}
 
-	_, err = s.Db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		UserID:    user.ID,
-		FeedID:    feed.ID,
-	})
-	if err != nil {
+	if _, err := followFeed(s, user.ID, feed.ID); err != nil {
 		return fmt.Errorf("error following feed: %v", err)
 	}
 
-	fmt.Printf("%+v\n", feed)
+	fmt.Printf("Added feed %q (%s)\n", feed.Name, feed.Url)
 	return nil
 }
 
@@ -57,13 +63,7 @@ func handlerFollow(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("feed not found: %v", err)
 	}
 
-	follow, err := s.Db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		UserID:    user.ID,
-		FeedID:    feed.ID,
-	})
+	follow, err := followFeed(s, user.ID, feed.ID)
 	if err != nil {
 		return fmt.Errorf("error following feed: %v", err)
 	}
@@ -129,12 +129,7 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 	}
 
 	for _, p := range posts {
-		fmt.Printf("--- %s ---\n", p.Title)
-		fmt.Printf("URL: %s\n", p.Url)
-		if p.Description.Valid {
-			fmt.Printf("%s\n", p.Description.String)
-		}
-		fmt.Println()
+		printPost(p)
 	}
 	return nil
 }
@@ -166,12 +161,7 @@ func handlerSearch(s *state, cmd command, user database.User) error {
 	}
 
 	for _, p := range posts {
-		fmt.Printf("--- %s ---\n", p.Title)
-		fmt.Printf("URL: %s\n", p.Url)
-		if p.Description.Valid {
-			fmt.Printf("%s\n", p.Description.String)
-		}
-		fmt.Println()
+		printPost(p)
 	}
 	return nil
 }
@@ -186,6 +176,15 @@ func handlerFeeds(s *state, _ command) error {
 		fmt.Printf("Name: %s\nURL: %s\nUser: %s\n\n", f.Name, f.Url, f.UserName)
 	}
 	return nil
+}
+
+func printPost(p database.Post) {
+	fmt.Printf("--- %s ---\n", p.Title)
+	fmt.Printf("URL: %s\n", p.Url)
+	if p.Description.Valid {
+		fmt.Printf("%s\n", p.Description.String)
+	}
+	fmt.Println()
 }
 
 var pubDateFormats = []string{
@@ -205,10 +204,13 @@ func parsePubDate(s string) sql.NullTime {
 	return sql.NullTime{}
 }
 
+// pqUniqueViolation is the Postgres error code for a unique constraint conflict.
+const pqUniqueViolation = "23505"
+
 func scrapeFeeds(s *state) {
 	feeds, err := s.Db.GetFeedsToFetch(context.Background())
 	if err != nil {
-		fmt.Println("error getting feeds:", err)
+		fmt.Fprintln(os.Stderr, "error getting feeds:", err)
 		return
 	}
 
@@ -225,13 +227,13 @@ func scrapeFeeds(s *state) {
 
 func scrapeFeed(s *state, feed database.Feed) {
 	if err := s.Db.MarkFeedFetched(context.Background(), feed.ID); err != nil {
-		fmt.Println("error marking feed fetched:", err)
+		fmt.Fprintln(os.Stderr, "error marking feed fetched:", err)
 		return
 	}
 
 	rssFeed, err := fetchFeed(context.Background(), feed.Url)
 	if err != nil {
-		fmt.Printf("error fetching feed %s: %v\n", feed.Name, err)
+		fmt.Fprintf(os.Stderr, "error fetching feed %s: %v\n", feed.Name, err)
 		return
 	}
 
@@ -247,10 +249,10 @@ func scrapeFeed(s *state, feed database.Feed) {
 			FeedID:      feed.ID,
 		})
 		if err != nil {
-			if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+			if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == pqUniqueViolation {
 				continue
 			}
-			fmt.Printf("error saving post %q: %v\n", item.Title, err)
+			fmt.Fprintf(os.Stderr, "error saving post %q: %v\n", item.Title, err)
 		}
 	}
 	fmt.Printf("Fetched %d posts from %s\n", len(rssFeed.Channel.Item), feed.Name)
@@ -266,10 +268,21 @@ func handlerAgg(s *state, cmd command) error {
 		return fmt.Errorf("invalid duration: %v", err)
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	fmt.Printf("Collecting feeds every %s\n", timeBetweenReqs)
+	fmt.Println("Press Ctrl+C to stop.")
 
 	ticker := time.NewTicker(timeBetweenReqs)
-	for ; ; <-ticker.C {
+	defer ticker.Stop()
+	for {
 		scrapeFeeds(s)
+		select {
+		case <-ctx.Done():
+			fmt.Println("\nShutting down...")
+			return nil
+		case <-ticker.C:
+		}
 	}
 }

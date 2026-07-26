@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"gator-ci/internal/database"
+	"gator-cli/internal/database"
 
 	"github.com/google/uuid"
 )
@@ -62,12 +62,7 @@ func handlerBookmarks(s *state, _ command, user database.User) error {
 	}
 
 	for _, p := range posts {
-		fmt.Printf("--- %s ---\n", p.Title)
-		fmt.Printf("URL: %s\n", p.Url)
-		if p.Description.Valid {
-			fmt.Printf("%s\n", p.Description.String)
-		}
-		fmt.Println()
+		printPost(p)
 	}
 	return nil
 }

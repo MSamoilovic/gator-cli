@@ -5,16 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"gator-ci/internal/database"
+	"gator-cli/internal/database"
 
 	"github.com/google/uuid"
 )
 
 func handlerLogin(s *state, cmd command) error {
-	if cmd.Name != "login" {
-		return fmt.Errorf("Command is not login")
-	}
-
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("username required to log in")
 	}
@@ -59,10 +55,6 @@ func handlerReset(s *state, cmd command) error {
 }
 
 func handlerRegister(s *state, cmd command) error {
-	if cmd.Name != "register" {
-		return fmt.Errorf("program error, not register")
-	}
-	
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("username required to register")
 	}
@@ -82,7 +74,7 @@ func handlerRegister(s *state, cmd command) error {
 		return fmt.Errorf("error setting username: %v", err)
 	}
 	fmt.Println("User created successfully")
-	fmt.Printf("User %s created", s.Cfg.CurrentUserName)
+	fmt.Printf("User %s created\n", s.Cfg.CurrentUserName)
 
 	return nil
 }
