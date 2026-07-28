@@ -1,6 +1,10 @@
 # Gator
 
-A CLI RSS feed aggregator built as part of the [Boot.dev](https://www.boot.dev) backend course. Follow feeds, aggregate posts, and manage subscriptions from the terminal.
+A CLI RSS feed aggregator. Follow feeds, aggregate posts, and manage subscriptions from the terminal.
+
+> **About this project**
+> Gator started as the guided [Boot.dev](https://www.boot.dev) backend course project. The core (users, feeds, follows, aggregation loop) follows the course.
+> Beyond that, I've been extending it with my own features that go **outside the course scope** — filtering/sorting & pagination for `browse`, full-text `search`, `bookmark`s, a concurrent aggregator, and a crash-restarting `supervise` service manager. Those are marked **(extra)** below.
 
 ## Prerequisites
 
@@ -74,7 +78,25 @@ gator following                                          # list feeds you follow
 ### Aggregation
 
 ```bash
-gator agg       # fetch and print the latest posts from your feeds
+gator agg 1m                 # fetch feeds in a loop every 1m (1s, 5m, 1h, ...); Ctrl+C to stop
+gator supervise 1m           # (extra) keep agg running, auto-restart on crash, log to gator-agg.log
+```
+
+### Reading posts (extra)
+
+```bash
+gator browse                             # show the latest posts from feeds you follow (default 2)
+gator browse --limit 10 --page 2         # pagination
+gator browse --feed boot --sort asc      # filter by feed name, sort by publish date
+gator search golang --limit 5            # full-text search across post titles/descriptions
+```
+
+### Bookmarks (extra)
+
+```bash
+gator bookmark <post_url>     # save a post
+gator bookmarks               # list saved posts (newest first)
+gator unbookmark <post_url>   # remove a saved post
 ```
 
 ### Admin
