@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"gator-cli/internal/database"
+	"gator-cli/internal/rss"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -231,7 +232,7 @@ func scrapeFeed(s *state, feed database.Feed) {
 		return
 	}
 
-	rssFeed, err := fetchFeed(context.Background(), feed.Url)
+	rssFeed, err := rss.FetchFeed(context.Background(), feed.Url)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error fetching feed %s: %v\n", feed.Name, err)
 		return

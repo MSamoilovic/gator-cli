@@ -15,7 +15,7 @@ const (
 	superviseLogFile   = "gator-agg.log"
 	superviseMinBackff = 1 * time.Second
 	superviseMaxBackff = 60 * time.Second
-	superviseHealthy = 30 * time.Second
+	superviseHealthy   = 30 * time.Second
 )
 
 // handlerSupervise keeps `gator agg` running, restarting it with exponential
@@ -58,7 +58,7 @@ func handlerSupervise(_ *state, cmd command) error {
 		proc := exec.Command(self, "agg", interval)
 		proc.Stdout = out
 		proc.Stderr = out
-		
+
 		proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 		if err := proc.Start(); err != nil {
