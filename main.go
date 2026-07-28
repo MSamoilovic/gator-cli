@@ -55,6 +55,8 @@ func main() {
 	cmds.register("unbookmark", middlewareLoggedIn(handlerUnbookmark))
 	cmds.register("bookmarks", middlewareLoggedIn(handlerBookmarks))
 	cmds.register("search", middlewareLoggedIn(handlerSearch))
+	cmds.register("tui", middlewareLoggedIn(handlerTUI))
+
 
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: gator <command> [args...]")
