@@ -57,7 +57,6 @@ func main() {
 	cmds.register("search", middlewareLoggedIn(handlerSearch))
 	cmds.register("tui", middlewareLoggedIn(handlerTUI))
 
-
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: gator <command> [args...]")
 		os.Exit(1)
