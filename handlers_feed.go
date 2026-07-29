@@ -19,14 +19,23 @@ import (
 	"github.com/lib/pq"
 )
 
-func followFeed(s *state, userID, feedID uuid.UUID) (database.CreateFeedFollowRow, error) {
-	return s.Db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+// followFeed je idempotentan: ako korisnik vec prati feed, vraca created=false
+// bez greske (upit radi ON CONFLICT DO NOTHING).
+func followFeed(s *state, userID, feedID uuid.UUID) (row database.CreateFeedFollowRow, created bool, err error) {
+	rows, err := s.Db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		UserID:    userID,
 		FeedID:    feedID,
 	})
+	if err != nil {
+		return database.CreateFeedFollowRow{}, false, err
+	}
+	if len(rows) == 0 {
+		return database.CreateFeedFollowRow{}, false, nil
+	}
+	return rows[0], true, nil
 }
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
@@ -46,8 +55,8 @@ func handlerAddFeed(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("error creating feed: %v", err)
 	}
 
-	if _, err := followFeed(s, user.ID, feed.ID); err != nil {
-		return fmt.Errorf("error following feed: %v", err)
+	if _, _, err := followFeed(s, user.ID, feed.ID); err != nil {
+		return fmt.Errorf("error following feed: %w", err)
 	}
 
 	fmt.Printf("Added feed %q (%s)\n", feed.Name, feed.Url)
@@ -64,9 +73,13 @@ func handlerFollow(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("feed not found: %v", err)
 	}
 
-	follow, err := followFeed(s, user.ID, feed.ID)
+	follow, created, err := followFeed(s, user.ID, feed.ID)
 	if err != nil {
-		return fmt.Errorf("error following feed: %v", err)
+		return fmt.Errorf("error following feed: %w", err)
+	}
+	if !created {
+		fmt.Printf("Already following %s\n", feed.Name)
+		return nil
 	}
 
 	fmt.Printf("Feed: %s\nUser: %s\n", follow.FeedName, follow.UserName)

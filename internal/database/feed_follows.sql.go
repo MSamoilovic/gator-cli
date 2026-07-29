@@ -12,10 +12,11 @@ import (
 	"github.com/google/uuid"
 )
 
-const createFeedFollow = `-- name: CreateFeedFollow :one
+const createFeedFollow = `-- name: CreateFeedFollow :many
 WITH inserted AS (
     INSERT INTO feed_follows (id, created_at, updated_at, user_id, feed_id)
     VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (user_id, feed_id) DO NOTHING
     RETURNING id, created_at, updated_at, user_id, feed_id
 )
 SELECT
@@ -45,25 +46,41 @@ type CreateFeedFollowRow struct {
 	FeedName  string
 }
 
-func (q *Queries) CreateFeedFollow(ctx context.Context, arg CreateFeedFollowParams) (CreateFeedFollowRow, error) {
-	row := q.db.QueryRowContext(ctx, createFeedFollow,
+func (q *Queries) CreateFeedFollow(ctx context.Context, arg CreateFeedFollowParams) ([]CreateFeedFollowRow, error) {
+	rows, err := q.db.QueryContext(ctx, createFeedFollow,
 		arg.ID,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.UserID,
 		arg.FeedID,
 	)
-	var i CreateFeedFollowRow
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.UserID,
-		&i.FeedID,
-		&i.UserName,
-		&i.FeedName,
-	)
-	return i, err
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CreateFeedFollowRow
+	for rows.Next() {
+		var i CreateFeedFollowRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.UserID,
+			&i.FeedID,
+			&i.UserName,
+			&i.FeedName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deleteFeedFollow = `-- name: DeleteFeedFollow :exec
