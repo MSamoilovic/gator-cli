@@ -3,13 +3,16 @@ package rss
 import (
 	"context"
 	"encoding/xml"
+	"fmt"
 	"html"
 	"io"
 	"net/http"
 	"time"
 )
 
+
 type RSSFeed struct {
+	XMLName xml.Name `xml:"rss"`
 	Channel struct {
 		Title       string    `xml:"title"`
 		Link        string    `xml:"link"`
@@ -31,25 +34,32 @@ func FetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", feedURL, nil)
 	if err != nil {
-		return &RSSFeed{}, err
+		return nil, err
 	}
 	req.Header.Set("User-Agent", "gator")
+
 	res, err := httpClient.Do(req)
 	if err != nil {
-		return &RSSFeed{}, err
+		return nil, err
 	}
+	defer res.Body.Close()
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, fmt.Errorf("fetching %s: unexpected status %s", feedURL, res.Status)
+	}
+
 	data, err := io.ReadAll(res.Body)
 	if err != nil {
-		return &RSSFeed{}, err
+		return nil, fmt.Errorf("reading %s: %w", feedURL, err)
 	}
+
 	rss := RSSFeed{}
-	err = xml.Unmarshal(data, &rss)
-	if err != nil {
-		return &RSSFeed{}, err
+	if err := xml.Unmarshal(data, &rss); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", feedURL, err)
 	}
 	unescapeString(&rss)
 
-	return &rss, err
+	return &rss, nil
 }
 
 func unescapeString(rss *RSSFeed) *RSSFeed {
