@@ -20,14 +20,18 @@ func handlerBookmark(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("post not found: %v", err)
 	}
 
-	_, err = s.Db.CreateBookmark(context.Background(), database.CreateBookmarkParams{
+	created, err := s.Db.CreateBookmark(context.Background(), database.CreateBookmarkParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
 		UserID:    user.ID,
 		PostID:    post.ID,
 	})
 	if err != nil {
-		return fmt.Errorf("error bookmarking post: %v", err)
+		return fmt.Errorf("error bookmarking post: %w", err)
+	}
+	if len(created) == 0 {
+		fmt.Printf("Already bookmarked %q\n", post.Title)
+		return nil
 	}
 
 	fmt.Printf("Bookmarked %q\n", post.Title)

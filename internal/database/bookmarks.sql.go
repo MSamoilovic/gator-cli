@@ -12,9 +12,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const createBookmark = `-- name: CreateBookmark :one
+const createBookmark = `-- name: CreateBookmark :many
 INSERT INTO bookmarks (id, created_at, user_id, post_id)
 VALUES ($1, $2, $3, $4)
+ON CONFLICT (user_id, post_id) DO NOTHING
 RETURNING id, created_at, user_id, post_id
 `
 
@@ -25,21 +26,37 @@ type CreateBookmarkParams struct {
 	PostID    uuid.UUID
 }
 
-func (q *Queries) CreateBookmark(ctx context.Context, arg CreateBookmarkParams) (Bookmark, error) {
-	row := q.db.QueryRowContext(ctx, createBookmark,
+func (q *Queries) CreateBookmark(ctx context.Context, arg CreateBookmarkParams) ([]Bookmark, error) {
+	rows, err := q.db.QueryContext(ctx, createBookmark,
 		arg.ID,
 		arg.CreatedAt,
 		arg.UserID,
 		arg.PostID,
 	)
-	var i Bookmark
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UserID,
-		&i.PostID,
-	)
-	return i, err
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Bookmark
+	for rows.Next() {
+		var i Bookmark
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UserID,
+			&i.PostID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deleteBookmark = `-- name: DeleteBookmark :exec
@@ -55,6 +72,34 @@ type DeleteBookmarkParams struct {
 func (q *Queries) DeleteBookmark(ctx context.Context, arg DeleteBookmarkParams) error {
 	_, err := q.db.ExecContext(ctx, deleteBookmark, arg.UserID, arg.PostID)
 	return err
+}
+
+const getBookmarkedPostIDs = `-- name: GetBookmarkedPostIDs :many
+SELECT post_id FROM bookmarks
+WHERE user_id = $1
+`
+
+func (q *Queries) GetBookmarkedPostIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.QueryContext(ctx, getBookmarkedPostIDs, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var post_id uuid.UUID
+		if err := rows.Scan(&post_id); err != nil {
+			return nil, err
+		}
+		items = append(items, post_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getBookmarksForUser = `-- name: GetBookmarksForUser :many
