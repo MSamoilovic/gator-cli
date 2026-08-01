@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-
 type RSSFeed struct {
 	XMLName xml.Name `xml:"rss"`
 	Channel struct {
