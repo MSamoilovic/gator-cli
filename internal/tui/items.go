@@ -26,3 +26,12 @@ func (i postItem) Description() string {
 }
 
 func (i postItem) FilterValue() string { return i.post.Title }
+
+type feedItem struct {
+	id   uuid.UUID
+	name string
+}
+
+func (i feedItem) Title() string       { return i.name }
+func (i feedItem) Description() string { return "" }
+func (i feedItem) FilterValue() string { return i.name }
