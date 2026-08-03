@@ -108,7 +108,7 @@ func TestFeedFocusIgnoresPostActions(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
 
 	for _, k := range []string{"o", "b"} {
-		next, cmd := step(t, m, key(k))
+		next, cmd := step(t, m, press(k))
 		if cmd != nil {
 			t.Errorf("%q triggered an action while the feed panel had focus", k)
 		}
@@ -122,7 +122,7 @@ func TestFeedFocusQuits(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")), testFeed("BBC Sport"))
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
-	_, cmd := step(t, m, key("q"))
+	_, cmd := step(t, m, press("q"))
 
 	if cmd == nil {
 		t.Fatal("no command returned")
@@ -182,12 +182,16 @@ func TestPanelsFitTerminal(t *testing.T) {
 func TestFeedHintsShownWhenFeedsFocused(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")), testFeed("BBC Sport"))
 
-	if got := m.View(); !strings.Contains(got, "tab feeds") {
+	if got := m.View(); !strings.Contains(got, "tab pane") {
 		t.Errorf("posts hint missing tab:\n%s", got)
 	}
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
-	if got := m.View(); !strings.Contains(got, "select feed") {
+	got := m.View()
+	if !strings.Contains(got, "⏎ select") {
 		t.Errorf("feeds hint not shown:\n%s", got)
+	}
+	if strings.Contains(got, "b mark") {
+		t.Errorf("posts hints shown while feeds have focus:\n%s", got)
 	}
 }

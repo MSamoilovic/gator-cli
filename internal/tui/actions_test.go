@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func key(s string) tea.KeyMsg {
+func press(s string) tea.KeyMsg {
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
 }
 
@@ -88,7 +88,7 @@ func TestStatusExpiresOnlyForCurrentToken(t *testing.T) {
 func TestStatusFallsBackToKeyHints(t *testing.T) {
 	m := ready(t, testPost("Prvi"))
 
-	if got := m.View(); !strings.Contains(got, "b bookmark") {
+	if got := m.View(); !strings.Contains(got, "b mark") {
 		t.Errorf("list view missing key hints:\n%s", got)
 	}
 
@@ -131,7 +131,7 @@ func TestActionsOnEmptyListDoNothing(t *testing.T) {
 	m := ready(t)
 
 	for _, k := range []string{"o", "b"} {
-		next, cmd := step(t, m, key(k))
+		next, cmd := step(t, m, press(k))
 		if cmd != nil {
 			t.Errorf("%q returned a command with no posts", k)
 		}
@@ -150,7 +150,7 @@ func TestActionKeysWorkInDetail(t *testing.T) {
 		t.Fatal("detail did not open")
 	}
 
-	next, cmd := step(t, m, key("b"))
+	next, cmd := step(t, m, press("b"))
 	if cmd == nil {
 		t.Error("b did not trigger a command in detail")
 	}
@@ -158,7 +158,7 @@ func TestActionKeysWorkInDetail(t *testing.T) {
 		t.Error("b closed the detail view")
 	}
 
-	next, cmd = step(t, m, key("o"))
+	next, cmd = step(t, m, press("o"))
 	if cmd == nil {
 		t.Error("o did not trigger a command in detail")
 	}
@@ -170,9 +170,9 @@ func TestActionKeysWorkInDetail(t *testing.T) {
 func TestActionKeysIgnoredWhileFiltering(t *testing.T) {
 	m := ready(t, testPost("Prvi"))
 
-	m, _ = step(t, m, key("/"))
-	m, _ = step(t, m, key("b"))
-	m, _ = step(t, m, key("o"))
+	m, _ = step(t, m, press("/"))
+	m, _ = step(t, m, press("b"))
+	m, _ = step(t, m, press("o"))
 
 	if got, want := m.list.FilterValue(), "bo"; got != want {
 		t.Errorf("filter value = %q, want %q", got, want)
