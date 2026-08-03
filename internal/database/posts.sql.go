@@ -126,16 +126,18 @@ JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
 JOIN feeds ON posts.feed_id = feeds.id
 WHERE feed_follows.user_id = $1
   AND ($2::text = '' OR feeds.name ILIKE '%' || $2::text || '%')
+  AND ($3::uuid = '00000000-0000-0000-0000-000000000000'::uuid OR posts.feed_id = $3::uuid)
 ORDER BY
-  CASE WHEN $3::text = 'asc' THEN posts.published_at END ASC NULLS LAST,
+  CASE WHEN $4::text = 'asc' THEN posts.published_at END ASC NULLS LAST,
   posts.published_at DESC NULLS LAST
-LIMIT $5
-OFFSET $4
+LIMIT $6
+OFFSET $5
 `
 
 type GetPostsForUserFilteredParams struct {
 	UserID     uuid.UUID
 	FeedName   string
+	FeedID     uuid.UUID
 	SortDir    string
 	PostOffset int32
 	PostLimit  int32
@@ -145,6 +147,7 @@ func (q *Queries) GetPostsForUserFiltered(ctx context.Context, arg GetPostsForUs
 	rows, err := q.db.QueryContext(ctx, getPostsForUserFiltered,
 		arg.UserID,
 		arg.FeedName,
+		arg.FeedID,
 		arg.SortDir,
 		arg.PostOffset,
 		arg.PostLimit,

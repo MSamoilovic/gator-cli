@@ -20,6 +20,9 @@ type (
 		postID     uuid.UUID
 		bookmarked bool
 	}
+	feedsLoadedMsg struct {
+		feeds []database.GetFeedFollowsForUserRow
+	}
 	openedMsg        struct{ url string }
 	statusExpiredMsg struct{ token int }
 	errMsg           struct{ err error }
@@ -32,10 +35,11 @@ const (
 	statusTimeout = 3 * time.Second
 )
 
-func loadPosts(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+func loadPosts(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
 		posts, err := q.GetPostsForUserFiltered(ctx, database.GetPostsForUserFilteredParams{
 			UserID:    userID,
+			FeedID:    feedID,
 			SortDir:   "desc",
 			PostLimit: postsLimit,
 		})
@@ -43,6 +47,16 @@ func loadPosts(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.C
 			return errMsg{err}
 		}
 		return postsLoadedMsg{posts: posts}
+	}
+}
+
+func loadFeeds(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		feeds, err := q.GetFeedFollowsForUser(ctx, userID)
+		if err != nil {
+			return errMsg{err}
+		}
+		return feedsLoadedMsg{feeds: feeds}
 	}
 }
 
