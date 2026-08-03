@@ -6,7 +6,11 @@ import (
 
 	"gator-cli/internal/database"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,13 +18,10 @@ import (
 )
 
 const (
-	feedsKeysHint  = "↑/↓ move · ⏎ select feed · tab posts · q quit"
-	listKeysHint   = "↑/↓ move · ⏎ read · o browser · b bookmark · tab feeds · / filter · q quit"
-	detailKeysHint = "↑/↓ scroll · o browser · b bookmark · esc back · q quit"
-
 	feedPanelWidth   = 26
 	minWidthForFeeds = 60
 	allFeedsLabel    = "All feeds"
+	postsTitle       = "Posts"
 )
 
 type focusArea int
@@ -35,13 +36,19 @@ type model struct {
 	queries *database.Queries
 	userID  uuid.UUID
 
+	keys     keyMap
+	help     help.Model
 	list     list.Model
 	feedList list.Model
 	viewport viewport.Model
+	spinner  spinner.Model
+	search   textinput.Model
 	selected database.Post
 
 	bookmarks map[uuid.UUID]bool
 	feedID    uuid.UUID
+	feedName  string
+	query     string
 
 	focus       focusArea
 	width       int
@@ -50,6 +57,7 @@ type model struct {
 	status      string
 	statusToken int
 
+	searching  bool
 	showDetail bool
 	loading    bool
 	err        error
@@ -57,7 +65,7 @@ type model struct {
 
 func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model {
 	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
-	l.Title = "Posts"
+	l.Title = postsTitle
 	l.SetStatusBarItemName("post", "posts")
 	l.SetShowHelp(false)
 
@@ -67,18 +75,29 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 
 	fl := list.New([]list.Item{feedItem{id: uuid.Nil, name: allFeedsLabel}}, feedDelegate, 0, 0)
 	fl.Title = "Feeds"
-	fl.SetStatusBarItemName("feed", "feeds")
 	fl.SetShowStatusBar(false)
 	fl.SetFilteringEnabled(false)
 	fl.SetShowHelp(false)
+
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = spinnerStyle
+
+	ti := textinput.New()
+	ti.Prompt = "search: "
+	ti.CharLimit = 200
 
 	m := model{
 		ctx:       ctx,
 		queries:   q,
 		userID:    userID,
+		keys:      defaultKeyMap(),
+		help:      help.New(),
 		list:      l,
 		feedList:  fl,
 		viewport:  viewport.New(0, 0),
+		spinner:   sp,
+		search:    ti,
 		bookmarks: make(map[uuid.UUID]bool),
 		loading:   true,
 	}
@@ -88,6 +107,7 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
+		m.spinner.Tick,
 		loadPosts(m.ctx, m.queries, m.userID, m.feedID),
 		loadBookmarks(m.ctx, m.queries, m.userID),
 		loadFeeds(m.ctx, m.queries, m.userID),
@@ -101,12 +121,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resize(msg.Width, msg.Height)
 		return m, nil
 
+	case spinner.TickMsg:
+		if !m.loading {
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
+
 	case postsLoadedMsg:
 		m.loading = false
 		items := make([]list.Item, len(msg.posts))
 		for i, p := range msg.posts {
 			items[i] = postItem{post: p, bookmarks: m.bookmarks}
 		}
+		m.list.ResetSelected()
 		return m, m.list.SetItems(items)
 
 	case feedsLoadedMsg:
@@ -150,6 +179,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch {
+		case m.searching:
+			return m.updateSearch(msg)
 		case m.showDetail:
 			return m.updateDetail(msg)
 		case m.focus == focusFeeds:
@@ -166,6 +197,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *model) resize(w, h int) {
 	m.width, m.height = w, h
+	m.help.Width = w
 
 	m.feedWidth = feedPanelWidth
 	if w < minWidthForFeeds {
@@ -181,6 +213,7 @@ func (m *model) resize(w, h int) {
 	panelHeight := max(h-1, 1)
 	m.feedList.SetSize(m.feedWidth, panelHeight)
 	m.list.SetSize(max(postsWidth, 1), panelHeight)
+	m.search.Width = max(w-len(m.search.Prompt)-1, 1)
 
 	m.viewport.Width = w
 	m.viewport.Height = max(h-detailChromeHeight, 1)
@@ -193,6 +226,17 @@ func (m *model) resize(w, h int) {
 func (m *model) applyFocus() {
 	m.list.Styles.Title = panelTitleStyle(m.focus == focusPosts)
 	m.feedList.Styles.Title = panelTitleStyle(m.focus == focusFeeds)
+}
+
+func (m *model) setPostsTitle() {
+	switch {
+	case m.query != "":
+		m.list.Title = "Search: " + m.query
+	case m.feedName != "":
+		m.list.Title = m.feedName
+	default:
+		m.list.Title = postsTitle
+	}
 }
 
 func (m model) withStatus(text string) (model, tea.Cmd) {
@@ -212,16 +256,20 @@ func (m model) currentPost() (database.Post, bool) {
 	return item.post, true
 }
 
-func (m model) postAction(key string) (tea.Model, tea.Cmd, bool) {
-	post, ok := m.currentPost()
-	if !ok {
-		return m, nil, key == "o" || key == "b"
-	}
-
-	switch key {
-	case "o":
+func (m model) postAction(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+	switch {
+	case key.Matches(msg, m.keys.Open):
+		post, ok := m.currentPost()
+		if !ok {
+			return m, nil, true
+		}
 		return m, openInBrowser(post.Url), true
-	case "b":
+
+	case key.Matches(msg, m.keys.Bookmark):
+		post, ok := m.currentPost()
+		if !ok {
+			return m, nil, true
+		}
 		if m.bookmarks[post.ID] {
 			return m, removeBookmark(m.ctx, m.queries, m.userID, post.ID), true
 		}
@@ -230,16 +278,43 @@ func (m model) postAction(key string) (tea.Model, tea.Cmd, bool) {
 	return m, nil, false
 }
 
-func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c":
+func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEsc:
+		m.searching = false
+		m.search.Blur()
+		return m, nil
+
+	case tea.KeyEnter:
+		query := strings.TrimSpace(m.search.Value())
+		m.searching = false
+		m.search.Blur()
+		if query == "" {
+			return m, nil
+		}
+		m.query = query
+		m.setPostsTitle()
+		return m, searchPosts(m.ctx, m.queries, m.userID, query)
+
+	case tea.KeyCtrlC:
 		return m, tea.Quit
-	case "esc", "q":
+	}
+
+	var cmd tea.Cmd
+	m.search, cmd = m.search.Update(msg)
+	return m, cmd
+}
+
+func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case msg.Type == tea.KeyCtrlC:
+		return m, tea.Quit
+	case key.Matches(msg, m.keys.Back), msg.String() == "q":
 		m.showDetail = false
 		return m, nil
 	}
 
-	if next, cmd, handled := m.postAction(msg.String()); handled {
+	if next, cmd, handled := m.postAction(msg); handled {
 		return next, cmd
 	}
 
@@ -249,26 +324,29 @@ func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "q", "ctrl+c":
+	switch {
+	case key.Matches(msg, m.keys.Quit):
 		return m, tea.Quit
-	case "tab", "shift+tab", "esc":
+
+	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.Back):
 		m.focus = focusPosts
 		m.applyFocus()
 		return m, nil
-	case "enter":
+
+	case key.Matches(msg, m.keys.Select):
 		item, ok := m.feedList.SelectedItem().(feedItem)
 		if !ok {
 			return m, nil
 		}
 		m.feedID = item.id
+		m.feedName = ""
+		if item.id != uuid.Nil {
+			m.feedName = item.name
+		}
+		m.query = ""
+		m.setPostsTitle()
 		m.focus = focusPosts
 		m.applyFocus()
-		m.list.Title = item.name
-		if item.id == uuid.Nil {
-			m.list.Title = "Posts"
-		}
-		m.list.ResetSelected()
 		return m, loadPosts(m.ctx, m.queries, m.userID, m.feedID)
 	}
 
@@ -279,16 +357,31 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.list.FilterState() != list.Filtering {
-		switch msg.String() {
-		case "q", "ctrl+c":
+		switch {
+		case key.Matches(msg, m.keys.Quit):
 			return m, tea.Quit
-		case "tab", "shift+tab":
+
+		case key.Matches(msg, m.keys.Search):
+			m.searching = true
+			m.search.SetValue("")
+			return m, m.search.Focus()
+
+		case key.Matches(msg, m.keys.Back):
+			if m.query == "" {
+				return m, nil
+			}
+			m.query = ""
+			m.setPostsTitle()
+			return m, loadPosts(m.ctx, m.queries, m.userID, m.feedID)
+
+		case key.Matches(msg, m.keys.Tab):
 			if m.feedWidth > 0 {
 				m.focus = focusFeeds
 				m.applyFocus()
 			}
 			return m, nil
-		case "enter":
+
+		case key.Matches(msg, m.keys.Read):
 			item, ok := m.list.SelectedItem().(postItem)
 			if !ok {
 				return m, nil
@@ -300,7 +393,7 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		if next, cmd, handled := m.postAction(msg.String()); handled {
+		if next, cmd, handled := m.postAction(msg); handled {
 			return next, cmd
 		}
 	}
@@ -315,7 +408,7 @@ func (m model) View() string {
 	case m.err != nil:
 		return "Error: " + m.err.Error() + "\n\nPress q to quit.\n"
 	case m.loading:
-		return "\n  Loading posts...\n"
+		return "\n  " + m.spinner.View() + " Loading posts...\n"
 	case m.showDetail:
 		return m.detailView()
 	default:
@@ -324,13 +417,8 @@ func (m model) View() string {
 }
 
 func (m model) panelsView() string {
-	hint := listKeysHint
-	if m.focus == focusFeeds {
-		hint = feedsKeysHint
-	}
-
 	if m.feedWidth == 0 {
-		return m.list.View() + "\n" + m.statusLine(listKeysHint)
+		return m.list.View() + "\n" + m.footer(m.keys.listHelp(false, m.query != ""))
 	}
 
 	panels := lipgloss.JoinHorizontal(
@@ -339,7 +427,12 @@ func (m model) panelsView() string {
 		verticalRule(max(m.height-1, 1)),
 		m.list.View(),
 	)
-	return panels + "\n" + m.statusLine(hint)
+
+	bindings := m.keys.listHelp(true, m.query != "")
+	if m.focus == focusFeeds {
+		bindings = m.keys.feedsHelp()
+	}
+	return panels + "\n" + m.footer(bindings)
 }
 
 func verticalRule(height int) string {
@@ -349,13 +442,19 @@ func verticalRule(height int) string {
 func (m model) detailView() string {
 	return renderDetailHeader(m.selected, m.viewport.Width) +
 		m.viewport.View() +
-		"\n\n" + m.statusLine(detailKeysHint)
+		"\n\n" + m.footer(m.keys.detailHelp())
 }
 
-func (m model) statusLine(hint string) string {
-	text := hint
-	if m.status != "" {
-		text = m.status
+// footer je jedan red: search input dok se kuca, pa status poruka, inace help.
+// MaxWidth je obavezan i za help — bubbles ShortHelpView preseca red samo ako
+// i tri tacke staju u sirinu, inace ga pusti da prelije terminal.
+func (m model) footer(bindings []key.Binding) string {
+	line := m.help.ShortHelpView(bindings)
+	switch {
+	case m.searching:
+		line = m.search.View()
+	case m.status != "":
+		line = m.status
 	}
-	return lipgloss.NewStyle().MaxWidth(m.width).Render(text)
+	return lipgloss.NewStyle().MaxWidth(m.width).Render(line)
 }

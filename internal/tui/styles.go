@@ -12,6 +12,8 @@ var (
 	blurredTitleStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("241")).
 				Padding(0, 1)
+
+	spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("62"))
 )
 
 func panelTitleStyle(focused bool) lipgloss.Style {

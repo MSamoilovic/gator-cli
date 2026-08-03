@@ -50,6 +50,20 @@ func loadPosts(ctx context.Context, q *database.Queries, userID, feedID uuid.UUI
 	}
 }
 
+func searchPosts(ctx context.Context, q *database.Queries, userID uuid.UUID, query string) tea.Cmd {
+	return func() tea.Msg {
+		posts, err := q.SearchPostsForUser(ctx, database.SearchPostsForUserParams{
+			UserID:    userID,
+			Query:     query,
+			PostLimit: postsLimit,
+		})
+		if err != nil {
+			return errMsg{err}
+		}
+		return postsLoadedMsg{posts: posts}
+	}
+}
+
 func loadFeeds(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
 		feeds, err := q.GetFeedFollowsForUser(ctx, userID)
