@@ -14,7 +14,12 @@ import (
 )
 
 type (
-	postsLoadedMsg     struct{ posts []database.Post }
+	postsLoadedMsg struct {
+		posts  []database.Post
+		offset int32
+		// paged je false za rezultate pretrage, koja nema OFFSET.
+		paged bool
+	}
 	bookmarksLoadedMsg struct{ postIDs []uuid.UUID }
 	bookmarkToggledMsg struct {
 		postID     uuid.UUID
@@ -31,18 +36,29 @@ type (
 func (e errMsg) Error() string { return e.err.Error() }
 
 const (
-	postsLimit    = 100
+	pageSize      = 50
 	statusTimeout = 3 * time.Second
 )
 
-func loadPosts(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID) tea.Cmd {
+func loadPosts(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID, offset int32, sortDir string) tea.Cmd {
 	return func() tea.Msg {
 		posts, err := q.GetPostsForUserFiltered(ctx, database.GetPostsForUserFilteredParams{
-			UserID:    userID,
-			FeedID:    feedID,
-			SortDir:   "desc",
-			PostLimit: postsLimit,
+			UserID:     userID,
+			FeedID:     feedID,
+			SortDir:    sortDir,
+			PostLimit:  pageSize,
+			PostOffset: offset,
 		})
+		if err != nil {
+			return errMsg{err}
+		}
+		return postsLoadedMsg{posts: posts, offset: offset, paged: true}
+	}
+}
+
+func loadBookmarkedPosts(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		posts, err := q.GetBookmarksForUser(ctx, userID)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -55,7 +71,7 @@ func searchPosts(ctx context.Context, q *database.Queries, userID uuid.UUID, que
 		posts, err := q.SearchPostsForUser(ctx, database.SearchPostsForUserParams{
 			UserID:    userID,
 			Query:     query,
-			PostLimit: postsLimit,
+			PostLimit: pageSize,
 		})
 		if err != nil {
 			return errMsg{err}

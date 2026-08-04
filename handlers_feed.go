@@ -14,6 +14,7 @@ import (
 
 	"gator-cli/internal/database"
 	"gator-cli/internal/rss"
+	"gator-cli/internal/tui"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -122,8 +123,10 @@ func handlerFollowing(s *state, _ command, user database.User) error {
 func handlerBrowse(s *state, cmd command, user database.User) error {
 	fs := flag.NewFlagSet("browse", flag.ContinueOnError)
 	limit := fs.Int("limit", 2, "number of posts to show")
+	page := fs.Int("page", 1, "page of results, 1-based")
 	feed := fs.String("feed", "", "filter by feed name (substring match)")
 	sortDir := fs.String("sort", "desc", "sort by publish date: asc or desc")
+	noTUI := fs.Bool("no-tui", false, "print posts instead of opening the TUI")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
 	}
@@ -131,21 +134,42 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 	if *sortDir != "asc" && *sortDir != "desc" {
 		return fmt.Errorf("invalid sort %q: use 'asc' or 'desc'", *sortDir)
 	}
+	if *limit < 1 {
+		return fmt.Errorf("invalid limit %d: must be at least 1", *limit)
+	}
+	if *page < 1 {
+		return fmt.Errorf("invalid page %d: pages are 1-based", *page)
+	}
+
+	// Interaktivni terminal dobija TUI; pipe i --no-tui dobijaju plain ispis.
+	if !*noTUI && stdoutIsTerminal() {
+		return tui.Run(context.Background(), s.Db, user.ID)
+	}
 
 	posts, err := s.Db.GetPostsForUserFiltered(context.Background(), database.GetPostsForUserFilteredParams{
-		UserID:    user.ID,
-		FeedName:  *feed,
-		SortDir:   *sortDir,
-		PostLimit: int32(*limit),
+		UserID:     user.ID,
+		FeedName:   *feed,
+		SortDir:    *sortDir,
+		PostLimit:  int32(*limit),
+		PostOffset: int32((*page - 1) * *limit),
 	})
 	if err != nil {
-		return fmt.Errorf("error fetching posts: %v", err)
+		return fmt.Errorf("error fetching posts: %w", err)
 	}
 
 	for _, p := range posts {
 		printPost(p)
 	}
 	return nil
+}
+
+// stdoutIsTerminal razlikuje interaktivni terminal od pipe-a ili fajla.
+func stdoutIsTerminal() bool {
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
 }
 
 func handlerSearch(s *state, cmd command, user database.User) error {

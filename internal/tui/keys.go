@@ -10,10 +10,13 @@ type keyMap struct {
 	Select   key.Binding
 	Open     key.Binding
 	Bookmark key.Binding
+	Saved    key.Binding
+	Sort     key.Binding
 	Search   key.Binding
 	Filter   key.Binding
 	Tab      key.Binding
 	Back     key.Binding
+	Help     key.Binding
 	Quit     key.Binding
 }
 
@@ -47,6 +50,14 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("b"),
 			key.WithHelp("b", "mark"),
 		),
+		Saved: key.NewBinding(
+			key.WithKeys("B"),
+			key.WithHelp("B", "saved"),
+		),
+		Sort: key.NewBinding(
+			key.WithKeys("S"),
+			key.WithHelp("S", "sort"),
+		),
 		Search: key.NewBinding(
 			key.WithKeys("s"),
 			key.WithHelp("s", "search"),
@@ -63,35 +74,43 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "back"),
 		),
+		Help: key.NewBinding(
+			key.WithKeys("?"),
+			key.WithHelp("?", "help"),
+		),
 		Quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
 			key.WithHelp("q", "quit"),
 		),
 	}
 }
- 
-func (k keyMap) listHelp(withFeeds, inSearch bool) []key.Binding {
-	b := []key.Binding{k.Read, k.Open, k.Bookmark, k.Search, k.Filter}
+
+func (k keyMap) fullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down, k.Read, k.Back},
+		{k.Open, k.Bookmark, k.Saved, k.Sort},
+		{k.Search, k.Filter, k.Tab, k.Help},
+		{k.Quit},
+	}
+}
+
+// Kratak help mora da stane u 80 kolona, pa nose samo najcesce akcije —
+// ostalo je iza "?".
+func (k keyMap) listHelp(withFeeds, canGoBack bool) []key.Binding {
+	b := []key.Binding{k.Read, k.Open, k.Bookmark, k.Search}
 	if withFeeds {
 		b = append(b, k.Tab)
 	}
-	if inSearch {
+	if canGoBack {
 		b = append(b, k.Back)
 	}
-	return append(b, k.Quit)
+	return append(b, k.Help, k.Quit)
 }
 
 func (k keyMap) feedsHelp() []key.Binding {
-	return []key.Binding{k.Select, k.Tab, k.Quit}
+	return []key.Binding{k.Select, k.Tab, k.Help, k.Quit}
 }
 
 func (k keyMap) detailHelp() []key.Binding {
-	return []key.Binding{k.Scroll, k.Open, k.Bookmark, k.Back, k.Quit}
-}
-
-func (k keyMap) searchHelp() []key.Binding {
-	return []key.Binding{
-		key.NewBinding(key.WithKeys("enter"), key.WithHelp("⏎", "search")),
-		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
-	}
+	return []key.Binding{k.Scroll, k.Open, k.Bookmark, k.Back, k.Help, k.Quit}
 }
