@@ -23,6 +23,10 @@ const (
 	minWidthForFeeds = 60
 	allFeedsLabel    = "All feeds"
 	postsTitle       = "Posts"
+	bookmarksTitle   = "Bookmarks"
+
+	sortDesc = "desc"
+	sortAsc  = "asc"
 
 	// Koliko stavki pre dna liste okida ucitavanje sledece strane.
 	loadMoreThreshold = 5
@@ -54,6 +58,7 @@ type model struct {
 	feedName  string
 	query     string
 
+	sortDir     string
 	offset      int32
 	hasMore     bool
 	loadingMore bool
@@ -68,10 +73,11 @@ type model struct {
 	status      string
 	statusToken int
 
-	searching  bool
-	showDetail bool
-	loading    bool
-	err        error
+	searching     bool
+	showBookmarks bool
+	showDetail    bool
+	loading       bool
+	err           error
 }
 
 func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model {
@@ -110,6 +116,7 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 		spinner:   sp,
 		search:    ti,
 		bookmarks: make(map[uuid.UUID]bool),
+		sortDir:   sortDesc,
 		loading:   true,
 		hasMore:   true,
 	}
@@ -120,7 +127,7 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0),
+		loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0, m.sortDir),
 		loadBookmarks(m.ctx, m.queries, m.userID),
 		loadFeeds(m.ctx, m.queries, m.userID),
 	)
@@ -166,7 +173,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.withStatus("Bookmarked ★")
 		}
 		delete(m.bookmarks, msg.postID)
-		return m.withStatus("Bookmark removed")
+		next, cmd := m.withStatus("Bookmark removed")
+		// U pogledu bookmark-a odjavljeni post vise ne pripada listi.
+		if next.showBookmarks {
+			return next, tea.Batch(cmd, loadBookmarkedPosts(next.ctx, next.queries, next.userID))
+		}
+		return next, cmd
 
 	case openedMsg:
 		return m.withStatus("Opened " + msg.url)
@@ -228,17 +240,20 @@ func (m model) postsLoaded(msg postsLoadedMsg) (tea.Model, tea.Cmd) {
 	return m, m.list.SetItems(items)
 }
 
-// startLoad pokrece cistu (prvu) stranu za trenutni feed i resetuje paginaciju.
+// startLoad pokrece cistu (prvu) stranu i resetuje paginaciju.
 func (m *model) startLoad() tea.Cmd {
 	m.offset = 0
 	m.hasMore = true
 	m.loadingMore = false
-	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0)
+	if m.showBookmarks {
+		return loadBookmarkedPosts(m.ctx, m.queries, m.userID)
+	}
+	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0, m.sortDir)
 }
 
 func (m *model) maybeLoadMore() tea.Cmd {
 	switch {
-	case !m.hasMore, m.loadingMore, m.query != "":
+	case !m.hasMore, m.loadingMore, m.query != "", m.showBookmarks:
 		return nil
 	case m.list.FilterState() == list.Filtering:
 		return nil
@@ -248,7 +263,7 @@ func (m *model) maybeLoadMore() tea.Cmd {
 
 	m.loadingMore = true
 	m.offset += pageSize
-	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, m.offset)
+	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, m.offset, m.sortDir)
 }
 
 func (m *model) resize(w, h int) {
@@ -286,6 +301,8 @@ func (m *model) applyFocus() {
 
 func (m *model) setPostsTitle() {
 	switch {
+	case m.showBookmarks:
+		m.list.Title = bookmarksTitle
 	case m.query != "":
 		m.list.Title = "Search: " + m.query
 	case m.feedName != "":
@@ -293,6 +310,11 @@ func (m *model) setPostsTitle() {
 	default:
 		m.list.Title = postsTitle
 	}
+}
+
+// canGoBack je tacno kad je lista u nekom izvedenom pogledu koji esc napusta.
+func (m model) canGoBack() bool {
+	return m.query != "" || m.showBookmarks
 }
 
 func (m model) withStatus(text string) (model, tea.Cmd) {
@@ -411,6 +433,7 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.feedName = item.name
 		}
 		m.query = ""
+		m.showBookmarks = false
 		m.setPostsTitle()
 		m.focus = focusPosts
 		m.applyFocus()
@@ -437,12 +460,32 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, m.search.Focus()
 
 		case key.Matches(msg, m.keys.Back):
-			if m.query == "" {
+			if !m.canGoBack() {
 				return m, nil
 			}
 			m.query = ""
+			m.showBookmarks = false
 			m.setPostsTitle()
 			return m, m.startLoad()
+
+		case key.Matches(msg, m.keys.Saved):
+			m.showBookmarks = !m.showBookmarks
+			m.query = ""
+			m.setPostsTitle()
+			return m, m.startLoad()
+
+		case key.Matches(msg, m.keys.Sort):
+			if m.showBookmarks || m.query != "" {
+				return m.withStatus("Sorting applies to feed posts only")
+			}
+			label := "oldest first"
+			if m.sortDir == sortAsc {
+				m.sortDir, label = sortDesc, "newest first"
+			} else {
+				m.sortDir = sortAsc
+			}
+			next, cmd := m.withStatus("Sorted " + label)
+			return next, tea.Batch(cmd, next.startLoad())
 
 		case key.Matches(msg, m.keys.Tab):
 			if m.feedWidth > 0 {
@@ -518,6 +561,8 @@ func (m model) postsPanel() string {
 
 func (m model) emptyStateText() string {
 	switch {
+	case m.showBookmarks:
+		return "No bookmarks yet.\nPress b on a post to save it."
 	case m.query != "":
 		return "No posts match " + strconv.Quote(m.query) + ".\nPress esc to go back."
 	case m.feedsLoaded && m.feedCount == 0:
@@ -546,7 +591,7 @@ func (m model) currentBindings() []key.Binding {
 	case m.focus == focusFeeds:
 		return m.keys.feedsHelp()
 	default:
-		return m.keys.listHelp(m.feedWidth > 0, m.query != "")
+		return m.keys.listHelp(m.feedWidth > 0, m.canGoBack())
 	}
 }
 

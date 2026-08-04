@@ -40,12 +40,12 @@ const (
 	statusTimeout = 3 * time.Second
 )
 
-func loadPosts(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID, offset int32) tea.Cmd {
+func loadPosts(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID, offset int32, sortDir string) tea.Cmd {
 	return func() tea.Msg {
 		posts, err := q.GetPostsForUserFiltered(ctx, database.GetPostsForUserFilteredParams{
 			UserID:     userID,
 			FeedID:     feedID,
-			SortDir:    "desc",
+			SortDir:    sortDir,
 			PostLimit:  pageSize,
 			PostOffset: offset,
 		})
@@ -53,6 +53,16 @@ func loadPosts(ctx context.Context, q *database.Queries, userID, feedID uuid.UUI
 			return errMsg{err}
 		}
 		return postsLoadedMsg{posts: posts, offset: offset, paged: true}
+	}
+}
+
+func loadBookmarkedPosts(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		posts, err := q.GetBookmarksForUser(ctx, userID)
+		if err != nil {
+			return errMsg{err}
+		}
+		return postsLoadedMsg{posts: posts}
 	}
 }
 

@@ -105,6 +105,8 @@ The `--limit`, `--page`, `--feed` and `--sort` flags apply to plain output only.
 | `⏎` | Read post / select feed |
 | `o` | Open in browser |
 | `b` | Bookmark / unbookmark (`★`) |
+| `B` | Show only bookmarked posts |
+| `S` | Toggle sort: newest / oldest first |
 | `s` | Search all posts in the database |
 | `/` | Filter the loaded list by title |
 | `tab` | Switch between the feed and post panes |

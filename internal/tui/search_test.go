@@ -215,9 +215,17 @@ func TestFullHelpFitsEightyColumns(t *testing.T) {
 	if strings.Contains(footer, "…") {
 		t.Errorf("help truncated at 80 columns: %q", footer)
 	}
-	for _, want := range []string{"⏎ read", "o open", "b mark", "s search", "/ filter", "tab pane", "q quit"} {
+	for _, want := range []string{"⏎ read", "o open", "b mark", "s search", "tab pane", "? help", "q quit"} {
 		if !strings.Contains(footer, want) {
-			t.Errorf("footer missing %q: %q", want, footer)
+			t.Errorf("short help missing %q: %q", want, footer)
+		}
+	}
+
+	m, _ = step(t, m, press("?"))
+	full := m.footer()
+	for _, want := range []string{"saved", "sort", "filter", "back"} {
+		if !strings.Contains(full, want) {
+			t.Errorf("full help missing %q:\n%s", want, full)
 		}
 	}
 }
