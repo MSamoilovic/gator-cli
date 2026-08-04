@@ -14,6 +14,10 @@ var (
 				Padding(0, 1)
 
 	spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("62"))
+
+	emptyStateStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Padding(0, 2)
 )
 
 func panelTitleStyle(focused bool) lipgloss.Style {

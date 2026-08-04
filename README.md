@@ -85,11 +85,32 @@ gator supervise 1m           # (extra) keep agg running, auto-restart on crash, 
 ### Reading posts (extra)
 
 ```bash
-gator browse                             # show the latest posts from feeds you follow (default 2)
-gator browse --limit 10 --page 2         # pagination
-gator browse --feed boot --sort asc      # filter by feed name, sort by publish date
-gator search golang --limit 5            # full-text search across post titles/descriptions
+gator tui                                        # interactive reader (feed panel, search, bookmarks)
+gator browse                                     # same TUI, when stdout is a terminal
+gator browse --no-tui                            # plain output instead (default 2 posts)
+gator browse --no-tui --limit 10 --page 2        # pagination
+gator browse --no-tui --feed boot --sort asc     # filter by feed name, sort by publish date
+gator search golang --limit 5                    # full-text search across post titles/descriptions
 ```
+
+`browse` opens the TUI only on an interactive terminal — piping or redirecting
+(`gator browse | less`) falls back to plain output, so scripts keep working.
+The `--limit`, `--page`, `--feed` and `--sort` flags apply to plain output only.
+
+#### TUI keys
+
+| Key | Action |
+|---|---|
+| `↑`/`↓`, `k`/`j` | Move (loads more posts at the bottom) |
+| `⏎` | Read post / select feed |
+| `o` | Open in browser |
+| `b` | Bookmark / unbookmark (`★`) |
+| `s` | Search all posts in the database |
+| `/` | Filter the loaded list by title |
+| `tab` | Switch between the feed and post panes |
+| `esc` | Back from a post, or out of search results |
+| `?` | Expand the help |
+| `q` / `ctrl+c` | Quit |
 
 ### Bookmarks (extra)
 

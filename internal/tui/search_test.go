@@ -210,7 +210,7 @@ func TestFooterFitsTerminal(t *testing.T) {
 func TestFullHelpFitsEightyColumns(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")), testFeed("BBC Sport"))
 
-	footer := m.footer(m.keys.listHelp(true, false))
+	footer := m.footer()
 
 	if strings.Contains(footer, "…") {
 		t.Errorf("help truncated at 80 columns: %q", footer)
