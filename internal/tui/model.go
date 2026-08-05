@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -74,6 +75,7 @@ type model struct {
 	statusToken int
 
 	searching     bool
+	fetching      bool
 	showBookmarks bool
 	showDetail    bool
 	loading       bool
@@ -180,6 +182,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return next, cmd
 
+	case scrapedMsg:
+		m.fetching = false
+		next, cmd := m.withStatus(scrapeSummary(msg))
+		// Nove postove tek treba ucitati iz baze.
+		return next, tea.Batch(cmd, next.startLoad())
+
 	case openedMsg:
 		return m.withStatus("Opened " + msg.url)
 
@@ -191,6 +199,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case errMsg:
 		m.loadingMore = false
+		m.fetching = false
 		if m.loading {
 			m.loading = false
 			m.err = msg.err
@@ -309,6 +318,17 @@ func (m *model) setPostsTitle() {
 		m.list.Title = m.feedName
 	default:
 		m.list.Title = postsTitle
+	}
+}
+
+func scrapeSummary(msg scrapedMsg) string {
+	switch {
+	case msg.feeds == 0:
+		return "No feeds were due for a fetch"
+	case msg.failed > 0:
+		return fmt.Sprintf("Fetched %d new posts · %d feed(s) failed", msg.saved, msg.failed)
+	default:
+		return fmt.Sprintf("Fetched %d new posts from %d feeds", msg.saved, msg.feeds)
 	}
 }
 
@@ -467,6 +487,18 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.showBookmarks = false
 			m.setPostsTitle()
 			return m, m.startLoad()
+
+		case key.Matches(msg, m.keys.Reload):
+			next, cmd := m.withStatus("Reloading…")
+			return next, tea.Batch(cmd, next.startLoad())
+
+		case key.Matches(msg, m.keys.Fetch):
+			if m.fetching {
+				return m, nil
+			}
+			m.fetching = true
+			next, cmd := m.withStatus("Fetching feeds…")
+			return next, tea.Batch(cmd, scrapeFeeds(next.ctx, next.queries))
 
 		case key.Matches(msg, m.keys.Saved):
 			m.showBookmarks = !m.showBookmarks

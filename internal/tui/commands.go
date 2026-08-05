@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gator-cli/internal/database"
+	"gator-cli/internal/feeds"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
@@ -27,6 +28,11 @@ type (
 	}
 	feedsLoadedMsg struct {
 		feeds []database.GetFeedFollowsForUserRow
+	}
+	scrapedMsg struct {
+		feeds  int
+		saved  int
+		failed int
 	}
 	openedMsg        struct{ url string }
 	statusExpiredMsg struct{ token int }
@@ -125,6 +131,25 @@ func removeBookmark(ctx context.Context, q *database.Queries, userID, postID uui
 			return errMsg{err}
 		}
 		return bookmarkToggledMsg{postID: postID, bookmarked: false}
+	}
+}
+
+func scrapeFeeds(ctx context.Context, q *database.Queries) tea.Cmd {
+	return func() tea.Msg {
+		results, err := feeds.ScrapeAll(ctx, q, nil)
+		if err != nil {
+			return errMsg{err}
+		}
+
+		msg := scrapedMsg{feeds: len(results)}
+		for _, r := range results {
+			if r.Err != nil {
+				msg.failed++
+				continue
+			}
+			msg.saved += r.Saved
+		}
+		return msg
 	}
 }
 

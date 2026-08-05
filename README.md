@@ -107,6 +107,8 @@ The `--limit`, `--page`, `--feed` and `--sort` flags apply to plain output only.
 | `b` | Bookmark / unbookmark (`★`) |
 | `B` | Show only bookmarked posts |
 | `S` | Toggle sort: newest / oldest first |
+| `r` | Reload the current view |
+| `R` | Fetch all feeds now, then reload |
 | `s` | Search all posts in the database |
 | `/` | Filter the loaded list by title |
 | `tab` | Switch between the feed and post panes |

@@ -1,4 +1,4 @@
-package main
+package feeds
 
 import (
 	"testing"
@@ -44,7 +44,7 @@ func TestParsePubDate(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := parsePubDate(tc.input)
+			got := ParsePubDate(tc.input)
 			if got.Valid != tc.valid {
 				t.Fatalf("Valid = %v, want %v", got.Valid, tc.valid)
 			}
