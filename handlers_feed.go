@@ -2,42 +2,20 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"gator-cli/internal/database"
-	"gator-cli/internal/rss"
+	"gator-cli/internal/feeds"
 	"gator-cli/internal/tui"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
-
-// followFeed je idempotentan: ako korisnik vec prati feed, vraca created=false
-// bez greske (upit radi ON CONFLICT DO NOTHING).
-func followFeed(s *state, userID, feedID uuid.UUID) (row database.CreateFeedFollowRow, created bool, err error) {
-	rows, err := s.Db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		UserID:    userID,
-		FeedID:    feedID,
-	})
-	if err != nil {
-		return database.CreateFeedFollowRow{}, false, err
-	}
-	if len(rows) == 0 {
-		return database.CreateFeedFollowRow{}, false, nil
-	}
-	return rows[0], true, nil
-}
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 2 {
@@ -56,7 +34,7 @@ func handlerAddFeed(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("error creating feed: %v", err)
 	}
 
-	if _, _, err := followFeed(s, user.ID, feed.ID); err != nil {
+	if _, _, err := feeds.Follow(context.Background(), s.Db, user.ID, feed.ID); err != nil {
 		return fmt.Errorf("error following feed: %w", err)
 	}
 
@@ -74,7 +52,7 @@ func handlerFollow(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("feed not found: %v", err)
 	}
 
-	follow, created, err := followFeed(s, user.ID, feed.ID)
+	follow, created, err := feeds.Follow(context.Background(), s.Db, user.ID, feed.ID)
 	if err != nil {
 		return fmt.Errorf("error following feed: %w", err)
 	}
@@ -225,75 +203,17 @@ func printPost(p database.Post) {
 	fmt.Println()
 }
 
-var pubDateFormats = []string{
-	time.RFC1123Z,
-	time.RFC1123,
-	time.RFC3339,
-	"02 Jan 2006 15:04:05 -0700",
-	"02 Jan 2006 15:04:05 MST",
-}
-
-func parsePubDate(s string) sql.NullTime {
-	for _, layout := range pubDateFormats {
-		if t, err := time.Parse(layout, s); err == nil {
-			return sql.NullTime{Time: t, Valid: true}
-		}
-	}
-	return sql.NullTime{}
-}
-
-// pqUniqueViolation is the Postgres error code for a unique constraint conflict.
-const pqUniqueViolation = "23505"
-
 func scrapeFeeds(s *state) {
-	feeds, err := s.Db.GetFeedsToFetch(context.Background())
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error getting feeds:", err)
-		return
-	}
-
-	var wg sync.WaitGroup
-	for _, feed := range feeds {
-		wg.Add(1)
-		go func(feed database.Feed) {
-			defer wg.Done()
-			scrapeFeed(s, feed)
-		}(feed)
-	}
-	wg.Wait()
-}
-
-func scrapeFeed(s *state, feed database.Feed) {
-	if err := s.Db.MarkFeedFetched(context.Background(), feed.ID); err != nil {
-		fmt.Fprintln(os.Stderr, "error marking feed fetched:", err)
-		return
-	}
-
-	rssFeed, err := rss.FetchFeed(context.Background(), feed.Url)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error fetching feed %s: %v\n", feed.Name, err)
-		return
-	}
-
-	for _, item := range rssFeed.Channel.Item {
-		_, err := s.Db.CreatePost(context.Background(), database.CreatePostParams{
-			ID:          uuid.New(),
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
-			Title:       item.Title,
-			Url:         item.Link,
-			Description: sql.NullString{String: item.Description, Valid: item.Description != ""},
-			PublishedAt: parsePubDate(item.PubDate),
-			FeedID:      feed.ID,
-		})
-		if err != nil {
-			if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == pqUniqueViolation {
-				continue
-			}
-			fmt.Fprintf(os.Stderr, "error saving post %q: %v\n", item.Title, err)
+	_, err := feeds.ScrapeAll(context.Background(), s.Db, func(r feeds.Result) {
+		if r.Err != nil {
+			fmt.Fprintln(os.Stderr, "error:", r.Err)
+			return
 		}
+		fmt.Printf("Fetched %d posts from %s (%d new)\n", r.Items, r.Feed.Name, r.Saved)
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
 	}
-	fmt.Printf("Fetched %d posts from %s\n", len(rssFeed.Channel.Item), feed.Name)
 }
 
 func handlerAgg(s *state, cmd command) error {

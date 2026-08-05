@@ -2,7 +2,6 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-
 var (
 	accent   = lipgloss.AdaptiveColor{Light: "#5A3FD6", Dark: "#7D56F4"}
 	onAccent = lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#FFFDF5"}
