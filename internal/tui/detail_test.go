@@ -9,6 +9,7 @@ import (
 	"gator-cli/internal/database"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/google/uuid"
 )
 
 func TestStripHTML(t *testing.T) {
@@ -157,22 +158,68 @@ func TestRenderDetailBodyWraps(t *testing.T) {
 
 func TestPostItem(t *testing.T) {
 	published := database.Post{
+		ID:          uuid.New(),
 		Title:       "Learn Go",
 		Url:         "https://blog.boot.dev/go",
 		PublishedAt: sql.NullTime{Time: time.Date(2026, 7, 27, 0, 0, 0, 0, time.UTC), Valid: true},
 	}
 	undated := database.Post{Title: "Learn Go", Url: "https://blog.boot.dev/go"}
+	read := map[uuid.UUID]bool{published.ID: true}
 
-	if got, want := (postItem{post: published}).Title(), "Learn Go"; got != want {
+	if got, want := (postItem{post: published, reads: read}).Title(), "Learn Go"; got != want {
 		t.Errorf("Title() = %q, want %q", got, want)
 	}
-	if got, want := (postItem{post: published}).FilterValue(), "Learn Go"; got != want {
+	if got, want := (postItem{post: published, reads: read}).FilterValue(), "Learn Go"; got != want {
 		t.Errorf("FilterValue() = %q, want %q", got, want)
 	}
-	if got, want := (postItem{post: published}).Description(), "2026-07-27 · https://blog.boot.dev/go"; got != want {
+	if got, want := (postItem{post: published, reads: read}).Description(), "2026-07-27 · https://blog.boot.dev/go"; got != want {
 		t.Errorf("Description() = %q, want %q", got, want)
 	}
-	if got, want := (postItem{post: undated}).Description(), "https://blog.boot.dev/go"; got != want {
+	if got, want := (postItem{post: undated, reads: read}).Description(), "https://blog.boot.dev/go"; got != want {
 		t.Errorf("Description() without date = %q, want %q", got, want)
+	}
+}
+
+func TestPostItemMarkers(t *testing.T) {
+	post := database.Post{ID: uuid.New(), Title: "Learn Go"}
+
+	cases := []struct {
+		name     string
+		read     bool
+		bookmark bool
+		want     string
+	}{
+		{"unread", false, false, "● Learn Go"},
+		{"unread and saved", false, true, "●★ Learn Go"},
+		{"read and saved", true, true, "★ Learn Go"},
+		{"read", true, false, "Learn Go"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			item := postItem{
+				post:      post,
+				reads:     map[uuid.UUID]bool{post.ID: tc.read},
+				bookmarks: map[uuid.UUID]bool{post.ID: tc.bookmark},
+			}
+			if got := item.Title(); got != tc.want {
+				t.Errorf("Title() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFeedItemUnreadCount(t *testing.T) {
+	id := uuid.New()
+	counts := map[uuid.UUID]int{id: 12}
+
+	if got, want := (feedItem{id: id, name: "BBC Sport", unread: counts}).Title(), "BBC Sport (12)"; got != want {
+		t.Errorf("Title() = %q, want %q", got, want)
+	}
+	if got, want := (feedItem{id: uuid.New(), name: "CBR", unread: counts}).Title(), "CBR"; got != want {
+		t.Errorf("Title() with no unread = %q, want %q", got, want)
+	}
+	if got, want := (feedItem{id: id, name: "BBC Sport", unread: counts}).FilterValue(), "BBC Sport"; got != want {
+		t.Errorf("FilterValue() = %q, want the bare name %q", got, want)
 	}
 }

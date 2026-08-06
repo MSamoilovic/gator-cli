@@ -55,6 +55,8 @@ type model struct {
 	selected database.Post
 
 	bookmarks map[uuid.UUID]bool
+	reads     map[uuid.UUID]bool
+	unread    map[uuid.UUID]int
 	feedID    uuid.UUID
 	feedName  string
 	query     string
@@ -76,6 +78,7 @@ type model struct {
 
 	searching     bool
 	fetching      bool
+	unreadOnly    bool
 	showBookmarks bool
 	showDetail    bool
 	loading       bool
@@ -92,7 +95,7 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 	feedDelegate.ShowDescription = false
 	feedDelegate.SetSpacing(0)
 
-	fl := list.New([]list.Item{feedItem{id: uuid.Nil, name: allFeedsLabel}}, feedDelegate, 0, 0)
+	fl := list.New(nil, feedDelegate, 0, 0)
 	fl.Title = "Feeds"
 	fl.SetShowStatusBar(false)
 	fl.SetFilteringEnabled(false)
@@ -118,6 +121,8 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 		spinner:   sp,
 		search:    ti,
 		bookmarks: make(map[uuid.UUID]bool),
+		reads:     make(map[uuid.UUID]bool),
+		unread:    make(map[uuid.UUID]int),
 		sortDir:   sortDesc,
 		loading:   true,
 		hasMore:   true,
@@ -129,9 +134,11 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0, m.sortDir),
+		loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0, m.sortDir, m.unreadOnly),
 		loadBookmarks(m.ctx, m.queries, m.userID),
+		loadReads(m.ctx, m.queries, m.userID),
 		loadFeeds(m.ctx, m.queries, m.userID),
+		loadUnreadCounts(m.ctx, m.queries, m.userID),
 	)
 }
 
@@ -156,12 +163,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case feedsLoadedMsg:
 		m.feedsLoaded = true
 		m.feedCount = len(msg.feeds)
-		items := make([]list.Item, 0, len(msg.feeds)+1)
-		items = append(items, feedItem{id: uuid.Nil, name: allFeedsLabel})
-		for _, f := range msg.feeds {
-			items = append(items, feedItem{id: f.FeedID, name: f.FeedName})
+		return m, m.feedList.SetItems(m.feedItems(msg.feeds))
+
+	case readsLoadedMsg:
+		for _, id := range msg.postIDs {
+			m.reads[id] = true
 		}
-		return m, m.feedList.SetItems(items)
+		return m, nil
+
+	case unreadCountsMsg:
+		clear(m.unread)
+		for _, c := range msg.counts {
+			m.unread[c.FeedID] = int(c.Unread)
+		}
+		return m, nil
+
+	case readToggledMsg:
+		m.applyRead(msg.postID, msg.feedID, msg.read)
+		return m, nil
+
+	case allReadMsg:
+		if msg.count == 0 {
+			return m.withStatus("Nothing to mark")
+		}
+		next, cmd := m.withStatus(fmt.Sprintf("Marked %d posts read", msg.count))
+		if next.unreadOnly {
+			return next, tea.Batch(cmd, next.startLoad())
+		}
+		return next, cmd
 
 	case bookmarksLoadedMsg:
 		for _, id := range msg.postIDs {
@@ -237,7 +266,7 @@ func (m model) postsLoaded(msg postsLoadedMsg) (tea.Model, tea.Cmd) {
 
 	items := make([]list.Item, len(msg.posts))
 	for i, p := range msg.posts {
-		items[i] = postItem{post: p, bookmarks: m.bookmarks}
+		items[i] = postItem{post: p, bookmarks: m.bookmarks, reads: m.reads}
 	}
 
 	if msg.paged && msg.offset > 0 {
@@ -249,6 +278,31 @@ func (m model) postsLoaded(msg postsLoadedMsg) (tea.Model, tea.Cmd) {
 	return m, m.list.SetItems(items)
 }
 
+func (m model) feedItems(feeds []database.GetFeedFollowsForUserRow) []list.Item {
+	items := make([]list.Item, 0, len(feeds)+1)
+	items = append(items, feedItem{id: uuid.Nil, name: allFeedsLabel, unread: m.unread})
+	for _, f := range feeds {
+		items = append(items, feedItem{id: f.FeedID, name: f.FeedName, unread: m.unread})
+	}
+	return items
+}
+
+// applyRead odrzava brojac nepročitanih lokalno umesto novog upita po tasteru.
+func (m *model) applyRead(postID, feedID uuid.UUID, read bool) {
+	if m.reads[postID] == read {
+		return
+	}
+	if read {
+		m.reads[postID] = true
+		if m.unread[feedID] > 0 {
+			m.unread[feedID]--
+		}
+		return
+	}
+	delete(m.reads, postID)
+	m.unread[feedID]++
+}
+
 // startLoad pokrece cistu (prvu) stranu i resetuje paginaciju.
 func (m *model) startLoad() tea.Cmd {
 	m.offset = 0
@@ -257,7 +311,7 @@ func (m *model) startLoad() tea.Cmd {
 	if m.showBookmarks {
 		return loadBookmarkedPosts(m.ctx, m.queries, m.userID)
 	}
-	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0, m.sortDir)
+	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0, m.sortDir, m.unreadOnly)
 }
 
 func (m *model) maybeLoadMore() tea.Cmd {
@@ -272,7 +326,7 @@ func (m *model) maybeLoadMore() tea.Cmd {
 
 	m.loadingMore = true
 	m.offset += pageSize
-	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, m.offset, m.sortDir)
+	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, m.offset, m.sortDir, m.unreadOnly)
 }
 
 func (m *model) resize(w, h int) {
@@ -535,7 +589,49 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.showDetail = true
 			m.viewport.SetContent(renderDetailBody(m.selected, m.viewport.Width))
 			m.viewport.GotoTop()
-			return m, nil
+			if m.reads[item.post.ID] {
+				return m, nil
+			}
+			m.applyRead(item.post.ID, item.post.FeedID, true)
+			return m, setPostRead(m.ctx, m.queries, m.userID, item.post, true)
+
+		case key.Matches(msg, m.keys.Unread):
+			post, ok := m.currentPost()
+			if !ok {
+				return m, nil
+			}
+			read := !m.reads[post.ID]
+			m.applyRead(post.ID, post.FeedID, read)
+			label := "Marked unread"
+			if read {
+				label = "Marked read"
+			}
+			next, cmd := m.withStatus(label)
+			return next, tea.Batch(cmd, setPostRead(next.ctx, next.queries, next.userID, post, read))
+
+		case key.Matches(msg, m.keys.AllRead):
+			ids := make([]uuid.UUID, 0, len(m.list.Items()))
+			for _, it := range m.list.Items() {
+				pi, ok := it.(postItem)
+				if !ok || m.reads[pi.post.ID] {
+					continue
+				}
+				ids = append(ids, pi.post.ID)
+				m.applyRead(pi.post.ID, pi.post.FeedID, true)
+			}
+			return m, markAllRead(m.ctx, m.queries, m.userID, ids)
+
+		case key.Matches(msg, m.keys.OnlyNew):
+			if m.showBookmarks || m.query != "" {
+				return m.withStatus("Unread filter applies to feed posts only")
+			}
+			m.unreadOnly = !m.unreadOnly
+			label := "Showing all posts"
+			if m.unreadOnly {
+				label = "Showing unread only"
+			}
+			next, cmd := m.withStatus(label)
+			return next, tea.Batch(cmd, next.startLoad())
 		}
 
 		if next, cmd, handled := m.postAction(msg); handled {

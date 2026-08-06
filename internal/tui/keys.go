@@ -14,6 +14,9 @@ type keyMap struct {
 	Sort     key.Binding
 	Reload   key.Binding
 	Fetch    key.Binding
+	Unread   key.Binding
+	AllRead  key.Binding
+	OnlyNew  key.Binding
 	Search   key.Binding
 	Filter   key.Binding
 	Tab      key.Binding
@@ -68,6 +71,18 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("R"),
 			key.WithHelp("R", "fetch"),
 		),
+		Unread: key.NewBinding(
+			key.WithKeys("u"),
+			key.WithHelp("u", "unread"),
+		),
+		AllRead: key.NewBinding(
+			key.WithKeys("A"),
+			key.WithHelp("A", "all read"),
+		),
+		OnlyNew: key.NewBinding(
+			key.WithKeys("U"),
+			key.WithHelp("U", "only unread"),
+		),
 		Search: key.NewBinding(
 			key.WithKeys("s"),
 			key.WithHelp("s", "search"),
@@ -99,8 +114,9 @@ func (k keyMap) fullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Read, k.Back},
 		{k.Open, k.Bookmark, k.Saved, k.Sort},
-		{k.Search, k.Filter, k.Tab, k.Help},
-		{k.Reload, k.Fetch, k.Quit},
+		{k.Unread, k.AllRead, k.OnlyNew, k.Filter},
+		{k.Search, k.Tab, k.Help, k.Quit},
+		{k.Reload, k.Fetch},
 	}
 }
 
