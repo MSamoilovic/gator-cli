@@ -124,20 +124,25 @@ const getPostsForUserFiltered = `-- name: GetPostsForUserFiltered :many
 SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id FROM posts
 JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
 JOIN feeds ON posts.feed_id = feeds.id
+LEFT JOIN post_reads
+    ON post_reads.post_id = posts.id
+   AND post_reads.user_id = feed_follows.user_id
 WHERE feed_follows.user_id = $1
   AND ($2::text = '' OR feeds.name ILIKE '%' || $2::text || '%')
   AND ($3::uuid = '00000000-0000-0000-0000-000000000000'::uuid OR posts.feed_id = $3::uuid)
+  AND (NOT $4::bool OR post_reads.post_id IS NULL)
 ORDER BY
-  CASE WHEN $4::text = 'asc' THEN posts.published_at END ASC NULLS LAST,
+  CASE WHEN $5::text = 'asc' THEN posts.published_at END ASC NULLS LAST,
   posts.published_at DESC NULLS LAST
-LIMIT $6
-OFFSET $5
+LIMIT $7
+OFFSET $6
 `
 
 type GetPostsForUserFilteredParams struct {
 	UserID     uuid.UUID
 	FeedName   string
 	FeedID     uuid.UUID
+	UnreadOnly bool
 	SortDir    string
 	PostOffset int32
 	PostLimit  int32
@@ -148,6 +153,7 @@ func (q *Queries) GetPostsForUserFiltered(ctx context.Context, arg GetPostsForUs
 		arg.UserID,
 		arg.FeedName,
 		arg.FeedID,
+		arg.UnreadOnly,
 		arg.SortDir,
 		arg.PostOffset,
 		arg.PostLimit,

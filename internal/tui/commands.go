@@ -29,6 +29,16 @@ type (
 	feedsLoadedMsg struct {
 		feeds []database.GetFeedFollowsForUserRow
 	}
+	readsLoadedMsg  struct{ postIDs []uuid.UUID }
+	unreadCountsMsg struct {
+		counts []database.GetUnreadCountsForUserRow
+	}
+	readToggledMsg struct {
+		postID uuid.UUID
+		feedID uuid.UUID
+		read   bool
+	}
+	allReadMsg struct{ count int }
 	scrapedMsg struct {
 		feeds  int
 		saved  int
@@ -46,12 +56,13 @@ const (
 	statusTimeout = 3 * time.Second
 )
 
-func loadPosts(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID, offset int32, sortDir string) tea.Cmd {
+func loadPosts(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID, offset int32, sortDir string, unreadOnly bool) tea.Cmd {
 	return func() tea.Msg {
 		posts, err := q.GetPostsForUserFiltered(ctx, database.GetPostsForUserFilteredParams{
 			UserID:     userID,
 			FeedID:     feedID,
 			SortDir:    sortDir,
+			UnreadOnly: unreadOnly,
 			PostLimit:  pageSize,
 			PostOffset: offset,
 		})
@@ -103,6 +114,65 @@ func loadBookmarks(ctx context.Context, q *database.Queries, userID uuid.UUID) t
 			return errMsg{err}
 		}
 		return bookmarksLoadedMsg{postIDs: ids}
+	}
+}
+
+func loadReads(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		ids, err := q.GetReadPostIDs(ctx, userID)
+		if err != nil {
+			return errMsg{err}
+		}
+		return readsLoadedMsg{postIDs: ids}
+	}
+}
+
+func loadUnreadCounts(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		counts, err := q.GetUnreadCountsForUser(ctx, userID)
+		if err != nil {
+			return errMsg{err}
+		}
+		return unreadCountsMsg{counts: counts}
+	}
+}
+
+func setPostRead(ctx context.Context, q *database.Queries, userID uuid.UUID, post database.Post, read bool) tea.Cmd {
+	return func() tea.Msg {
+		var err error
+		if read {
+			err = q.MarkPostRead(ctx, database.MarkPostReadParams{
+				UserID: userID,
+				PostID: post.ID,
+				ReadAt: time.Now(),
+			})
+		} else {
+			err = q.MarkPostUnread(ctx, database.MarkPostUnreadParams{
+				UserID: userID,
+				PostID: post.ID,
+			})
+		}
+		if err != nil {
+			return errMsg{err}
+		}
+		return readToggledMsg{postID: post.ID, feedID: post.FeedID, read: read}
+	}
+}
+
+func markAllRead(ctx context.Context, q *database.Queries, userID uuid.UUID, postIDs []uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		if len(postIDs) == 0 {
+			return allReadMsg{}
+		}
+		err := q.MarkPostsRead(ctx, database.MarkPostsReadParams{
+			UserID:  userID,
+			PostIds: postIDs,
+			ReadAt:  time.Now(),
+		})
+		if err != nil {
+			return errMsg{err}
+		}
+		return allReadMsg{count: len(postIDs)}
 	}
 }
 

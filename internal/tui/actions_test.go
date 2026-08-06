@@ -25,8 +25,8 @@ func TestBookmarksLoadedMarksItems(t *testing.T) {
 
 	m, _ = step(t, m, bookmarksLoadedMsg{postIDs: []uuid.UUID{post.ID}})
 
-	if got := m.list.Items()[0].(postItem).Title(); !strings.HasPrefix(got, "★ ") {
-		t.Errorf("title = %q, want a star prefix", got)
+	if got := m.list.Items()[0].(postItem).Title(); !strings.Contains(got, "★") {
+		t.Errorf("title = %q, want a star marker", got)
 	}
 }
 
@@ -37,8 +37,8 @@ func TestBookmarksLoadedBeforePosts(t *testing.T) {
 	m, _ = step(t, m, bookmarksLoadedMsg{postIDs: []uuid.UUID{post.ID}})
 	m, _ = step(t, m, postsLoadedMsg{posts: []database.Post{post}})
 
-	if got := m.list.Items()[0].(postItem).Title(); !strings.HasPrefix(got, "★ ") {
-		t.Errorf("title = %q, want a star prefix", got)
+	if got := m.list.Items()[0].(postItem).Title(); !strings.Contains(got, "★") {
+		t.Errorf("title = %q, want a star marker", got)
 	}
 }
 
@@ -53,8 +53,8 @@ func TestBookmarkToggleUpdatesStateAndStatus(t *testing.T) {
 	if !strings.Contains(m.View(), "Bookmarked") {
 		t.Errorf("status not shown:\n%s", m.View())
 	}
-	if got := m.list.Items()[0].(postItem).Title(); !strings.HasPrefix(got, "★ ") {
-		t.Errorf("title = %q, want a star prefix", got)
+	if got := m.list.Items()[0].(postItem).Title(); !strings.Contains(got, "★") {
+		t.Errorf("title = %q, want a star marker", got)
 	}
 
 	m, _ = step(t, m, bookmarkToggledMsg{postID: post.ID, bookmarked: false})

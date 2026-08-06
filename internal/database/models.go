@@ -47,6 +47,12 @@ type Post struct {
 	FeedID      uuid.UUID
 }
 
+type PostRead struct {
+	UserID uuid.UUID
+	PostID uuid.UUID
+	ReadAt time.Time
+}
+
 type User struct {
 	ID        uuid.UUID
 	CreatedAt time.Time

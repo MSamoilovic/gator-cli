@@ -102,7 +102,10 @@ The `--limit`, `--page`, `--feed` and `--sort` flags apply to plain output only.
 | Key | Action |
 |---|---|
 | `↑`/`↓`, `k`/`j` | Move (loads more posts at the bottom) |
-| `⏎` | Read post / select feed |
+| `⏎` | Read post (marks it read) / select feed |
+| `u` | Toggle read / unread (`●` = unread) |
+| `A` | Mark everything in the list as read |
+| `U` | Show only unread posts |
 | `o` | Open in browser |
 | `b` | Bookmark / unbookmark (`★`) |
 | `B` | Show only bookmarked posts |
