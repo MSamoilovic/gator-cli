@@ -68,7 +68,8 @@ gator users                 # list all users
 ### Managing feeds
 
 ```bash
-gator addfeed "Feed Name" https://example.com/feed.xml   # add a feed and follow it
+gator addfeed https://example.com/feed.xml                # add a feed and follow it (name taken from the feed)
+gator addfeed "Feed Name" https://example.com/feed.xml   # ...or name it yourself
 gator feeds                                               # list all feeds
 gator follow https://example.com/feed.xml                # follow an existing feed
 gator unfollow https://example.com/feed.xml              # unfollow a feed
@@ -115,6 +116,8 @@ The `--limit`, `--page`, `--feed` and `--sort` flags apply to plain output only.
 | `s` | Search all posts in the database |
 | `/` | Filter the loaded list by title |
 | `tab` | Switch between the feed and post panes |
+| `a` | Add a feed by URL (feed pane) |
+| `d` | Unfollow the selected feed (feed pane) |
 | `esc` | Back from a post, or out of search results |
 | `?` | Expand the help |
 | `q` / `ctrl+c` | Quit |

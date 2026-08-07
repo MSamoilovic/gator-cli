@@ -22,7 +22,7 @@ func TestSearchOpensAndCancels(t *testing.T) {
 	m := ready(t, testPost("Prvi"))
 
 	m, _ = step(t, m, press("s"))
-	if !m.searching {
+	if !(m.input == inputSearch) {
 		t.Fatal("s did not open the search input")
 	}
 	if !strings.Contains(m.View(), "search:") {
@@ -30,12 +30,12 @@ func TestSearchOpensAndCancels(t *testing.T) {
 	}
 
 	m = typeText(t, m, "golang")
-	if got, want := m.search.Value(), "golang"; got != want {
+	if got, want := m.prompt.Value(), "golang"; got != want {
 		t.Errorf("search value = %q, want %q", got, want)
 	}
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEsc})
-	if m.searching {
+	if m.input == inputSearch {
 		t.Error("esc did not close the search input")
 	}
 	if m.query != "" {
@@ -53,7 +53,7 @@ func TestSearchRunsQueryAndSetsTitle(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("enter did not trigger a search")
 	}
-	if m.searching {
+	if m.input == inputSearch {
 		t.Error("search input still open after enter")
 	}
 	if got, want := m.query, "golang"; got != want {
@@ -154,7 +154,7 @@ func TestSearchKeysDoNotLeakToList(t *testing.T) {
 	if m.status != "" {
 		t.Errorf("an action fired while typing: %q", m.status)
 	}
-	if got, want := m.search.Value(), "jjbo"; got != want {
+	if got, want := m.prompt.Value(), "jjbo"; got != want {
 		t.Errorf("search value = %q, want %q", got, want)
 	}
 }

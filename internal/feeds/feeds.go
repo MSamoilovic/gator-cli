@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +38,50 @@ func Follow(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID) 
 		return database.CreateFeedFollowRow{}, false, nil
 	}
 	return rows[0], true, nil
+}
+
+// Add upisuje feed i odmah ga zaprati. URL se validira tako sto se feed
+// stvarno povuce — inace bi u bazi zavrsio URL koji nikad nista ne vrati.
+// Prazno ime se preuzima iz <title> samog feeda.
+//
+// Vec postojeci URL nije greska: created=false znaci da je feed zatecen u
+// bazi i samo zapracen, sto je ono sto korisnik i ocekuje.
+func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url string) (feed database.Feed, created bool, err error) {
+	rssFeed, err := rss.FetchFeed(ctx, url)
+	if err != nil {
+		return database.Feed{}, false, fmt.Errorf("not a usable RSS feed: %w", err)
+	}
+
+	if name = strings.TrimSpace(name); name == "" {
+		name = strings.TrimSpace(rssFeed.Channel.Title)
+	}
+	if name == "" {
+		name = url
+	}
+
+	feed, err = q.CreateFeed(ctx, database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      name,
+		Url:       url,
+		UserID:    userID,
+	})
+	switch {
+	case err == nil:
+		created = true
+	case isDuplicate(err):
+		if feed, err = q.GetFeedByUrl(ctx, url); err != nil {
+			return database.Feed{}, false, fmt.Errorf("looking up existing feed: %w", err)
+		}
+	default:
+		return database.Feed{}, false, fmt.Errorf("creating feed: %w", err)
+	}
+
+	if _, _, err := Follow(ctx, q, userID, feed.ID); err != nil {
+		return database.Feed{}, false, fmt.Errorf("following %s: %w", feed.Name, err)
+	}
+	return feed, created, nil
 }
 
 // Result je ishod jednog feeda u okviru jednog prolaza.

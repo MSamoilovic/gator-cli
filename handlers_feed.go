@@ -13,29 +13,27 @@ import (
 	"gator-cli/internal/database"
 	"gator-cli/internal/feeds"
 	"gator-cli/internal/tui"
-
-	"github.com/google/uuid"
 )
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
-	if len(cmd.Args) != 2 {
-		return fmt.Errorf("usage: addfeed <name> <url>")
+	// Ime je opciono: bez njega se uzima <title> iz samog feeda.
+	var name, url string
+	switch len(cmd.Args) {
+	case 1:
+		url = cmd.Args[0]
+	case 2:
+		name, url = cmd.Args[0], cmd.Args[1]
+	default:
+		return fmt.Errorf("usage: addfeed [name] <url>")
 	}
 
-	feed, err := s.Db.CreateFeed(context.Background(), database.CreateFeedParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Name:      cmd.Args[0],
-		Url:       cmd.Args[1],
-		UserID:    user.ID,
-	})
+	feed, created, err := feeds.Add(context.Background(), s.Db, user.ID, name, url)
 	if err != nil {
-		return fmt.Errorf("error creating feed: %v", err)
+		return fmt.Errorf("error adding feed: %w", err)
 	}
-
-	if _, _, err := feeds.Follow(context.Background(), s.Db, user.ID, feed.ID); err != nil {
-		return fmt.Errorf("error following feed: %w", err)
+	if !created {
+		fmt.Printf("Following existing feed %q (%s)\n", feed.Name, feed.Url)
+		return nil
 	}
 
 	fmt.Printf("Added feed %q (%s)\n", feed.Name, feed.Url)

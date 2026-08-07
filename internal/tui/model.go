@@ -40,6 +40,16 @@ const (
 	focusFeeds
 )
 
+// inputMode odredjuje sta se kuca u prompt polju; jedno polje sluzi i pretrazi
+// i dodavanju feeda, pa dva stanja ne mogu istovremeno biti aktivna.
+type inputMode int
+
+const (
+	inputNone inputMode = iota
+	inputSearch
+	inputAddFeed
+)
+
 type model struct {
 	ctx     context.Context
 	queries *database.Queries
@@ -51,7 +61,7 @@ type model struct {
 	feedList list.Model
 	viewport viewport.Model
 	spinner  spinner.Model
-	search   textinput.Model
+	prompt   textinput.Model
 	selected database.Post
 
 	bookmarks map[uuid.UUID]bool
@@ -76,7 +86,8 @@ type model struct {
 	status      string
 	statusToken int
 
-	searching     bool
+	input         inputMode
+	confirming    bool
 	fetching      bool
 	unreadOnly    bool
 	showBookmarks bool
@@ -106,8 +117,7 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 	sp.Style = spinnerStyle
 
 	ti := textinput.New()
-	ti.Prompt = "search: "
-	ti.CharLimit = 200
+	ti.CharLimit = 500
 
 	m := model{
 		ctx:       ctx,
@@ -119,7 +129,7 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 		feedList:  fl,
 		viewport:  viewport.New(0, 0),
 		spinner:   sp,
-		search:    ti,
+		prompt:    ti,
 		bookmarks: make(map[uuid.UUID]bool),
 		reads:     make(map[uuid.UUID]bool),
 		unread:    make(map[uuid.UUID]int),
@@ -211,6 +221,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return next, cmd
 
+	case feedAddedMsg:
+		label := "Now following " + msg.name
+		if msg.created {
+			label = "Added " + msg.name
+		}
+		next, cmd := m.withStatus(label)
+		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad())
+
+	case feedUnfollowMsg:
+		// Ako je odjavljen bas filtrirani feed, lista se vraca na sve.
+		if m.feedName == msg.name {
+			m.feedID = uuid.Nil
+			m.feedName = ""
+			m.setPostsTitle()
+			m.feedList.ResetSelected()
+		}
+		next, cmd := m.withStatus("Unfollowed " + msg.name)
+		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad())
+
 	case scrapedMsg:
 		m.fetching = false
 		next, cmd := m.withStatus(scrapeSummary(msg))
@@ -238,8 +267,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch {
-		case m.searching:
-			return m.updateSearch(msg)
+		case m.confirming:
+			return m.updateConfirm(msg)
+		case m.input != inputNone:
+			return m.updateInput(msg)
 		case m.showDetail:
 			return m.updateDetail(msg)
 		case m.focus == focusFeeds:
@@ -303,6 +334,14 @@ func (m *model) applyRead(postID, feedID uuid.UUID, read bool) {
 	m.unread[feedID]++
 }
 
+// reloadFeeds osvezava levi panel i brojace nepročitanih posle promene pretplata.
+func (m model) reloadFeeds() tea.Cmd {
+	return tea.Batch(
+		loadFeeds(m.ctx, m.queries, m.userID),
+		loadUnreadCounts(m.ctx, m.queries, m.userID),
+	)
+}
+
 // startLoad pokrece cistu (prvu) stranu i resetuje paginaciju.
 func (m *model) startLoad() tea.Cmd {
 	m.offset = 0
@@ -347,7 +386,7 @@ func (m *model) resize(w, h int) {
 	panelHeight := max(h-m.footerHeight(), 1)
 	m.feedList.SetSize(m.feedWidth, panelHeight)
 	m.list.SetSize(max(postsWidth, 1), panelHeight)
-	m.search.Width = max(w-len(m.search.Prompt)-1, 1)
+	m.prompt.Width = max(w-len(m.prompt.Prompt)-1, 1)
 
 	m.viewport.Width = w
 	m.viewport.Height = max(h-detailChromeHeight-m.footerHeight()+1, 1)
@@ -436,31 +475,75 @@ func (m model) toggleHelp() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *model) startInput(mode inputMode, prompt string) tea.Cmd {
+	m.input = mode
+	m.prompt.Prompt = prompt
+	m.prompt.SetValue("")
+	m.prompt.Width = max(m.width-len(prompt)-1, 1)
+	return m.prompt.Focus()
+}
+
+func (m *model) cancelInput() {
+	m.input = inputNone
+	m.prompt.Blur()
+}
+
+func (m model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEsc:
-		m.searching = false
-		m.search.Blur()
+		m.cancelInput()
 		return m, nil
-
-	case tea.KeyEnter:
-		query := strings.TrimSpace(m.search.Value())
-		m.searching = false
-		m.search.Blur()
-		if query == "" {
-			return m, nil
-		}
-		m.query = query
-		m.setPostsTitle()
-		return m, searchPosts(m.ctx, m.queries, m.userID, query)
 
 	case tea.KeyCtrlC:
 		return m, tea.Quit
+
+	case tea.KeyEnter:
+		mode := m.input
+		value := strings.TrimSpace(m.prompt.Value())
+		m.cancelInput()
+		if value == "" {
+			return m, nil
+		}
+
+		switch mode {
+		case inputSearch:
+			m.query = value
+			m.showBookmarks = false
+			m.setPostsTitle()
+			return m, searchPosts(m.ctx, m.queries, m.userID, value)
+
+		case inputAddFeed:
+			next, cmd := m.withStatus("Adding " + value + "…")
+			return next, tea.Batch(cmd, addFeed(next.ctx, next.queries, next.userID, value))
+		}
+		return m, nil
 	}
 
 	var cmd tea.Cmd
-	m.search, cmd = m.search.Update(msg)
+	m.prompt, cmd = m.prompt.Update(msg)
 	return m, cmd
+}
+
+func (m model) confirmText() string {
+	item, ok := m.feedList.SelectedItem().(feedItem)
+	if !ok {
+		return ""
+	}
+	return "Unfollow " + item.name + "? (y/n)"
+}
+
+func (m model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	m.confirming = false
+
+	if msg.String() != "y" {
+		return m.withStatus("Cancelled")
+	}
+
+	item, ok := m.feedList.SelectedItem().(feedItem)
+	if !ok || item.id == uuid.Nil {
+		return m, nil
+	}
+	return m, unfollowFeed(m.ctx, m.queries, m.userID, item.id, item.name)
 }
 
 func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -496,6 +579,20 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.applyFocus()
 		return m, nil
 
+	case key.Matches(msg, m.keys.AddFeed):
+		return m, m.startInput(inputAddFeed, "feed url: ")
+
+	case key.Matches(msg, m.keys.Unfollow):
+		item, ok := m.feedList.SelectedItem().(feedItem)
+		if !ok {
+			return m, nil
+		}
+		if item.id == uuid.Nil {
+			return m.withStatus("Pick a feed to unfollow")
+		}
+		m.confirming = true
+		return m, nil
+
 	case key.Matches(msg, m.keys.Select):
 		item, ok := m.feedList.SelectedItem().(feedItem)
 		if !ok {
@@ -529,9 +626,7 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.toggleHelp()
 
 		case key.Matches(msg, m.keys.Search):
-			m.searching = true
-			m.search.SetValue("")
-			return m, m.search.Focus()
+			return m, m.startInput(inputSearch, "search: ")
 
 		case key.Matches(msg, m.keys.Back):
 			if !m.canGoBack() {
@@ -738,8 +833,10 @@ func (m model) footerHeight() int {
 func (m model) footer() string {
 	var line string
 	switch {
-	case m.searching:
-		line = m.search.View()
+	case m.confirming:
+		line = m.confirmText()
+	case m.input != inputNone:
+		line = m.prompt.View()
 	case m.status != "":
 		line = m.status
 	case m.help.ShowAll:
