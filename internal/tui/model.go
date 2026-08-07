@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"gator-cli/internal/database"
 
@@ -72,6 +73,7 @@ type model struct {
 	query     string
 
 	sortDir     string
+	since       time.Duration
 	offset      int32
 	hasMore     bool
 	loadingMore bool
@@ -144,7 +146,7 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0, m.sortDir, m.unreadOnly),
+		loadPosts(m.ctx, m.queries, m.userID, m.filter(), 0),
 		loadBookmarks(m.ctx, m.queries, m.userID),
 		loadReads(m.ctx, m.queries, m.userID),
 		loadFeeds(m.ctx, m.queries, m.userID),
@@ -249,6 +251,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case openedMsg:
 		return m.withStatus("Opened " + msg.url)
 
+	case copiedMsg:
+		return m.withStatus("Copied " + msg.url)
+
 	case statusExpiredMsg:
 		if msg.token == m.statusToken {
 			m.status = ""
@@ -334,6 +339,19 @@ func (m *model) applyRead(postID, feedID uuid.UUID, read bool) {
 	m.unread[feedID]++
 }
 
+// filter skuplja trenutna ogranicenja liste u jedan objekat.
+func (m model) filter() postFilter {
+	f := postFilter{
+		feedID:     m.feedID,
+		sortDir:    m.sortDir,
+		unreadOnly: m.unreadOnly,
+	}
+	if m.since > 0 {
+		f.since = time.Now().Add(-m.since)
+	}
+	return f
+}
+
 // reloadFeeds osvezava levi panel i brojace nepročitanih posle promene pretplata.
 func (m model) reloadFeeds() tea.Cmd {
 	return tea.Batch(
@@ -350,7 +368,7 @@ func (m *model) startLoad() tea.Cmd {
 	if m.showBookmarks {
 		return loadBookmarkedPosts(m.ctx, m.queries, m.userID)
 	}
-	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0, m.sortDir, m.unreadOnly)
+	return loadPosts(m.ctx, m.queries, m.userID, m.filter(), 0)
 }
 
 func (m *model) maybeLoadMore() tea.Cmd {
@@ -365,7 +383,7 @@ func (m *model) maybeLoadMore() tea.Cmd {
 
 	m.loadingMore = true
 	m.offset += pageSize
-	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, m.offset, m.sortDir, m.unreadOnly)
+	return loadPosts(m.ctx, m.queries, m.userID, m.filter(), m.offset)
 }
 
 func (m *model) resize(w, h int) {
@@ -405,13 +423,43 @@ func (m *model) setPostsTitle() {
 	switch {
 	case m.showBookmarks:
 		m.list.Title = bookmarksTitle
+		return
 	case m.query != "":
 		m.list.Title = "Search: " + m.query
+		return
 	case m.feedName != "":
 		m.list.Title = m.feedName
 	default:
 		m.list.Title = postsTitle
 	}
+	if label := sinceLabel(m.since); label != "" {
+		m.list.Title += " · " + label
+	}
+}
+
+// sinceRanges je ciklus kroz koji prolazi taster "t"; 0 znaci bez ogranicenja.
+var sinceRanges = []time.Duration{0, 24 * time.Hour, 7 * 24 * time.Hour, 30 * 24 * time.Hour}
+
+func sinceLabel(d time.Duration) string {
+	switch d {
+	case 24 * time.Hour:
+		return "24h"
+	case 7 * 24 * time.Hour:
+		return "7d"
+	case 30 * 24 * time.Hour:
+		return "30d"
+	default:
+		return ""
+	}
+}
+
+func nextSince(d time.Duration) time.Duration {
+	for i, r := range sinceRanges {
+		if r == d {
+			return sinceRanges[(i+1)%len(sinceRanges)]
+		}
+	}
+	return 0
 }
 
 func scrapeSummary(msg scrapedMsg) string {
@@ -423,6 +471,35 @@ func scrapeSummary(msg scrapedMsg) string {
 	default:
 		return fmt.Sprintf("Fetched %d new posts from %d feeds", msg.saved, msg.feeds)
 	}
+}
+
+// openPost puni detalj i oznacava post procitanim; vec procitan post ne pravi
+// novi upis u bazu.
+func (m *model) openPost(post database.Post) tea.Cmd {
+	m.selected = post
+	m.viewport.SetContent(renderDetailBody(post, m.viewport.Width))
+	m.viewport.GotoTop()
+
+	if m.reads[post.ID] {
+		return nil
+	}
+	m.applyRead(post.ID, post.FeedID, true)
+	return setPostRead(m.ctx, m.queries, m.userID, post, true)
+}
+
+// stepPost pomera selekciju u listi za delta i otvara taj post u detalju.
+func (m *model) stepPost(delta int) tea.Cmd {
+	next := m.list.Index() + delta
+	if next < 0 || next >= len(m.list.Items()) {
+		return nil
+	}
+	m.list.Select(next)
+
+	item, ok := m.list.SelectedItem().(postItem)
+	if !ok {
+		return nil
+	}
+	return m.openPost(item.post)
 }
 
 // canGoBack je tacno kad je lista u nekom izvedenom pogledu koji esc napusta.
@@ -557,6 +634,17 @@ func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	switch {
+	case key.Matches(msg, m.keys.Copy):
+		return m, copyToClipboard(m.selected.Url)
+
+	case key.Matches(msg, m.keys.Next):
+		return m, m.stepPost(1)
+
+	case key.Matches(msg, m.keys.Prev):
+		return m, m.stepPost(-1)
+	}
+
 	if next, cmd, handled := m.postAction(msg); handled {
 		return next, cmd
 	}
@@ -680,15 +768,28 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if !ok {
 				return m, nil
 			}
-			m.selected = item.post
 			m.showDetail = true
-			m.viewport.SetContent(renderDetailBody(m.selected, m.viewport.Width))
-			m.viewport.GotoTop()
-			if m.reads[item.post.ID] {
+			return m, m.openPost(item.post)
+
+		case key.Matches(msg, m.keys.Copy):
+			post, ok := m.currentPost()
+			if !ok {
 				return m, nil
 			}
-			m.applyRead(item.post.ID, item.post.FeedID, true)
-			return m, setPostRead(m.ctx, m.queries, m.userID, item.post, true)
+			return m, copyToClipboard(post.Url)
+
+		case key.Matches(msg, m.keys.Since):
+			if m.showBookmarks || m.query != "" {
+				return m.withStatus("Time range applies to feed posts only")
+			}
+			m.since = nextSince(m.since)
+			m.setPostsTitle()
+			label := "Showing all time"
+			if l := sinceLabel(m.since); l != "" {
+				label = "Showing the last " + l
+			}
+			next, cmd := m.withStatus(label)
+			return next, tea.Batch(cmd, next.startLoad())
 
 		case key.Matches(msg, m.keys.Unread):
 			post, ok := m.currentPost()

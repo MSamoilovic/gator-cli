@@ -19,6 +19,10 @@ type keyMap struct {
 	Unread   key.Binding
 	AllRead  key.Binding
 	OnlyNew  key.Binding
+	Since    key.Binding
+	Copy     key.Binding
+	Next     key.Binding
+	Prev     key.Binding
 	Search   key.Binding
 	Filter   key.Binding
 	Tab      key.Binding
@@ -93,6 +97,22 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("U"),
 			key.WithHelp("U", "only unread"),
 		),
+		Since: key.NewBinding(
+			key.WithKeys("t"),
+			key.WithHelp("t", "time range"),
+		),
+		Copy: key.NewBinding(
+			key.WithKeys("y"),
+			key.WithHelp("y", "copy url"),
+		),
+		Next: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "next"),
+		),
+		Prev: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "prev"),
+		),
 		Search: key.NewBinding(
 			key.WithKeys("s"),
 			key.WithHelp("s", "search"),
@@ -124,9 +144,10 @@ func (k keyMap) fullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Read, k.Back},
 		{k.Open, k.Bookmark, k.Saved, k.Sort},
-		{k.Unread, k.AllRead, k.OnlyNew, k.Filter},
-		{k.Search, k.Tab, k.Help, k.Quit},
+		{k.Unread, k.AllRead, k.OnlyNew, k.Since},
+		{k.Search, k.Filter, k.Copy, k.Tab},
 		{k.Reload, k.Fetch, k.AddFeed, k.Unfollow},
+		{k.Next, k.Prev, k.Help, k.Quit},
 	}
 }
 
@@ -148,5 +169,5 @@ func (k keyMap) feedsHelp() []key.Binding {
 }
 
 func (k keyMap) detailHelp() []key.Binding {
-	return []key.Binding{k.Scroll, k.Open, k.Bookmark, k.Back, k.Help, k.Quit}
+	return []key.Binding{k.Scroll, k.Next, k.Prev, k.Open, k.Copy, k.Back, k.Quit}
 }

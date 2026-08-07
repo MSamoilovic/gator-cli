@@ -107,7 +107,10 @@ The `--limit`, `--page`, `--feed` and `--sort` flags apply to plain output only.
 | `u` | Toggle read / unread (`●` = unread) |
 | `A` | Mark everything in the list as read |
 | `U` | Show only unread posts |
+| `t` | Cycle time range: all → 24h → 7d → 30d |
 | `o` | Open in browser |
+| `y` | Copy the post URL to the clipboard |
+| `n` / `p` | Next / previous post while reading |
 | `b` | Bookmark / unbookmark (`★`) |
 | `B` | Show only bookmarked posts |
 | `S` | Toggle sort: newest / oldest first |
