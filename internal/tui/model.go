@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"gator-cli/internal/database"
 
@@ -40,6 +41,16 @@ const (
 	focusFeeds
 )
 
+// inputMode odredjuje sta se kuca u prompt polju; jedno polje sluzi i pretrazi
+// i dodavanju feeda, pa dva stanja ne mogu istovremeno biti aktivna.
+type inputMode int
+
+const (
+	inputNone inputMode = iota
+	inputSearch
+	inputAddFeed
+)
+
 type model struct {
 	ctx     context.Context
 	queries *database.Queries
@@ -51,7 +62,7 @@ type model struct {
 	feedList list.Model
 	viewport viewport.Model
 	spinner  spinner.Model
-	search   textinput.Model
+	prompt   textinput.Model
 	selected database.Post
 
 	bookmarks map[uuid.UUID]bool
@@ -62,6 +73,7 @@ type model struct {
 	query     string
 
 	sortDir     string
+	since       time.Duration
 	offset      int32
 	hasMore     bool
 	loadingMore bool
@@ -76,7 +88,8 @@ type model struct {
 	status      string
 	statusToken int
 
-	searching     bool
+	input         inputMode
+	confirming    bool
 	fetching      bool
 	unreadOnly    bool
 	showBookmarks bool
@@ -106,8 +119,7 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 	sp.Style = spinnerStyle
 
 	ti := textinput.New()
-	ti.Prompt = "search: "
-	ti.CharLimit = 200
+	ti.CharLimit = 500
 
 	m := model{
 		ctx:       ctx,
@@ -119,7 +131,7 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 		feedList:  fl,
 		viewport:  viewport.New(0, 0),
 		spinner:   sp,
-		search:    ti,
+		prompt:    ti,
 		bookmarks: make(map[uuid.UUID]bool),
 		reads:     make(map[uuid.UUID]bool),
 		unread:    make(map[uuid.UUID]int),
@@ -134,7 +146,7 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0, m.sortDir, m.unreadOnly),
+		loadPosts(m.ctx, m.queries, m.userID, m.filter(), 0),
 		loadBookmarks(m.ctx, m.queries, m.userID),
 		loadReads(m.ctx, m.queries, m.userID),
 		loadFeeds(m.ctx, m.queries, m.userID),
@@ -211,6 +223,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return next, cmd
 
+	case feedAddedMsg:
+		label := "Now following " + msg.name
+		if msg.created {
+			label = "Added " + msg.name
+		}
+		next, cmd := m.withStatus(label)
+		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad())
+
+	case feedUnfollowMsg:
+		// Ako je odjavljen bas filtrirani feed, lista se vraca na sve.
+		if m.feedName == msg.name {
+			m.feedID = uuid.Nil
+			m.feedName = ""
+			m.setPostsTitle()
+			m.feedList.ResetSelected()
+		}
+		next, cmd := m.withStatus("Unfollowed " + msg.name)
+		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad())
+
 	case scrapedMsg:
 		m.fetching = false
 		next, cmd := m.withStatus(scrapeSummary(msg))
@@ -219,6 +250,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case openedMsg:
 		return m.withStatus("Opened " + msg.url)
+
+	case copiedMsg:
+		return m.withStatus("Copied " + msg.url)
 
 	case statusExpiredMsg:
 		if msg.token == m.statusToken {
@@ -238,8 +272,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch {
-		case m.searching:
-			return m.updateSearch(msg)
+		case m.confirming:
+			return m.updateConfirm(msg)
+		case m.input != inputNone:
+			return m.updateInput(msg)
 		case m.showDetail:
 			return m.updateDetail(msg)
 		case m.focus == focusFeeds:
@@ -303,6 +339,27 @@ func (m *model) applyRead(postID, feedID uuid.UUID, read bool) {
 	m.unread[feedID]++
 }
 
+// filter skuplja trenutna ogranicenja liste u jedan objekat.
+func (m model) filter() postFilter {
+	f := postFilter{
+		feedID:     m.feedID,
+		sortDir:    m.sortDir,
+		unreadOnly: m.unreadOnly,
+	}
+	if m.since > 0 {
+		f.since = time.Now().Add(-m.since)
+	}
+	return f
+}
+
+// reloadFeeds osvezava levi panel i brojace nepročitanih posle promene pretplata.
+func (m model) reloadFeeds() tea.Cmd {
+	return tea.Batch(
+		loadFeeds(m.ctx, m.queries, m.userID),
+		loadUnreadCounts(m.ctx, m.queries, m.userID),
+	)
+}
+
 // startLoad pokrece cistu (prvu) stranu i resetuje paginaciju.
 func (m *model) startLoad() tea.Cmd {
 	m.offset = 0
@@ -311,7 +368,7 @@ func (m *model) startLoad() tea.Cmd {
 	if m.showBookmarks {
 		return loadBookmarkedPosts(m.ctx, m.queries, m.userID)
 	}
-	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, 0, m.sortDir, m.unreadOnly)
+	return loadPosts(m.ctx, m.queries, m.userID, m.filter(), 0)
 }
 
 func (m *model) maybeLoadMore() tea.Cmd {
@@ -326,7 +383,7 @@ func (m *model) maybeLoadMore() tea.Cmd {
 
 	m.loadingMore = true
 	m.offset += pageSize
-	return loadPosts(m.ctx, m.queries, m.userID, m.feedID, m.offset, m.sortDir, m.unreadOnly)
+	return loadPosts(m.ctx, m.queries, m.userID, m.filter(), m.offset)
 }
 
 func (m *model) resize(w, h int) {
@@ -347,7 +404,7 @@ func (m *model) resize(w, h int) {
 	panelHeight := max(h-m.footerHeight(), 1)
 	m.feedList.SetSize(m.feedWidth, panelHeight)
 	m.list.SetSize(max(postsWidth, 1), panelHeight)
-	m.search.Width = max(w-len(m.search.Prompt)-1, 1)
+	m.prompt.Width = max(w-len(m.prompt.Prompt)-1, 1)
 
 	m.viewport.Width = w
 	m.viewport.Height = max(h-detailChromeHeight-m.footerHeight()+1, 1)
@@ -366,13 +423,43 @@ func (m *model) setPostsTitle() {
 	switch {
 	case m.showBookmarks:
 		m.list.Title = bookmarksTitle
+		return
 	case m.query != "":
 		m.list.Title = "Search: " + m.query
+		return
 	case m.feedName != "":
 		m.list.Title = m.feedName
 	default:
 		m.list.Title = postsTitle
 	}
+	if label := sinceLabel(m.since); label != "" {
+		m.list.Title += " · " + label
+	}
+}
+
+// sinceRanges je ciklus kroz koji prolazi taster "t"; 0 znaci bez ogranicenja.
+var sinceRanges = []time.Duration{0, 24 * time.Hour, 7 * 24 * time.Hour, 30 * 24 * time.Hour}
+
+func sinceLabel(d time.Duration) string {
+	switch d {
+	case 24 * time.Hour:
+		return "24h"
+	case 7 * 24 * time.Hour:
+		return "7d"
+	case 30 * 24 * time.Hour:
+		return "30d"
+	default:
+		return ""
+	}
+}
+
+func nextSince(d time.Duration) time.Duration {
+	for i, r := range sinceRanges {
+		if r == d {
+			return sinceRanges[(i+1)%len(sinceRanges)]
+		}
+	}
+	return 0
 }
 
 func scrapeSummary(msg scrapedMsg) string {
@@ -384,6 +471,35 @@ func scrapeSummary(msg scrapedMsg) string {
 	default:
 		return fmt.Sprintf("Fetched %d new posts from %d feeds", msg.saved, msg.feeds)
 	}
+}
+
+// openPost puni detalj i oznacava post procitanim; vec procitan post ne pravi
+// novi upis u bazu.
+func (m *model) openPost(post database.Post) tea.Cmd {
+	m.selected = post
+	m.viewport.SetContent(renderDetailBody(post, m.viewport.Width))
+	m.viewport.GotoTop()
+
+	if m.reads[post.ID] {
+		return nil
+	}
+	m.applyRead(post.ID, post.FeedID, true)
+	return setPostRead(m.ctx, m.queries, m.userID, post, true)
+}
+
+// stepPost pomera selekciju u listi za delta i otvara taj post u detalju.
+func (m *model) stepPost(delta int) tea.Cmd {
+	next := m.list.Index() + delta
+	if next < 0 || next >= len(m.list.Items()) {
+		return nil
+	}
+	m.list.Select(next)
+
+	item, ok := m.list.SelectedItem().(postItem)
+	if !ok {
+		return nil
+	}
+	return m.openPost(item.post)
 }
 
 // canGoBack je tacno kad je lista u nekom izvedenom pogledu koji esc napusta.
@@ -436,31 +552,75 @@ func (m model) toggleHelp() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *model) startInput(mode inputMode, prompt string) tea.Cmd {
+	m.input = mode
+	m.prompt.Prompt = prompt
+	m.prompt.SetValue("")
+	m.prompt.Width = max(m.width-len(prompt)-1, 1)
+	return m.prompt.Focus()
+}
+
+func (m *model) cancelInput() {
+	m.input = inputNone
+	m.prompt.Blur()
+}
+
+func (m model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEsc:
-		m.searching = false
-		m.search.Blur()
+		m.cancelInput()
 		return m, nil
-
-	case tea.KeyEnter:
-		query := strings.TrimSpace(m.search.Value())
-		m.searching = false
-		m.search.Blur()
-		if query == "" {
-			return m, nil
-		}
-		m.query = query
-		m.setPostsTitle()
-		return m, searchPosts(m.ctx, m.queries, m.userID, query)
 
 	case tea.KeyCtrlC:
 		return m, tea.Quit
+
+	case tea.KeyEnter:
+		mode := m.input
+		value := strings.TrimSpace(m.prompt.Value())
+		m.cancelInput()
+		if value == "" {
+			return m, nil
+		}
+
+		switch mode {
+		case inputSearch:
+			m.query = value
+			m.showBookmarks = false
+			m.setPostsTitle()
+			return m, searchPosts(m.ctx, m.queries, m.userID, value)
+
+		case inputAddFeed:
+			next, cmd := m.withStatus("Adding " + value + "…")
+			return next, tea.Batch(cmd, addFeed(next.ctx, next.queries, next.userID, value))
+		}
+		return m, nil
 	}
 
 	var cmd tea.Cmd
-	m.search, cmd = m.search.Update(msg)
+	m.prompt, cmd = m.prompt.Update(msg)
 	return m, cmd
+}
+
+func (m model) confirmText() string {
+	item, ok := m.feedList.SelectedItem().(feedItem)
+	if !ok {
+		return ""
+	}
+	return "Unfollow " + item.name + "? (y/n)"
+}
+
+func (m model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	m.confirming = false
+
+	if msg.String() != "y" {
+		return m.withStatus("Cancelled")
+	}
+
+	item, ok := m.feedList.SelectedItem().(feedItem)
+	if !ok || item.id == uuid.Nil {
+		return m, nil
+	}
+	return m, unfollowFeed(m.ctx, m.queries, m.userID, item.id, item.name)
 }
 
 func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -472,6 +632,17 @@ func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Back), msg.String() == "q":
 		m.showDetail = false
 		return m, nil
+	}
+
+	switch {
+	case key.Matches(msg, m.keys.Copy):
+		return m, copyToClipboard(m.selected.Url)
+
+	case key.Matches(msg, m.keys.Next):
+		return m, m.stepPost(1)
+
+	case key.Matches(msg, m.keys.Prev):
+		return m, m.stepPost(-1)
 	}
 
 	if next, cmd, handled := m.postAction(msg); handled {
@@ -494,6 +665,20 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.Back):
 		m.focus = focusPosts
 		m.applyFocus()
+		return m, nil
+
+	case key.Matches(msg, m.keys.AddFeed):
+		return m, m.startInput(inputAddFeed, "feed url: ")
+
+	case key.Matches(msg, m.keys.Unfollow):
+		item, ok := m.feedList.SelectedItem().(feedItem)
+		if !ok {
+			return m, nil
+		}
+		if item.id == uuid.Nil {
+			return m.withStatus("Pick a feed to unfollow")
+		}
+		m.confirming = true
 		return m, nil
 
 	case key.Matches(msg, m.keys.Select):
@@ -529,9 +714,7 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.toggleHelp()
 
 		case key.Matches(msg, m.keys.Search):
-			m.searching = true
-			m.search.SetValue("")
-			return m, m.search.Focus()
+			return m, m.startInput(inputSearch, "search: ")
 
 		case key.Matches(msg, m.keys.Back):
 			if !m.canGoBack() {
@@ -585,15 +768,28 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if !ok {
 				return m, nil
 			}
-			m.selected = item.post
 			m.showDetail = true
-			m.viewport.SetContent(renderDetailBody(m.selected, m.viewport.Width))
-			m.viewport.GotoTop()
-			if m.reads[item.post.ID] {
+			return m, m.openPost(item.post)
+
+		case key.Matches(msg, m.keys.Copy):
+			post, ok := m.currentPost()
+			if !ok {
 				return m, nil
 			}
-			m.applyRead(item.post.ID, item.post.FeedID, true)
-			return m, setPostRead(m.ctx, m.queries, m.userID, item.post, true)
+			return m, copyToClipboard(post.Url)
+
+		case key.Matches(msg, m.keys.Since):
+			if m.showBookmarks || m.query != "" {
+				return m.withStatus("Time range applies to feed posts only")
+			}
+			m.since = nextSince(m.since)
+			m.setPostsTitle()
+			label := "Showing all time"
+			if l := sinceLabel(m.since); l != "" {
+				label = "Showing the last " + l
+			}
+			next, cmd := m.withStatus(label)
+			return next, tea.Batch(cmd, next.startLoad())
 
 		case key.Matches(msg, m.keys.Unread):
 			post, ok := m.currentPost()
@@ -738,8 +934,10 @@ func (m model) footerHeight() int {
 func (m model) footer() string {
 	var line string
 	switch {
-	case m.searching:
-		line = m.search.View()
+	case m.confirming:
+		line = m.confirmText()
+	case m.input != inputNone:
+		line = m.prompt.View()
 	case m.status != "":
 		line = m.status
 	case m.help.ShowAll:

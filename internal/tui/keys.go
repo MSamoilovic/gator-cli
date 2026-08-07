@@ -14,9 +14,15 @@ type keyMap struct {
 	Sort     key.Binding
 	Reload   key.Binding
 	Fetch    key.Binding
+	AddFeed  key.Binding
+	Unfollow key.Binding
 	Unread   key.Binding
 	AllRead  key.Binding
 	OnlyNew  key.Binding
+	Since    key.Binding
+	Copy     key.Binding
+	Next     key.Binding
+	Prev     key.Binding
 	Search   key.Binding
 	Filter   key.Binding
 	Tab      key.Binding
@@ -71,6 +77,14 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("R"),
 			key.WithHelp("R", "fetch"),
 		),
+		AddFeed: key.NewBinding(
+			key.WithKeys("a"),
+			key.WithHelp("a", "add feed"),
+		),
+		Unfollow: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "unfollow"),
+		),
 		Unread: key.NewBinding(
 			key.WithKeys("u"),
 			key.WithHelp("u", "unread"),
@@ -82,6 +96,22 @@ func defaultKeyMap() keyMap {
 		OnlyNew: key.NewBinding(
 			key.WithKeys("U"),
 			key.WithHelp("U", "only unread"),
+		),
+		Since: key.NewBinding(
+			key.WithKeys("t"),
+			key.WithHelp("t", "time range"),
+		),
+		Copy: key.NewBinding(
+			key.WithKeys("y"),
+			key.WithHelp("y", "copy url"),
+		),
+		Next: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "next"),
+		),
+		Prev: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "prev"),
 		),
 		Search: key.NewBinding(
 			key.WithKeys("s"),
@@ -114,9 +144,10 @@ func (k keyMap) fullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Read, k.Back},
 		{k.Open, k.Bookmark, k.Saved, k.Sort},
-		{k.Unread, k.AllRead, k.OnlyNew, k.Filter},
-		{k.Search, k.Tab, k.Help, k.Quit},
-		{k.Reload, k.Fetch},
+		{k.Unread, k.AllRead, k.OnlyNew, k.Since},
+		{k.Search, k.Filter, k.Copy, k.Tab},
+		{k.Reload, k.Fetch, k.AddFeed, k.Unfollow},
+		{k.Next, k.Prev, k.Help, k.Quit},
 	}
 }
 
@@ -134,9 +165,9 @@ func (k keyMap) listHelp(withFeeds, canGoBack bool) []key.Binding {
 }
 
 func (k keyMap) feedsHelp() []key.Binding {
-	return []key.Binding{k.Select, k.Tab, k.Help, k.Quit}
+	return []key.Binding{k.Select, k.AddFeed, k.Unfollow, k.Tab, k.Help, k.Quit}
 }
 
 func (k keyMap) detailHelp() []key.Binding {
-	return []key.Binding{k.Scroll, k.Open, k.Bookmark, k.Back, k.Help, k.Quit}
+	return []key.Binding{k.Scroll, k.Next, k.Prev, k.Open, k.Copy, k.Back, k.Quit}
 }

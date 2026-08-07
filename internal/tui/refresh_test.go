@@ -128,7 +128,7 @@ func TestFetchKeysIgnoredWhileTyping(t *testing.T) {
 	if m.fetching {
 		t.Error("R started a fetch while typing a search")
 	}
-	if got, want := m.search.Value(), "rR"; got != want {
+	if got, want := m.prompt.Value(), "rR"; got != want {
 		t.Errorf("search value = %q, want %q", got, want)
 	}
 }

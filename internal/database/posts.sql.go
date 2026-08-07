@@ -131,11 +131,12 @@ WHERE feed_follows.user_id = $1
   AND ($2::text = '' OR feeds.name ILIKE '%' || $2::text || '%')
   AND ($3::uuid = '00000000-0000-0000-0000-000000000000'::uuid OR posts.feed_id = $3::uuid)
   AND (NOT $4::bool OR post_reads.post_id IS NULL)
+  AND ($5::timestamp = '0001-01-01 00:00:00'::timestamp OR posts.published_at >= $5::timestamp)
 ORDER BY
-  CASE WHEN $5::text = 'asc' THEN posts.published_at END ASC NULLS LAST,
+  CASE WHEN $6::text = 'asc' THEN posts.published_at END ASC NULLS LAST,
   posts.published_at DESC NULLS LAST
-LIMIT $7
-OFFSET $6
+LIMIT $8
+OFFSET $7
 `
 
 type GetPostsForUserFilteredParams struct {
@@ -143,6 +144,7 @@ type GetPostsForUserFilteredParams struct {
 	FeedName   string
 	FeedID     uuid.UUID
 	UnreadOnly bool
+	Since      time.Time
 	SortDir    string
 	PostOffset int32
 	PostLimit  int32
@@ -154,6 +156,7 @@ func (q *Queries) GetPostsForUserFiltered(ctx context.Context, arg GetPostsForUs
 		arg.FeedName,
 		arg.FeedID,
 		arg.UnreadOnly,
+		arg.Since,
 		arg.SortDir,
 		arg.PostOffset,
 		arg.PostLimit,
