@@ -98,7 +98,7 @@ type model struct {
 	err           error
 }
 
-func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model {
+func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID, saved uiState) model {
 	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
 	l.Title = postsTitle
 	l.SetStatusBarItemName("post", "posts")
@@ -122,23 +122,28 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID) model 
 	ti.CharLimit = 500
 
 	m := model{
-		ctx:       ctx,
-		queries:   q,
-		userID:    userID,
-		keys:      defaultKeyMap(),
-		help:      help.New(),
-		list:      l,
-		feedList:  fl,
-		viewport:  viewport.New(0, 0),
-		spinner:   sp,
-		prompt:    ti,
-		bookmarks: make(map[uuid.UUID]bool),
-		reads:     make(map[uuid.UUID]bool),
-		unread:    make(map[uuid.UUID]int),
-		sortDir:   sortDesc,
-		loading:   true,
-		hasMore:   true,
+		ctx:        ctx,
+		queries:    q,
+		userID:     userID,
+		keys:       defaultKeyMap(),
+		help:       help.New(),
+		list:       l,
+		feedList:   fl,
+		viewport:   viewport.New(0, 0),
+		spinner:    sp,
+		prompt:     ti,
+		bookmarks:  make(map[uuid.UUID]bool),
+		reads:      make(map[uuid.UUID]bool),
+		unread:     make(map[uuid.UUID]int),
+		sortDir:    saved.SortDir,
+		since:      saved.since(),
+		unreadOnly: saved.UnreadOnly,
+		feedID:     saved.feedUUID(),
+		feedName:   saved.FeedName,
+		loading:    true,
+		hasMore:    true,
 	}
+	m.setPostsTitle()
 	m.applyFocus()
 	return m
 }
@@ -175,7 +180,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case feedsLoadedMsg:
 		m.feedsLoaded = true
 		m.feedCount = len(msg.feeds)
-		return m, m.feedList.SetItems(m.feedItems(msg.feeds))
+		cmd := m.feedList.SetItems(m.feedItems(msg.feeds))
+		return m.selectStoredFeed(cmd)
 
 	case readsLoadedMsg:
 		for _, id := range msg.postIDs {
@@ -314,6 +320,28 @@ func (m model) postsLoaded(msg postsLoadedMsg) (tea.Model, tea.Cmd) {
 	return m, m.list.SetItems(items)
 }
 
+// selectStoredFeed pomera kursor na zapamceni feed. Ako ga vise nema — recimo
+// zato sto je odjavljen izmedju dva pokretanja — lista pada nazad na sve.
+func (m model) selectStoredFeed(cmd tea.Cmd) (tea.Model, tea.Cmd) {
+	if m.feedID == uuid.Nil {
+		return m, cmd
+	}
+
+	for i, it := range m.feedList.Items() {
+		if fi, ok := it.(feedItem); ok && fi.id == m.feedID {
+			m.feedList.Select(i)
+			m.feedName = fi.name
+			m.setPostsTitle()
+			return m, cmd
+		}
+	}
+
+	m.feedID = uuid.Nil
+	m.feedName = ""
+	m.setPostsTitle()
+	return m, tea.Batch(cmd, m.startLoad())
+}
+
 func (m model) feedItems(feeds []database.GetFeedFollowsForUserRow) []list.Item {
 	items := make([]list.Item, 0, len(feeds)+1)
 	items = append(items, feedItem{id: uuid.Nil, name: allFeedsLabel, unread: m.unread})
@@ -337,6 +365,20 @@ func (m *model) applyRead(postID, feedID uuid.UUID, read bool) {
 	}
 	delete(m.reads, postID)
 	m.unread[feedID]++
+}
+
+// snapshot je ono sto se pamti za sledece pokretanje. Pretraga i pogled na
+// bookmark-e se namerno ne pamte — to su trenutna, ne trajna stanja.
+func (m model) snapshot() uiState {
+	s := uiState{
+		SortDir:    m.sortDir,
+		UnreadOnly: m.unreadOnly,
+		SinceHours: int(m.since / time.Hour),
+	}
+	if m.feedID != uuid.Nil {
+		s.FeedID, s.FeedName = m.feedID.String(), m.feedName
+	}
+	return s
 }
 
 // filter skuplja trenutna ogranicenja liste u jedan objekat.
@@ -903,7 +945,7 @@ func verticalRule(height int) string {
 }
 
 func (m model) detailView() string {
-	return renderDetailHeader(m.selected, m.viewport.Width) +
+	return renderDetailHeader(m.selected, m.viewport.Width, m.viewport.ScrollPercent()) +
 		m.viewport.View() +
 		"\n\n" + m.footer()
 }
