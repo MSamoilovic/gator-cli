@@ -101,11 +101,11 @@ func (m model) footer() string {
 	case m.input != inputNone:
 		line = m.prompt.View()
 	case m.status != "":
-		line = m.status
+		line = m.userTagged(m.status)
 	case m.help.ShowAll:
 		line = m.help.FullHelpView(m.keys.fullHelp())
 	default:
-		line = m.help.ShortHelpView(m.currentBindings())
+		line = m.userTagged(m.help.ShortHelpView(m.currentBindings()))
 	}
 
 	return lipgloss.NewStyle().
@@ -113,6 +113,21 @@ func (m model) footer() string {
 		Height(m.footerHeight()).
 		MaxHeight(m.footerHeight()).
 		Render(line)
+}
+
+// userTagged zalepi ime ulogovanog korisnika uz desnu ivicu footera, ali samo
+// ako izmedju ostane bar jedan razmak — u uskom terminalu pomoc je vaznija.
+func (m model) userTagged(line string) string {
+	if m.userName == "" {
+		return line
+	}
+
+	tag := userTagStyle.Render("@" + m.userName)
+	gap := m.width - lipgloss.Width(line) - lipgloss.Width(tag)
+	if gap < 1 {
+		return line
+	}
+	return line + strings.Repeat(" ", gap) + tag
 }
 
 func (m *model) resize(w, h int) {

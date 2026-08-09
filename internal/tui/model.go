@@ -44,9 +44,10 @@ const (
 )
 
 type model struct {
-	ctx     context.Context
-	queries *database.Queries
-	userID  uuid.UUID
+	ctx      context.Context
+	queries  *database.Queries
+	userID   uuid.UUID
+	userName string
 
 	keys     keyMap
 	help     help.Model
@@ -90,7 +91,7 @@ type model struct {
 	err           error
 }
 
-func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID, saved uiState) model {
+func newModel(ctx context.Context, q *database.Queries, user database.User, saved uiState) model {
 	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
 	l.Title = postsTitle
 	l.SetStatusBarItemName("post", "posts")
@@ -116,7 +117,8 @@ func newModel(ctx context.Context, q *database.Queries, userID uuid.UUID, saved 
 	m := model{
 		ctx:        ctx,
 		queries:    q,
-		userID:     userID,
+		userID:     user.ID,
+		userName:   user.Name,
 		keys:       defaultKeyMap(),
 		help:       help.New(),
 		list:       l,

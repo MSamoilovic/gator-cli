@@ -126,7 +126,7 @@ func TestSavedStateIsApplied(t *testing.T) {
 		SinceHours: 168,
 	}
 
-	m, _ := step(t, newModel(t.Context(), nil, uuid.Nil, saved), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), saved), tea.WindowSizeMsg{Width: 80, Height: 24})
 
 	f := m.filter()
 	if f.feedID != feed.FeedID {
@@ -211,7 +211,7 @@ func TestUnfollowedFeedFallsBackToAll(t *testing.T) {
 	gone := uuid.New()
 	saved := uiState{FeedID: gone.String(), FeedName: "Obrisan", SortDir: sortDesc}
 
-	m, _ := step(t, newModel(t.Context(), nil, uuid.Nil, saved), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), saved), tea.WindowSizeMsg{Width: 80, Height: 24})
 	if m.feedID != gone {
 		t.Fatal("saved feed was not applied")
 	}
@@ -235,7 +235,7 @@ func TestStoredFeedIsSelectedInThePanel(t *testing.T) {
 	second := testFeed("CBR")
 	saved := uiState{FeedID: second.FeedID.String(), FeedName: "CBR", SortDir: sortDesc}
 
-	m, _ := step(t, newModel(t.Context(), nil, uuid.Nil, saved), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), saved), tea.WindowSizeMsg{Width: 80, Height: 24})
 	m, _ = step(t, m, feedsLoadedMsg{feeds: []database.GetFeedFollowsForUserRow{first, second}})
 
 	if got, want := m.feedList.Index(), 2; got != want {

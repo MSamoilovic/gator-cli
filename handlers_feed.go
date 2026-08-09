@@ -119,7 +119,7 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 
 	// Interaktivni terminal dobija TUI; pipe i --no-tui dobijaju plain ispis.
 	if !*noTUI && stdoutIsTerminal() {
-		return tui.Run(context.Background(), s.Db, user.ID)
+		return tui.Run(context.Background(), s.Db, user)
 	}
 
 	posts, err := s.Db.GetPostsForUserFiltered(context.Background(), database.GetPostsForUserFilteredParams{
