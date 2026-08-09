@@ -11,8 +11,6 @@ import (
 
 const stateFileName = ".gator-state.json"
 
-// uiState je ono sto TUI pamti izmedju pokretanja. Drzi se odvojeno od
-// ~/.gatorconfig.json da se korisnicki config ne zagadi UI sitnicama.
 type uiState struct {
 	FeedID     string `json:"feed_id,omitempty"`
 	FeedName   string `json:"feed_name,omitempty"`
@@ -29,8 +27,6 @@ func statePath() (string, error) {
 	return filepath.Join(home, stateFileName), nil
 }
 
-// loadState nikad ne prijavljuje gresku: neispravno ili nepostojece stanje
-// samo znaci da se krece od pocetka, a ne da TUI ne sme da se otvori.
 func loadState() uiState {
 	var s uiState
 
@@ -50,8 +46,6 @@ func loadState() uiState {
 	return s.sanitized()
 }
 
-// sanitized odbacuje vrednosti koje bi model dovele u stanje koje sam ne moze
-// da napravi — npr. rucno izmenjen fajl sa nepoznatim sortom.
 func (s uiState) sanitized() uiState {
 	if s.SortDir != sortAsc && s.SortDir != sortDesc {
 		s.SortDir = sortDesc
@@ -88,4 +82,16 @@ func (s uiState) feedUUID() uuid.UUID {
 
 func (s uiState) since() time.Duration {
 	return time.Duration(s.SinceHours) * time.Hour
+}
+
+func (m model) snapshot() uiState {
+	s := uiState{
+		SortDir:    m.sortDir,
+		UnreadOnly: m.unreadOnly,
+		SinceHours: int(m.since / time.Hour),
+	}
+	if m.feedID != uuid.Nil {
+		s.FeedID, s.FeedName = m.feedID.String(), m.feedName
+	}
+	return s
 }
