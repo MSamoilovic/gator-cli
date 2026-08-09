@@ -33,7 +33,7 @@ func TestBookmarksLoadedMarksItems(t *testing.T) {
 func TestBookmarksLoadedBeforePosts(t *testing.T) {
 	post := testPost("Prvi")
 
-	m, _ := step(t, newModel(t.Context(), nil, uuid.Nil), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, uuid.Nil, uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
 	m, _ = step(t, m, bookmarksLoadedMsg{postIDs: []uuid.UUID{post.ID}})
 	m, _ = step(t, m, postsLoadedMsg{posts: []database.Post{post}})
 
@@ -115,7 +115,7 @@ func TestActionErrorGoesToStatusNotErrorScreen(t *testing.T) {
 }
 
 func TestLoadErrorStillShowsErrorScreen(t *testing.T) {
-	m, _ := step(t, newModel(t.Context(), nil, uuid.Nil), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, uuid.Nil, uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
 
 	m, _ = step(t, m, errMsg{errors.New("baza pukla")})
 

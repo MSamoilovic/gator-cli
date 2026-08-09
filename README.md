@@ -98,6 +98,10 @@ gator search golang --limit 5                    # full-text search across post 
 (`gator browse | less`) falls back to plain output, so scripts keep working.
 The `--limit`, `--page`, `--feed` and `--sort` flags apply to plain output only.
 
+The TUI remembers the selected feed, sort order, unread filter and time range in
+`~/.gator-state.json`, so it reopens where you left off. Delete that file to start
+fresh; a missing or unreadable one is not an error.
+
 #### TUI keys
 
 | Key | Action |

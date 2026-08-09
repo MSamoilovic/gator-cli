@@ -71,7 +71,7 @@ func TestRenderDetailHeader(t *testing.T) {
 		PublishedAt: sql.NullTime{Time: time.Date(2026, 7, 27, 18, 55, 0, 0, time.UTC), Valid: true},
 	}
 
-	got := renderDetailHeader(post, 80)
+	got := renderDetailHeader(post, 80, 0)
 	for _, want := range []string{"Learn Go", "https://blog.boot.dev/go", "Published: 2026-07-27 18:55"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("header missing %q:\n%s", want, got)
@@ -91,7 +91,7 @@ func TestRenderDetailHeaderTruncatesLongLines(t *testing.T) {
 		Url:   strings.Repeat("y", 200),
 	}
 
-	got := renderDetailHeader(post, 40)
+	got := renderDetailHeader(post, 40, 0)
 	if n := strings.Count(got, "\n"); n != detailChromeHeight-2 {
 		t.Fatalf("long title wrapped: %d newlines, want %d", n, detailChromeHeight-2)
 	}
@@ -103,7 +103,7 @@ func TestRenderDetailHeaderTruncatesLongLines(t *testing.T) {
 }
 
 func TestRenderDetailHeaderUnknownDate(t *testing.T) {
-	got := renderDetailHeader(database.Post{Title: "T", Url: "U"}, 80)
+	got := renderDetailHeader(database.Post{Title: "T", Url: "U"}, 80, 0)
 	if !strings.Contains(got, "Published: unknown") {
 		t.Errorf("missing unknown date fallback:\n%s", got)
 	}

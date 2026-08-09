@@ -2,6 +2,8 @@ package tui
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"gator-cli/internal/database"
 
@@ -10,6 +12,16 @@ import (
 )
 
 func Run(ctx context.Context, q *database.Queries, userID uuid.UUID) error {
-	_, err := tea.NewProgram(newModel(ctx, q, userID), tea.WithAltScreen()).Run()
-	return err
+	final, err := tea.NewProgram(newModel(ctx, q, userID, loadState()), tea.WithAltScreen()).Run()
+	if err != nil {
+		return err
+	}
+
+	// Neuspelo pamcenje stanja ne sme da obori komandu koja je inace prosla.
+	if m, ok := final.(model); ok {
+		if err := m.snapshot().save(); err != nil {
+			fmt.Fprintln(os.Stderr, "warning: could not save TUI state:", err)
+		}
+	}
+	return nil
 }
