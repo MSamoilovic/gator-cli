@@ -8,11 +8,10 @@ import (
 	"gator-cli/internal/database"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/google/uuid"
 )
 
-func Run(ctx context.Context, q *database.Queries, userID uuid.UUID) error {
-	final, err := tea.NewProgram(newModel(ctx, q, userID, loadState()), tea.WithAltScreen()).Run()
+func Run(ctx context.Context, q *database.Queries, user database.User) error {
+	final, err := tea.NewProgram(newModel(ctx, q, user, loadState()), tea.WithAltScreen()).Run()
 	if err != nil {
 		return err
 	}

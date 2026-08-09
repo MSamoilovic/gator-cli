@@ -19,6 +19,8 @@ var (
 
 	spinnerStyle = lipgloss.NewStyle().Foreground(accent)
 
+	userTagStyle = lipgloss.NewStyle().Foreground(muted)
+
 	emptyStateStyle = lipgloss.NewStyle().
 			Foreground(muted).
 			Padding(0, 2)

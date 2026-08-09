@@ -151,14 +151,12 @@ func (k keyMap) fullHelp() [][]key.Binding {
 	}
 }
 
-// Kratak help mora da stane u 80 kolona, pa nose samo najcesce akcije —
-// ostalo je iza "?".
-func (k keyMap) listHelp(withFeeds, canGoBack bool) []key.Binding {
+func (k keyMap) listHelp(withFeeds, inDerivedView bool) []key.Binding {
 	b := []key.Binding{k.Read, k.Open, k.Bookmark, k.Search}
 	if withFeeds {
 		b = append(b, k.Tab)
 	}
-	if canGoBack {
+	if inDerivedView {
 		b = append(b, k.Back)
 	}
 	return append(b, k.Help, k.Quit)

@@ -1,5 +1,3 @@
-// Package feeds drzi logiku nad feedovima koja treba i CLI handlerima i TUI-ju:
-// pracenje feeda i povlacenje postova sa mreze.
 package feeds
 
 import (
@@ -21,8 +19,6 @@ import (
 // pqUniqueViolation je Postgres kod za prekrsen unique constraint.
 const pqUniqueViolation = "23505"
 
-// Follow je idempotentan: ako korisnik vec prati feed, vraca created=false
-// bez greske (upit radi ON CONFLICT DO NOTHING).
 func Follow(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID) (row database.CreateFeedFollowRow, created bool, err error) {
 	rows, err := q.CreateFeedFollow(ctx, database.CreateFeedFollowParams{
 		ID:        uuid.New(),
@@ -40,12 +36,6 @@ func Follow(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID) 
 	return rows[0], true, nil
 }
 
-// Add upisuje feed i odmah ga zaprati. URL se validira tako sto se feed
-// stvarno povuce — inace bi u bazi zavrsio URL koji nikad nista ne vrati.
-// Prazno ime se preuzima iz <title> samog feeda.
-//
-// Vec postojeci URL nije greska: created=false znaci da je feed zatecen u
-// bazi i samo zapracen, sto je ono sto korisnik i ocekuje.
 func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url string) (feed database.Feed, created bool, err error) {
 	rssFeed, err := rss.FetchFeed(ctx, url)
 	if err != nil {
@@ -84,7 +74,6 @@ func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url s
 	return feed, created, nil
 }
 
-// Result je ishod jednog feeda u okviru jednog prolaza.
 type Result struct {
 	Feed  database.Feed
 	Items int
@@ -92,9 +81,6 @@ type Result struct {
 	Err   error
 }
 
-// ScrapeAll povlaci sve feedove kojima je isteklo vreme, po jedan goroutine.
-// onResult se, ako nije nil, poziva za svaki zavrsen feed — serijalizovano,
-// pa pozivalac ne mora da brine o sinhronizaciji.
 func ScrapeAll(ctx context.Context, q *database.Queries, onResult func(Result)) ([]Result, error) {
 	feeds, err := q.GetFeedsToFetch(ctx)
 	if err != nil {
@@ -126,8 +112,6 @@ func ScrapeAll(ctx context.Context, q *database.Queries, onResult func(Result)) 
 	return results, nil
 }
 
-// Scrape povlaci jedan feed i upisuje nove postove. Duplikati se preskacu:
-// isti post u sledecem prolazu je ocekivan, ne greska.
 func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result {
 	res := Result{Feed: feed}
 
@@ -181,8 +165,6 @@ var pubDateFormats = []string{
 	"02 Jan 2006 15:04:05 MST",
 }
 
-// ParsePubDate prihvata formate koje feedovi stvarno koriste; nepoznat format
-// nije greska, samo nepoznat datum.
 func ParsePubDate(s string) sql.NullTime {
 	for _, layout := range pubDateFormats {
 		if t, err := time.Parse(layout, s); err == nil {

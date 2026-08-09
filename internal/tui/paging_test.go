@@ -9,7 +9,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/google/uuid"
 )
 
 func fullPage(prefix string) []database.Post {
@@ -22,7 +21,7 @@ func fullPage(prefix string) []database.Post {
 
 func loaded(t *testing.T, posts []database.Post) model {
 	t.Helper()
-	m, _ := step(t, newModel(t.Context(), nil, uuid.Nil, uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
 	m, _ = step(t, m, postsLoadedMsg{posts: posts, paged: true})
 	return m
 }

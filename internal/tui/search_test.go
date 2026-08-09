@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/google/uuid"
 )
 
 func typeText(t *testing.T, m model, text string) model {
@@ -174,7 +173,7 @@ func TestSearchCtrlCQuits(t *testing.T) {
 }
 
 func TestSpinnerShownWhileLoading(t *testing.T) {
-	m, _ := step(t, newModel(t.Context(), nil, uuid.Nil, uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
 
 	if !strings.Contains(m.View(), "Loading posts") {
 		t.Errorf("loading view missing:\n%s", m.View())
