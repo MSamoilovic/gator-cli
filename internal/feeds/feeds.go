@@ -74,6 +74,71 @@ func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url s
 	return feed, created, nil
 }
 
+// Entry je jedan feed koji treba dodati. Ime je opciono, isto kao kod Add —
+// prazno znaci "uzmi <title> iz samog feeda".
+type Entry struct {
+	Name string
+	URL  string
+}
+
+type AddResult struct {
+	Entry   Entry
+	Feed    database.Feed
+	Created bool
+	Err     error
+}
+
+// maxParallelAdds ogranicava koliko se feedova povlaci istovremeno. Add za
+// svaki radi HTTP zahtev, pa katalog od sto unosa ne sme da otvori sto veza.
+const maxParallelAdds = 8
+
+// AddMany doda i zaprati sve unose. Jedan mrtav URL ne obara ostale — greska
+// zavrsi u AddResult.Err, a posao ide dalje.
+func AddMany(ctx context.Context, q *database.Queries, userID uuid.UUID, entries []Entry, onResult func(AddResult)) []AddResult {
+	return addAll(ctx, entries, maxParallelAdds, onResult, func(ctx context.Context, e Entry) AddResult {
+		feed, created, err := Add(ctx, q, userID, e.Name, e.URL)
+		return AddResult{Entry: e, Feed: feed, Created: created, Err: err}
+	})
+}
+
+// addAll pusti add nad svakim unosom paralelno, ali upisuje rezultat po
+// indeksu — izlaz prati redosled ulaza. (ScrapeAll koristi append pod mutexom,
+// pa je tamo redosled nedeterministican.) Mutex ovde cuva samo onResult.
+func addAll(ctx context.Context, entries []Entry, limit int, onResult func(AddResult), add func(context.Context, Entry) AddResult) []AddResult {
+	if limit < 1 {
+		limit = 1
+	}
+
+	var (
+		results = make([]AddResult, len(entries))
+		sem     = make(chan struct{}, limit)
+		mu      sync.Mutex
+		wg      sync.WaitGroup
+	)
+
+	for i, e := range entries {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			res := add(ctx, e)
+			results[i] = res
+
+			if onResult != nil {
+				mu.Lock()
+				defer mu.Unlock()
+				onResult(res)
+			}
+		}()
+	}
+	wg.Wait()
+
+	return results
+}
+
 type Result struct {
 	Feed  database.Feed
 	Items int

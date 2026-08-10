@@ -1,0 +1,180 @@
+{
+  "categories": [
+    {
+      "id": "news",
+      "label": "World news",
+      "feeds": [
+        { "name": "BBC News", "url": "https://feeds.bbci.co.uk/news/rss.xml" },
+        { "name": "Guardian World", "url": "https://www.theguardian.com/world/rss" },
+        { "name": "NPR News", "url": "https://feeds.npr.org/1001/rss.xml" },
+        { "name": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml" },
+        { "name": "Sky News", "url": "https://feeds.skynews.com/feeds/rss/world.xml" },
+        { "name": "CBS News", "url": "https://www.cbsnews.com/latest/rss/world" }
+      ]
+    },
+    {
+      "id": "tech",
+      "label": "Tech",
+      "feeds": [
+        { "name": "Ars Technica", "url": "https://arstechnica.com/feed/" },
+        { "name": "Hacker News RSS", "url": "https://hnrss.org/newest" },
+        { "name": "Lobsters", "url": "https://lobste.rs/rss" },
+        { "name": "TechCrunch", "url": "https://techcrunch.com/feed/" },
+        { "name": "Wired", "url": "https://www.wired.com/feed/rss" },
+        { "name": "Engadget", "url": "https://www.engadget.com/rss.xml" },
+        { "name": "MIT Technology Review", "url": "https://www.technologyreview.com/feed/" },
+        { "name": "HackerNoon", "url": "https://hackernoon.com/feed" }
+      ]
+    },
+    {
+      "id": "programming",
+      "label": "Programming",
+      "feeds": [
+        { "name": "The GitHub Blog", "url": "https://github.blog/feed/" },
+        { "name": "Stack Overflow Blog", "url": "https://stackoverflow.blog/feed/" },
+        { "name": "Cloudflare Blog", "url": "https://blog.cloudflare.com/rss/" },
+        { "name": "Netflix Tech Blog", "url": "https://netflixtechblog.com/feed" },
+        { "name": "InfoQ", "url": "https://feed.infoq.com/" },
+        { "name": "DEV Community", "url": "https://dev.to/feed" },
+        { "name": "freeCodeCamp", "url": "https://www.freecodecamp.org/news/rss/" },
+        { "name": "Smashing Magazine", "url": "https://www.smashingmagazine.com/feed/" },
+        { "name": "CSS-Tricks", "url": "https://css-tricks.com/feed/" }
+      ]
+    },
+    {
+      "id": "linux",
+      "label": "Linux & open source",
+      "feeds": [
+        { "name": "Phoronix", "url": "https://www.phoronix.com/rss.php" },
+        { "name": "LWN.net", "url": "https://lwn.net/headlines/newrss" },
+        { "name": "It's FOSS", "url": "https://itsfoss.com/rss/" },
+        { "name": "OMG! Ubuntu", "url": "https://www.omgubuntu.co.uk/feed" },
+        { "name": "Linux Journal", "url": "https://www.linuxjournal.com/node/feed" }
+      ]
+    },
+    {
+      "id": "security",
+      "label": "Security",
+      "feeds": [
+        { "name": "Krebs on Security", "url": "https://krebsonsecurity.com/feed/" },
+        { "name": "BleepingComputer", "url": "https://www.bleepingcomputer.com/feed/" },
+        { "name": "The Hacker News", "url": "https://feeds.feedburner.com/TheHackersNews" },
+        { "name": "Dark Reading", "url": "https://www.darkreading.com/rss.xml" }
+      ]
+    },
+    {
+      "id": "science",
+      "label": "Science",
+      "feeds": [
+        { "name": "Phys.org", "url": "https://phys.org/rss-feed/" },
+        { "name": "ScienceDaily", "url": "https://www.sciencedaily.com/rss/all.xml" },
+        { "name": "Quanta Magazine", "url": "https://api.quantamagazine.org/feed/" },
+        { "name": "New Scientist", "url": "https://www.newscientist.com/feed/home/" }
+      ]
+    },
+    {
+      "id": "space",
+      "label": "Space & astronomy",
+      "feeds": [
+        { "name": "NASA", "url": "https://www.nasa.gov/rss/dyn/breaking_news.rss" },
+        { "name": "ESA", "url": "https://www.esa.int/rssfeed/Our_Activities/Space_News" },
+        { "name": "Space.com", "url": "https://www.space.com/feeds/all" },
+        { "name": "Universe Today", "url": "https://www.universetoday.com/feed/" },
+        { "name": "Sky & Telescope", "url": "https://skyandtelescope.org/feed/" }
+      ]
+    },
+    {
+      "id": "business",
+      "label": "Business & markets",
+      "feeds": [
+        { "name": "Financial Times", "url": "https://www.ft.com/rss/home" },
+        { "name": "CNBC", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html" },
+        { "name": "MarketWatch", "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories" },
+        { "name": "Guardian Business", "url": "https://www.theguardian.com/uk/business/rss" },
+        { "name": "Fortune", "url": "https://fortune.com/feed/" }
+      ]
+    },
+    {
+      "id": "sport",
+      "label": "Sport",
+      "feeds": [
+        { "name": "BBC Sport", "url": "https://feeds.bbci.co.uk/sport/rss.xml" },
+        { "name": "BBC Football", "url": "https://feeds.bbci.co.uk/sport/football/rss.xml" },
+        { "name": "ESPN", "url": "https://www.espn.com/espn/rss/news" },
+        { "name": "Sky Sports", "url": "https://www.skysports.com/rss/12040" },
+        { "name": "CBS Sports", "url": "https://www.cbssports.com/rss/headlines/" },
+        { "name": "Guardian Sport", "url": "https://www.theguardian.com/sport/rss" },
+        { "name": "Guardian Football", "url": "https://www.theguardian.com/football/rss" }
+      ]
+    },
+    {
+      "id": "gaming",
+      "label": "Gaming",
+      "feeds": [
+        { "name": "IGN", "url": "https://feeds.feedburner.com/ign/all" },
+        { "name": "Polygon", "url": "https://www.polygon.com/rss/index.xml" },
+        { "name": "Kotaku", "url": "https://kotaku.com/rss" },
+        { "name": "Eurogamer", "url": "https://www.eurogamer.net/feed" },
+        { "name": "PC Gamer", "url": "https://www.pcgamer.com/rss/" },
+        { "name": "Rock Paper Shotgun", "url": "https://www.rockpapershotgun.com/feed" },
+        { "name": "GameSpot", "url": "https://www.gamespot.com/feeds/news/" },
+        { "name": "Nintendo Life", "url": "https://www.nintendolife.com/feeds/latest" }
+      ]
+    },
+    {
+      "id": "film",
+      "label": "Film & TV",
+      "feeds": [
+        { "name": "Variety", "url": "https://variety.com/feed/" },
+        { "name": "The Hollywood Reporter", "url": "https://www.hollywoodreporter.com/feed/" },
+        { "name": "/Film", "url": "https://www.slashfilm.com/feed/" },
+        { "name": "Collider", "url": "https://collider.com/feed/" },
+        { "name": "IndieWire", "url": "https://www.indiewire.com/feed/" },
+        { "name": "Screen Rant", "url": "https://screenrant.com/feed/" }
+      ]
+    },
+    {
+      "id": "comics",
+      "label": "Comics",
+      "feeds": [
+        { "name": "CBR", "url": "https://www.cbr.com/feed/" },
+        { "name": "Comics Beat", "url": "https://www.comicsbeat.com/feed/" },
+        { "name": "Bleeding Cool", "url": "https://bleedingcool.com/feed/" },
+        { "name": "ComicBook.com", "url": "https://comicbook.com/feed/" }
+      ]
+    },
+    {
+      "id": "scifi",
+      "label": "Sci-fi & fantasy",
+      "feeds": [
+        { "name": "io9", "url": "https://io9.gizmodo.com/rss" },
+        { "name": "Reactor", "url": "https://reactormag.com/feed/" },
+        { "name": "Clarkesworld", "url": "https://clarkesworldmagazine.com/feed/" },
+        { "name": "Uncanny Magazine", "url": "https://www.uncannymagazine.com/feed/" },
+        { "name": "Strange Horizons", "url": "https://strangehorizons.com/feed/" },
+        { "name": "Escape Pod", "url": "https://escapepod.org/feed/" }
+      ]
+    },
+    {
+      "id": "music",
+      "label": "Music",
+      "feeds": [
+        { "name": "Pitchfork", "url": "https://pitchfork.com/feed/feed-news/rss" },
+        { "name": "Stereogum", "url": "https://www.stereogum.com/feed/" },
+        { "name": "Consequence", "url": "https://consequence.net/feed/" },
+        { "name": "NME", "url": "https://www.nme.com/feed" },
+        { "name": "Rolling Stone", "url": "https://www.rollingstone.com/music/feed/" }
+      ]
+    },
+    {
+      "id": "food",
+      "label": "Food & cooking",
+      "feeds": [
+        { "name": "Bon Appétit", "url": "https://www.bonappetit.com/feed/rss" },
+        { "name": "BBC Good Food", "url": "https://www.bbcgoodfood.com/feed" },
+        { "name": "The Kitchn", "url": "https://www.thekitchn.com/main.rss" },
+        { "name": "Smitten Kitchen", "url": "https://smittenkitchen.com/feed/" }
+      ]
+    }
+  ]
+}
