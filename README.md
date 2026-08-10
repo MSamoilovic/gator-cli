@@ -65,6 +65,20 @@ gator login <username>      # log in as an existing user
 gator users                 # list all users
 ```
 
+### Finding feeds to follow (extra)
+
+Don't know any RSS URLs? The binary ships with a curated catalog:
+
+```bash
+gator discover                      # list categories, with how many you already follow
+gator discover tech                 # show the feeds in one category (✓ = already followed)
+gator discover --add tech,sport     # add and follow every feed in those categories
+```
+
+Feeds are fetched in parallel and validated before they are stored, so a dead
+URL in one category does not stop the rest. Running it twice is safe — a feed
+you already follow is reported as *already known*, not as an error.
+
 ### Managing feeds
 
 ```bash
