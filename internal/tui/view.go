@@ -14,7 +14,9 @@ func (m model) View() string {
 		return "Error: " + m.err.Error() + "\n\nPress q to quit.\n"
 	case m.loading:
 		return "\n  " + m.spinner.View() + " Loading posts...\n"
-	case m.showDetail:
+	case m.screen == screenCatalog:
+		return m.catalogView()
+	case m.screen == screenDetail:
 		return m.detailView()
 	default:
 		return m.panelsView()
@@ -57,7 +59,7 @@ func (m model) emptyStateText() string {
 	case m.query != "":
 		return "No posts match " + strconv.Quote(m.query) + ".\nPress esc to go back."
 	case m.feedsLoaded && m.feedCount == 0:
-		return "You are not following any feeds.\nAdd one with: gator addfeed <name> <url>"
+		return "You are not following any feeds.\nPress tab, then c to pick from the catalog."
 	case m.feedName != "":
 		return "No posts stored for " + m.feedName + " yet.\nFetch some with: gator agg 15m"
 	default:
@@ -77,7 +79,9 @@ func (m model) detailView() string {
 
 func (m model) currentBindings() []key.Binding {
 	switch {
-	case m.showDetail:
+	case m.screen == screenCatalog:
+		return m.keys.catalogHelp()
+	case m.screen == screenDetail:
 		return m.keys.detailHelp()
 	case m.focus == focusFeeds:
 		return m.keys.feedsHelp()
@@ -147,12 +151,13 @@ func (m *model) resize(w, h int) {
 
 	panelHeight := max(h-m.footerHeight(), 1)
 	m.feedList.SetSize(m.feedWidth, panelHeight)
+	m.catalogList.SetSize(w, panelHeight)
 	m.list.SetSize(max(postsWidth, 1), panelHeight)
 	m.prompt.Width = max(w-len(m.prompt.Prompt)-1, 1)
 
 	m.viewport.Width = w
 	m.viewport.Height = max(h-detailChromeHeight-m.footerHeight()+1, 1)
-	if m.showDetail {
+	if m.screen == screenDetail {
 		m.viewport.SetContent(renderDetailBody(m.selected, m.viewport.Width))
 	}
 	m.applyFocus()
