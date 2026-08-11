@@ -146,7 +146,7 @@ func TestActionKeysWorkInDetail(t *testing.T) {
 	m := ready(t, post)
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
-	if !m.showDetail {
+	if m.screen != screenDetail {
 		t.Fatal("detail did not open")
 	}
 
@@ -154,7 +154,7 @@ func TestActionKeysWorkInDetail(t *testing.T) {
 	if cmd == nil {
 		t.Error("b did not trigger a command in detail")
 	}
-	if !next.showDetail {
+	if next.screen != screenDetail {
 		t.Error("b closed the detail view")
 	}
 
@@ -162,7 +162,7 @@ func TestActionKeysWorkInDetail(t *testing.T) {
 	if cmd == nil {
 		t.Error("o did not trigger a command in detail")
 	}
-	if !next.showDetail {
+	if next.screen != screenDetail {
 		t.Error("o closed the detail view")
 	}
 }

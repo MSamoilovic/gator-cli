@@ -104,7 +104,7 @@ func TestEnterOpensDetailAndEscCloses(t *testing.T) {
 	m := ready(t, testPost("Prvi"), testPost("Drugi"))
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
-	if !m.showDetail {
+	if m.screen != screenDetail {
 		t.Fatal("enter did not open detail")
 	}
 	if got, want := m.selected.Title, "Prvi"; got != want {
@@ -122,7 +122,7 @@ func TestEnterOpensDetailAndEscCloses(t *testing.T) {
 	}
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEsc})
-	if m.showDetail {
+	if m.screen == screenDetail {
 		t.Error("esc did not close detail")
 	}
 }
@@ -131,7 +131,7 @@ func TestEnterOnEmptyListDoesNothing(t *testing.T) {
 	m := ready(t)
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
-	if m.showDetail {
+	if m.screen == screenDetail {
 		t.Error("detail opened with no posts")
 	}
 }
@@ -159,7 +159,7 @@ func TestDetailKeysDoNotMoveList(t *testing.T) {
 	if got := m.list.Index(); got != before {
 		t.Errorf("list index moved while in detail: %d, want %d", got, before)
 	}
-	if !m.showDetail {
+	if m.screen != screenDetail {
 		t.Error("detail closed unexpectedly")
 	}
 }
