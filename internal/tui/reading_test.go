@@ -154,7 +154,7 @@ func TestNextAndPrevMoveThroughPostsInDetail(t *testing.T) {
 	if got, want := m.selected.Title, "Drugi"; got != want {
 		t.Errorf("after n selected = %q, want %q", got, want)
 	}
-	if !m.showDetail {
+	if m.screen != screenDetail {
 		t.Error("n closed the detail view")
 	}
 	if cmd == nil {

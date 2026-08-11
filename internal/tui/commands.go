@@ -45,7 +45,12 @@ type (
 		created bool
 	}
 	feedUnfollowMsg struct{ name string }
-	scrapedMsg      struct {
+	catalogAddedMsg struct {
+		added  int
+		known  int
+		failed int
+	}
+	scrapedMsg struct {
 		feeds  int
 		saved  int
 		failed int
@@ -228,6 +233,26 @@ func addFeed(ctx context.Context, q *database.Queries, userID uuid.UUID, url str
 			return errMsg{err}
 		}
 		return feedAddedMsg{name: feed.Name, created: created}
+	}
+}
+
+// addCatalogFeeds povlaci sve izabrane feedove u jednoj komandi. Napredak po
+// feedu se ne prikazuje: onResult se zove iz goroutine, a za slanje poruke u
+// petlju treba tea.Program.Send, sto tea.Cmd ne moze sam.
+func addCatalogFeeds(ctx context.Context, q *database.Queries, userID uuid.UUID, entries []feeds.Entry) tea.Cmd {
+	return func() tea.Msg {
+		var msg catalogAddedMsg
+		for _, r := range feeds.AddMany(ctx, q, userID, entries, nil) {
+			switch {
+			case r.Err != nil:
+				msg.failed++
+			case r.Created:
+				msg.added++
+			default:
+				msg.known++
+			}
+		}
+		return msg
 	}
 }
 

@@ -117,7 +117,7 @@ func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Help):
 		return m.toggleHelp()
 	case key.Matches(msg, m.keys.Back), msg.String() == "q":
-		m.showDetail = false
+		m.screen = screenList
 		return m, nil
 	}
 
@@ -156,6 +156,9 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.AddFeed):
 		return m, m.startInput(inputAddFeed, "feed url: ")
+
+	case key.Matches(msg, m.keys.Catalog):
+		return m.openCatalog()
 
 	case key.Matches(msg, m.keys.Unfollow):
 		item, ok := m.feedList.SelectedItem().(feedItem)

@@ -231,7 +231,7 @@ func TestFullHelpInDetailKeepsLayoutExact(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 	m, _ = step(t, m, press("?"))
 
-	if !m.showDetail {
+	if m.screen != screenDetail {
 		t.Fatal("? closed the detail view")
 	}
 	if got, want := strings.Count(m.View(), "\n")+1, 24; got != want {

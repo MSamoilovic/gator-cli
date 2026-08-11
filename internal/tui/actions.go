@@ -99,7 +99,7 @@ func (m model) openSelected() (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	m.showDetail = true
+	m.screen = screenDetail
 	return m, m.openPost(item.post)
 }
 

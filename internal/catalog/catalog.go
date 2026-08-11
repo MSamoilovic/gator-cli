@@ -25,7 +25,6 @@ type Category struct {
 	Feeds []Feed `json:"feeds"`
 }
 
-
 var Categories = sync.OnceValues(func() ([]Category, error) {
 	var doc struct {
 		Categories []Category `json:"categories"`
@@ -35,7 +34,6 @@ var Categories = sync.OnceValues(func() ([]Category, error) {
 	}
 	return doc.Categories, nil
 })
-
 
 func Find(id string) (Category, error) {
 	cats, err := Categories()
@@ -52,7 +50,6 @@ func Find(id string) (Category, error) {
 	}
 	return Category{}, fmt.Errorf("unknown category %q (have: %s)", id, strings.Join(known, ", "))
 }
-
 
 func Resolve(ids []string) ([]Feed, error) {
 	var (

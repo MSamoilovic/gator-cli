@@ -98,6 +98,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		next, cmd := m.withStatus("Unfollowed " + msg.name)
 		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad())
 
+	case catalogAddedMsg:
+		next, cmd := m.withStatus(catalogSummary(msg))
+		if msg.added+msg.known == 0 {
+			return next, cmd
+		}
+		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad())
+
 	case scrapedMsg:
 		m.fetching = false
 		next, cmd := m.withStatus(scrapeSummary(msg))
@@ -131,7 +138,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateConfirm(msg)
 		case m.input != inputNone:
 			return m.updateInput(msg)
-		case m.showDetail:
+		case m.screen == screenCatalog:
+			return m.updateCatalog(msg)
+		case m.screen == screenDetail:
 			return m.updateDetail(msg)
 		case m.focus == focusFeeds:
 			return m.updateFeeds(msg)
@@ -192,7 +201,7 @@ func (m model) feedItems(feeds []database.GetFeedFollowsForUserRow) []list.Item 
 	items := make([]list.Item, 0, len(feeds)+1)
 	items = append(items, feedItem{id: uuid.Nil, name: allFeedsLabel, unread: m.unread})
 	for _, f := range feeds {
-		items = append(items, feedItem{id: f.FeedID, name: f.FeedName, unread: m.unread})
+		items = append(items, feedItem{id: f.FeedID, name: f.FeedName, url: f.FeedUrl, unread: m.unread})
 	}
 	return items
 }
@@ -210,6 +219,17 @@ func (m *model) applyRead(postID, feedID uuid.UUID, read bool) {
 	}
 	delete(m.reads, postID)
 	m.unread[feedID]++
+}
+
+func catalogSummary(msg catalogAddedMsg) string {
+	switch {
+	case msg.added+msg.known == 0:
+		return fmt.Sprintf("No feed could be added (%d failed)", msg.failed)
+	case msg.failed > 0:
+		return fmt.Sprintf("Following %d feeds · %d unreachable", msg.added+msg.known, msg.failed)
+	default:
+		return fmt.Sprintf("Following %d feeds — press R to fetch", msg.added+msg.known)
+	}
 }
 
 func scrapeSummary(msg scrapedMsg) string {
