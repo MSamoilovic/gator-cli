@@ -138,6 +138,7 @@ fresh; a missing or unreadable one is not an error.
 | `/` | Filter the loaded list by title |
 | `tab` | Switch between the feed and post panes |
 | `a` | Add a feed by URL (feed pane) |
+| `c` | Browse the catalog by interest (feed pane); `space` picks, `⏎` follows |
 | `d` | Unfollow the selected feed (feed pane) |
 | `esc` | Back from a post, or out of search results |
 | `?` | Expand the help |

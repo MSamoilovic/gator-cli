@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"fmt"
 	"strconv"
 
+	"gator-cli/internal/catalog"
 	"gator-cli/internal/database"
 
 	"github.com/google/uuid"
@@ -42,6 +44,7 @@ func (i postItem) FilterValue() string { return i.post.Title }
 type feedItem struct {
 	id     uuid.UUID
 	name   string
+	url    string
 	unread map[uuid.UUID]int
 }
 
@@ -53,3 +56,27 @@ func (i feedItem) Title() string {
 }
 func (i feedItem) Description() string { return "" }
 func (i feedItem) FilterValue() string { return i.name }
+
+// catalogItem je jedna kategorija u biracu. picked se, kao i markeri kod
+// postova, deli po referenci sa modelom — space menja mapu, ne stavku.
+type catalogItem struct {
+	cat      catalog.Category
+	picked   map[string]bool
+	followed int
+}
+
+func (i catalogItem) Title() string {
+	box := "[ ]"
+	if i.picked[i.cat.ID] {
+		box = "[x]"
+	}
+
+	counts := strconv.Itoa(len(i.cat.Feeds)) + " feeds"
+	if i.followed > 0 {
+		counts += ", " + strconv.Itoa(i.followed) + " followed"
+	}
+	return fmt.Sprintf("%s %-22s %s", box, i.cat.Label, counts)
+}
+
+func (i catalogItem) Description() string { return "" }
+func (i catalogItem) FilterValue() string { return i.cat.Label }

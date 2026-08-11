@@ -15,6 +15,8 @@ type keyMap struct {
 	Reload   key.Binding
 	Fetch    key.Binding
 	AddFeed  key.Binding
+	Catalog  key.Binding
+	Toggle   key.Binding
 	Unfollow key.Binding
 	Unread   key.Binding
 	AllRead  key.Binding
@@ -81,6 +83,14 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("a"),
 			key.WithHelp("a", "add feed"),
 		),
+		Catalog: key.NewBinding(
+			key.WithKeys("c"),
+			key.WithHelp("c", "catalog"),
+		),
+		Toggle: key.NewBinding(
+			key.WithKeys(" "),
+			key.WithHelp("space", "pick"),
+		),
 		Unfollow: key.NewBinding(
 			key.WithKeys("d"),
 			key.WithHelp("d", "unfollow"),
@@ -146,7 +156,7 @@ func (k keyMap) fullHelp() [][]key.Binding {
 		{k.Open, k.Bookmark, k.Saved, k.Sort},
 		{k.Unread, k.AllRead, k.OnlyNew, k.Since},
 		{k.Search, k.Filter, k.Copy, k.Tab},
-		{k.Reload, k.Fetch, k.AddFeed, k.Unfollow},
+		{k.Reload, k.Fetch, k.AddFeed, k.Unfollow, k.Catalog},
 		{k.Next, k.Prev, k.Help, k.Quit},
 	}
 }
@@ -163,7 +173,11 @@ func (k keyMap) listHelp(withFeeds, inDerivedView bool) []key.Binding {
 }
 
 func (k keyMap) feedsHelp() []key.Binding {
-	return []key.Binding{k.Select, k.AddFeed, k.Unfollow, k.Tab, k.Help, k.Quit}
+	return []key.Binding{k.Select, k.AddFeed, k.Catalog, k.Unfollow, k.Tab, k.Help, k.Quit}
+}
+
+func (k keyMap) catalogHelp() []key.Binding {
+	return []key.Binding{k.Up, k.Down, k.Toggle, k.Select, k.Back, k.Quit}
 }
 
 func (k keyMap) detailHelp() []key.Binding {
