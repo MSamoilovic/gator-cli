@@ -3,73 +3,39 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"os"
+
+	"gator-cli/internal/cli"
 	"gator-cli/internal/config"
 	"gator-cli/internal/database"
-	"os"
 
 	_ "github.com/lib/pq"
 )
 
-type state struct {
-	Db  *database.Queries
-	Cfg *config.Config
+func main() {
+	// Sav izlaz iz main-a ide kroz run, da bi defer db.Close() stigao da se
+	// izvrsi i kad komanda padne — os.Exit ne pokrece odlozene pozive.
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
-func main() {
-
+func run() error {
 	cfg, err := config.Read()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "error reading config:", err)
-		os.Exit(1)
+		return fmt.Errorf("reading config: %w", err)
 	}
 
 	db, err := sql.Open("postgres", cfg.DBURL)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "error opening database:", err)
-		os.Exit(1)
+		return fmt.Errorf("opening database: %w", err)
 	}
 	defer db.Close()
 
 	if err := db.Ping(); err != nil {
-		fmt.Fprintln(os.Stderr, "error connecting to database:", err)
-		os.Exit(1)
+		return fmt.Errorf("connecting to database: %w", err)
 	}
 
-	s := state{Cfg: &cfg, Db: database.New(db)}
-
-	cmds := commands{registeredCommands: make(map[string]func(*state, command) error)}
-	cmds.register("login", handlerLogin)
-	cmds.register("register", handlerRegister)
-	cmds.register("reset", handlerReset)
-	cmds.register("users", handlerUsers)
-	cmds.register("agg", handlerAgg)
-	cmds.register("supervise", handlerSupervise)
-
-	cmds.register("discover", middlewareLoggedIn(handlerDiscover))
-	cmds.register("addfeed", middlewareLoggedIn(handlerAddFeed))
-	cmds.register("feeds", handlerFeeds)
-	cmds.register("follow", middlewareLoggedIn(handlerFollow))
-	cmds.register("following", middlewareLoggedIn(handlerFollowing))
-	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))
-	cmds.register("browse", middlewareLoggedIn(handlerBrowse))
-	cmds.register("bookmark", middlewareLoggedIn(handlerBookmark))
-	cmds.register("unbookmark", middlewareLoggedIn(handlerUnbookmark))
-	cmds.register("bookmarks", middlewareLoggedIn(handlerBookmarks))
-	cmds.register("search", middlewareLoggedIn(handlerSearch))
-	cmds.register("tui", middlewareLoggedIn(handlerTUI))
-
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: gator <command> [args...]")
-		os.Exit(1)
-	}
-
-	cmd := command{
-		Name: os.Args[1],
-		Args: os.Args[2:],
-	}
-
-	if err := cmds.run(&s, cmd); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	return cli.Run(&cfg, database.New(db), os.Args[1:])
 }
