@@ -13,8 +13,7 @@ import (
 )
 
 func main() {
-	// Sav izlaz iz main-a ide kroz run, da bi defer db.Close() stigao da se
-	// izvrsi i kad komanda padne — os.Exit ne pokrece odlozene pozive.
+	
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
