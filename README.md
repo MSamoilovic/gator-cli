@@ -70,7 +70,8 @@ gator users                 # list all users
 Don't know any RSS URLs? The binary ships with a curated catalog:
 
 ```bash
-gator discover                      # list categories, with how many you already follow
+gator discover                      # interactive picker: space to pick, ⏎ to follow
+gator discover --no-tui             # list the categories instead (also what a pipe gets)
 gator discover tech                 # show the feeds in one category (✓ = already followed)
 gator discover --add tech,sport     # add and follow every feed in those categories
 ```

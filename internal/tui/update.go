@@ -32,6 +32,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.feedsLoaded = true
 		m.feedCount = len(msg.feeds)
 		cmd := m.feedList.SetItems(m.feedItems(msg.feeds))
+
+		// Katalog se otvara tek ovde, ne u Init: openCatalog cita feed listu
+		// da bi znao sta se vec prati, a ona do sada nije bila ucitana.
+		if m.openOnLoad {
+			m.openOnLoad = false
+			opened, openCmd := m.openCatalog()
+			m = opened
+			cmd = tea.Batch(cmd, openCmd)
+		}
 		return m.selectStoredFeed(cmd)
 
 	case readsLoadedMsg:

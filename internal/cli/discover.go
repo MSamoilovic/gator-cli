@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"gator-cli/internal/catalog"
 	"gator-cli/internal/database"
 	"gator-cli/internal/feeds"
+	"gator-cli/internal/tui"
 
 	"github.com/google/uuid"
 )
@@ -18,6 +19,7 @@ import (
 func handlerDiscover(s *state, cmd command, user database.User) error {
 	fs := flag.NewFlagSet("discover", flag.ContinueOnError)
 	add := fs.String("add", "", "comma-separated categories to add and follow")
+	noTUI := fs.Bool("no-tui", false, "print the catalog instead of opening the picker")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
 	}
@@ -30,11 +32,16 @@ func handlerDiscover(s *state, cmd command, user database.User) error {
 
 	switch args := fs.Args(); len(args) {
 	case 0:
+		// Isti dogovor kao kod browse: interaktivni terminal dobija TUI,
+		// pipe i --no-tui dobijaju plain ispis.
+		if !*noTUI && stdoutIsTerminal() {
+			return tui.RunCatalog(ctx, s.Db, user)
+		}
 		return listCategories(ctx, s, user)
 	case 1:
 		return listCategoryFeeds(ctx, s, user, args[0])
 	default:
-		return fmt.Errorf("usage: discover [category] | discover --add <category,...>")
+		return fmt.Errorf("usage: discover [category] | discover --add <category,...> [--no-tui]")
 	}
 }
 

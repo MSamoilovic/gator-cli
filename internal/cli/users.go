@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -26,8 +26,25 @@ func handlerLogin(s *state, cmd command) error {
 	}
 
 	fmt.Printf("User %s logged on\n", s.Cfg.CurrentUserName)
+	printNextStep(s, dbUser)
 
 	return nil
+}
+
+// printNextStep kaze sta dalje, jer je „ulogovan si" beskorisno korisniku koji
+// jos ne prati nijedan feed i ne zna nijedan RSS URL napamet. Greska se ovde
+// tiho ignorise — savet ne sme da obori komandu koja je vec prosla.
+func printNextStep(s *state, user database.User) {
+	follows, err := s.Db.GetFeedFollowsForUser(context.Background(), user.ID)
+	if err != nil {
+		return
+	}
+
+	if len(follows) == 0 {
+		fmt.Println("No feeds yet — pick some with: gator discover")
+		return
+	}
+	fmt.Printf("Following %d feeds — open the reader with: gator tui\n", len(follows))
 }
 
 func handlerUsers(s *state, _ command) error {
@@ -73,8 +90,8 @@ func handlerRegister(s *state, cmd command) error {
 	if err := s.Cfg.SetUsername(dbUser.Name); err != nil {
 		return fmt.Errorf("error setting username: %v", err)
 	}
-	fmt.Println("User created successfully")
 	fmt.Printf("User %s created\n", s.Cfg.CurrentUserName)
+	printNextStep(s, dbUser)
 
 	return nil
 }
