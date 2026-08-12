@@ -15,7 +15,7 @@ const catalogTitle = "Pick your interests"
 
 // openCatalog napuni birac iz ugradjenog kataloga. Izbor se svaki put pocinje
 // od nule — prosli izbor nema smisla pamtiti kad su feedovi vec zapraceni.
-func (m model) openCatalog() (tea.Model, tea.Cmd) {
+func (m model) openCatalog() (model, tea.Cmd) {
 	cats, err := catalog.Categories()
 	if err != nil {
 		return m.withStatus("Error: " + err.Error())

@@ -158,7 +158,8 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.startInput(inputAddFeed, "feed url: ")
 
 	case key.Matches(msg, m.keys.Catalog):
-		return m.openCatalog()
+		next, cmd := m.openCatalog()
+		return next, cmd
 
 	case key.Matches(msg, m.keys.Unfollow):
 		item, ok := m.feedList.SelectedItem().(feedItem)

@@ -225,6 +225,46 @@ func TestCatalogAddedReloadsFeeds(t *testing.T) {
 	}
 }
 
+// RunCatalog (`gator discover` na terminalu) startuje sa openOnLoad. Katalog
+// se sme otvoriti tek posle feedsLoadedMsg — pre toga feed lista je prazna, pa
+// bi svaka kategorija tvrdila da nijedan njen feed nije zapracen.
+func TestCatalogOpensAfterFeedsLoadWhenAskedTo(t *testing.T) {
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m.openOnLoad = true
+
+	if m.screen == screenCatalog {
+		t.Fatal("catalog opened before the feeds arrived")
+	}
+
+	first := firstCategory(t)
+	followed := testFeed(first.Feeds[0].Name)
+	followed.FeedUrl = first.Feeds[0].URL
+	m, _ = step(t, m, feedsLoadedMsg{feeds: []database.GetFeedFollowsForUserRow{followed}})
+
+	if m.screen != screenCatalog {
+		t.Fatal("catalog did not open once the feeds had loaded")
+	}
+	if m.openOnLoad {
+		t.Error("openOnLoad was not cleared, the catalog will reopen on every feed reload")
+	}
+
+	item, ok := m.catalogList.Items()[0].(catalogItem)
+	if !ok {
+		t.Fatal("first catalog item is not a catalogItem")
+	}
+	if got, want := item.followed, 1; got != want {
+		t.Errorf("followed count = %d, want %d — the catalog opened too early", got, want)
+	}
+}
+
+func TestCatalogStaysClosedWithoutTheFlag(t *testing.T) {
+	m := withFeeds(t, ready(t, testPost("Prvi")), testFeed("BBC Sport"))
+
+	if m.screen != screenList {
+		t.Error("plain gator tui opened straight into the catalog")
+	}
+}
+
 func TestEmptyStatePointsAtCatalog(t *testing.T) {
 	m := withFeeds(t, ready(t))
 

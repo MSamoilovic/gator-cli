@@ -96,6 +96,7 @@ type model struct {
 	statusToken int
 
 	input         inputMode
+	openOnLoad    bool
 	confirming    bool
 	fetching      bool
 	unreadOnly    bool
