@@ -23,13 +23,18 @@
         { "name": "Wired", "url": "https://www.wired.com/feed/rss" },
         { "name": "Engadget", "url": "https://www.engadget.com/rss.xml" },
         { "name": "MIT Technology Review", "url": "https://www.technologyreview.com/feed/" },
-        { "name": "HackerNoon", "url": "https://hackernoon.com/feed" }
+        { "name": "HackerNoon", "url": "https://hackernoon.com/feed" },
+        { "name": "Slashdot", "url": "https://rdf.slashdot.org/slashdot.rss" }
       ]
     },
     {
       "id": "programming",
       "label": "Programming",
       "feeds": [
+        { "name": "The Go Blog", "url": "https://go.dev/blog/feed.atom" },
+        { "name": "Rust Blog", "url": "https://blog.rust-lang.org/feed.xml" },
+        { "name": "Julia Evans", "url": "https://jvns.ca/atom.xml" },
+        { "name": "Martin Fowler", "url": "https://martinfowler.com/feed.atom" },
         { "name": "The GitHub Blog", "url": "https://github.blog/feed/" },
         { "name": "Stack Overflow Blog", "url": "https://stackoverflow.blog/feed/" },
         { "name": "Cloudflare Blog", "url": "https://blog.cloudflare.com/rss/" },
@@ -57,6 +62,7 @@
       "label": "Security",
       "feeds": [
         { "name": "Krebs on Security", "url": "https://krebsonsecurity.com/feed/" },
+        { "name": "Schneier on Security", "url": "https://www.schneier.com/feed/atom/" },
         { "name": "BleepingComputer", "url": "https://www.bleepingcomputer.com/feed/" },
         { "name": "The Hacker News", "url": "https://feeds.feedburner.com/TheHackersNews" },
         { "name": "Dark Reading", "url": "https://www.darkreading.com/rss.xml" }

@@ -226,6 +226,8 @@ var pubDateFormats = []string{
 	time.RFC3339,
 	"02 Jan 2006 15:04:05 -0700",
 	"02 Jan 2006 15:04:05 MST",
+	// RSS 1.0 feedovi cesto salju samo datum u dc:date (Nature).
+	time.DateOnly,
 }
 
 func ParsePubDate(s string) sql.NullTime {
