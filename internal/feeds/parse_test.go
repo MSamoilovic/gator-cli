@@ -31,6 +31,13 @@ func TestParsePubDate(t *testing.T) {
 			want:  time.Date(2006, time.January, 2, 15, 4, 5, 0, time.FixedZone("", -7*3600)),
 		},
 		{
+			// dc:date u RSS 1.0 feedovima zna da bude samo datum.
+			name:  "date only",
+			input: "2026-08-13",
+			valid: true,
+			want:  time.Date(2026, time.August, 13, 0, 0, 0, 0, time.UTC),
+		},
+		{
 			name:  "empty string",
 			input: "",
 			valid: false,

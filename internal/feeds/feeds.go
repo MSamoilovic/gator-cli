@@ -88,8 +88,7 @@ type AddResult struct {
 	Err     error
 }
 
-// maxParallelAdds ogranicava koliko se feedova povlaci istovremeno. Add za
-// svaki radi HTTP zahtev, pa katalog od sto unosa ne sme da otvori sto veza.
+
 const maxParallelAdds = 8
 
 // AddMany doda i zaprati sve unose. Jedan mrtav URL ne obara ostale — greska
@@ -221,13 +220,14 @@ func isDuplicate(err error) bool {
 	var pqErr *pq.Error
 	return errors.As(err, &pqErr) && pqErr.Code == pqUniqueViolation
 }
-
 var pubDateFormats = []string{
 	time.RFC1123Z,
 	time.RFC1123,
 	time.RFC3339,
 	"02 Jan 2006 15:04:05 -0700",
 	"02 Jan 2006 15:04:05 MST",
+	// RSS 1.0 feedovi cesto salju samo datum u dc:date (Nature).
+	time.DateOnly,
 }
 
 func ParsePubDate(s string) sql.NullTime {
