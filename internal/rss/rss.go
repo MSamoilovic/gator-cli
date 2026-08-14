@@ -26,10 +26,16 @@ type RSSFeed struct {
 }
 
 type RSSItem struct {
-	Title       string `xml:"title"`
-	Link        string `xml:"link"`
+	Title string `xml:"title"`
+	Link  string `xml:"link"`
+	// Description je posle parsiranja uvek najduzi tekst koji feed nudi:
+	// Content ako postoji, inace <description>. Vidi resolveBody.
 	Description string `xml:"description"`
-	PubDate     string `xml:"pubDate"`
+	// Content je <content:encoded>, gde vecina feedova salje ceo clanak dok u
+	// <description> stoji samo izvod. Namespace se navodi jer je <encoded>
+	// suvise obicno ime da bi se hvatalo po lokalnom delu.
+	Content string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
+	PubDate string `xml:"pubDate"`
 }
 
 // Atom (RFC 4287). Imena elemenata se poklapaju po lokalnom delu, pa namespace
@@ -77,11 +83,10 @@ func (a atomFeed) toRSS() *RSSFeed {
 	r.Channel.Item = make([]RSSItem, len(a.Entry))
 	for i, e := range a.Entry {
 		r.Channel.Item[i] = RSSItem{
-			Title: e.Title,
-			Link:  alternate(e.Link),
-			// Summary pre Content-a, da Atom feedovi daju isto sto i RSS
-			// description. Pun tekst je zasebna tema (ideas.md, tacka 1).
-			Description: firstNonEmpty(e.Summary, e.Content),
+			Title:       e.Title,
+			Link:        alternate(e.Link),
+			Description: e.Summary,
+			Content:     e.Content,
 			PubDate:     firstNonEmpty(e.Published, e.Updated),
 		}
 	}
@@ -101,6 +106,7 @@ type rdfFeed struct {
 		Title       string `xml:"title"`
 		Link        string `xml:"link"`
 		Description string `xml:"description"`
+		Content     string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
 		Date        string `xml:"date"` // dc:date
 	} `xml:"item"`
 }
@@ -117,6 +123,7 @@ func (f rdfFeed) toRSS() *RSSFeed {
 			Title:       it.Title,
 			Link:        it.Link,
 			Description: it.Description,
+			Content:     it.Content,
 			PubDate:     it.Date,
 		}
 	}
@@ -196,8 +203,21 @@ func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 		return nil, fmt.Errorf("parsing %s: unsupported feed format, root element is <%s>", feedURL, root)
 	}
 
+	resolveBody(feed)
 	unescapeString(feed)
 	return feed, nil
+}
+
+// resolveBody bira najduzi tekst koji feed nudi za svaku stavku. Vecina
+// feedova u <description> salje samo izvod, a ceo clanak u <content:encoded>
+// (Atom: <content>), pa detalj panel bez ovoga prikazuje dva pasusa umesto
+// teksta. Pravilo stoji ovde, a ne u feeds.Scrape, da bi sva tri formata
+// prolazila kroz isto.
+func resolveBody(f *RSSFeed) {
+	for i := range f.Channel.Item {
+		it := &f.Channel.Item[i]
+		it.Description = firstNonEmpty(it.Content, it.Description)
+	}
 }
 
 // rootElement vrati ime prvog elementa, ne citajuci ostatak dokumenta.
