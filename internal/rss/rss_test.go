@@ -217,6 +217,59 @@ func TestFetchFeedAtomFallsBackToContentAndUpdated(t *testing.T) {
 	}
 }
 
+// Vecina feedova u <description> salje izvod, a ceo tekst u <content:encoded>.
+// Kad su oba tu, pun tekst mora da pobedi.
+func TestFetchFeedPrefersContentEncoded(t *testing.T) {
+	body := `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <item>
+      <title>Both</title>
+      <description>Kratak izvod&#8230;</description>
+      <content:encoded><![CDATA[<p>Ceo tekst clanka.</p>]]></content:encoded>
+    </item>
+    <item>
+      <title>Only description</title>
+      <description>Samo izvod</description>
+    </item>
+  </channel>
+</rss>`
+	srv := serve(t, http.StatusOK, body)
+
+	feed, err := FetchFeed(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatalf("FetchFeed: %v", err)
+	}
+
+	if got, want := feed.Channel.Item[0].Description, "<p>Ceo tekst clanka.</p>"; got != want {
+		t.Errorf("description = %q, want %q — content:encoded must win", got, want)
+	}
+	if got, want := feed.Channel.Item[1].Description, "Samo izvod"; got != want {
+		t.Errorf("description = %q, want %q — description stays when there is no content", got, want)
+	}
+}
+
+func TestFetchFeedAtomPrefersContentOverSummary(t *testing.T) {
+	body := `<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <title>Both</title>
+    <summary>Kratak izvod</summary>
+    <content>Ceo tekst</content>
+  </entry>
+</feed>`
+	srv := serve(t, http.StatusOK, body)
+
+	feed, err := FetchFeed(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatalf("FetchFeed: %v", err)
+	}
+
+	if got, want := feed.Channel.Item[0].Description, "Ceo tekst"; got != want {
+		t.Errorf("description = %q, want %q — content must win over summary", got, want)
+	}
+}
+
 func TestFetchFeedParsesRSS1(t *testing.T) {
 	rdf := `<?xml version="1.0" encoding="ISO-8859-1"?>
 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
