@@ -139,32 +139,71 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
-func FetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
+// ErrNotModified znaci da je server odgovorio 304: feed se nije promenio od
+// proslog preuzimanja. Nije greska u radu nego ocekivan ishod, po ugledu na
+// io.EOF — pozivalac ga hvata sa errors.Is.
+var ErrNotModified = errors.New("feed not modified")
+
+// Validators su otisci verzije koje server salje uz feed. Cuvaju se i vracaju
+// doslovno: ETag je neprozirna niska, a Last-Modified bi se preformatiranjem
+// razisao sa onim sto server ocekuje.
+type Validators struct {
+	ETag         string
+	LastModified string
+}
+
+// FetchFeed preuzme i isparsira feed. Ako prev nije prazan, zahtev nosi uslovna
+// zaglavlja i server sme da odgovori 304 — tada se vraca ErrNotModified, feed je
+// nil, a prev se vraca nepromenjen da pozivalac ne bi obrisao ono sto ima.
+//
+// Trecina feedova ovo ne podrzava, a neki (Ars Technica) salju ETag pa ga
+// ignorisu, zato je 304 precica a ne pretpostavka: pun put mora da radi uvek.
+func FetchFeed(ctx context.Context, feedURL string, prev Validators) (*RSSFeed, Validators, error) {
 	httpClient := http.Client{
 		Timeout: 10 * time.Second,
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", feedURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, prev, err
 	}
 	req.Header.Set("User-Agent", "gator")
+	if prev.ETag != "" {
+		req.Header.Set("If-None-Match", prev.ETag)
+	}
+	if prev.LastModified != "" {
+		req.Header.Set("If-Modified-Since", prev.LastModified)
+	}
 
 	res, err := httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, prev, err
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode == http.StatusNotModified {
+		return nil, prev, ErrNotModified
+	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, fmt.Errorf("fetching %s: unexpected status %s", feedURL, res.Status)
+		return nil, prev, fmt.Errorf("fetching %s: unexpected status %s", feedURL, res.Status)
 	}
 
 	data, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", feedURL, err)
+		return nil, prev, fmt.Errorf("reading %s: %w", feedURL, err)
 	}
 
-	return parseFeed(data, feedURL)
+	feed, err := parseFeed(data, feedURL)
+	if err != nil {
+		return nil, prev, err
+	}
+
+	// Novi otisci vaze samo uz telo koje je upravo isparsirano; ako ih server ne
+	// salje, ostaje prazno i sledeci zahtev ide bezuslovno.
+	next := Validators{
+		ETag:         res.Header.Get("ETag"),
+		LastModified: res.Header.Get("Last-Modified"),
+	}
+	return feed, next, nil
 }
 
 // parseFeed prepozna format po korenskom elementu i sve svede na RSS 2.0

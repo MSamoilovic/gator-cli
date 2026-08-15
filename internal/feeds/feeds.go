@@ -37,7 +37,9 @@ func Follow(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID) 
 }
 
 func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url string) (feed database.Feed, created bool, err error) {
-	rssFeed, err := rss.FetchFeed(ctx, url)
+	// Bezuslovno: feed koji se tek dodaje nema sacuvane validatore, a i da ih
+	// ima, ovde nam treba telo da bi se izvuklo ime iz <title>.
+	rssFeed, _, err := rss.FetchFeed(ctx, url, rss.Validators{})
 	if err != nil {
 		return database.Feed{}, false, fmt.Errorf("not a usable RSS feed: %w", err)
 	}
@@ -139,10 +141,13 @@ func addAll(ctx context.Context, entries []Entry, limit int, onResult func(AddRe
 }
 
 type Result struct {
-	Feed  database.Feed
-	Items int
-	Saved int
-	Err   error
+	Feed database.Feed
+	// NotModified znaci da je server vratio 304 — nista nije preuzeto ni
+	// upisano, pa su Items i Saved nula, a to nije greska.
+	NotModified bool
+	Items       int
+	Saved       int
+	Err         error
 }
 
 func ScrapeAll(ctx context.Context, q *database.Queries, onResult func(Result)) ([]Result, error) {
@@ -184,11 +189,32 @@ func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result
 		return res
 	}
 
-	rssFeed, err := rss.FetchFeed(ctx, feed.Url)
-	if err != nil {
+	prev := rss.Validators{ETag: feed.Etag, LastModified: feed.LastModified}
+
+	rssFeed, next, err := rss.FetchFeed(ctx, feed.Url, prev)
+	switch {
+	case errors.Is(err, rss.ErrNotModified):
+		res.NotModified = true
+		return res
+	case err != nil:
 		res.Err = fmt.Errorf("fetching %s: %w", feed.Name, err)
 		return res
 	}
+
+	// Otisci se pamte tek posle uspesnog parsiranja: da su upisani ranije, feed
+	// koji vrati neispravan XML bi sledeci put dobio 304 i nikad se ne bi
+	// oporavio.
+	if next != prev {
+		if err := q.SaveFeedValidators(ctx, database.SaveFeedValidatorsParams{
+			ID:           feed.ID,
+			Etag:         next.ETag,
+			LastModified: next.LastModified,
+		}); err != nil {
+			res.Err = fmt.Errorf("saving validators for %s: %w", feed.Name, err)
+			return res
+		}
+	}
+
 	res.Items = len(rssFeed.Channel.Item)
 
 	for _, item := range rssFeed.Channel.Item {

@@ -203,11 +203,14 @@ func printPost(p database.Post) {
 
 func scrapeFeeds(s *state) {
 	_, err := feeds.ScrapeAll(context.Background(), s.Db, func(r feeds.Result) {
-		if r.Err != nil {
+		switch {
+		case r.Err != nil:
 			fmt.Fprintln(os.Stderr, "error:", r.Err)
-			return
+		case r.NotModified:
+			fmt.Printf("Unchanged: %s\n", r.Feed.Name)
+		default:
+			fmt.Printf("Fetched %d posts from %s (%d new)\n", r.Items, r.Feed.Name, r.Saved)
 		}
-		fmt.Printf("Fetched %d posts from %s (%d new)\n", r.Items, r.Feed.Name, r.Saved)
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

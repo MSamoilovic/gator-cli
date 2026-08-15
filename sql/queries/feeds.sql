@@ -23,6 +23,14 @@ UPDATE feeds
 SET last_fetched_at = NOW(), updated_at = NOW()
 WHERE id = $1;
 
+-- name: SaveFeedValidators :exec
+-- Odvojeno od MarkFeedFetched, koji se namerno izvrsava pre preuzimanja da feed
+-- koji stalno puca ne bi bio pokusavan u svakom krugu. Validatori se, naprotiv,
+-- znaju tek posle uspesnog odgovora.
+UPDATE feeds
+SET etag = $2, last_modified = $3, updated_at = NOW()
+WHERE id = $1;
+
 -- name: GetNextFeedToFetch :one
 SELECT * FROM feeds
 ORDER BY last_fetched_at ASC NULLS FIRST
