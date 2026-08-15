@@ -247,6 +247,8 @@ func scrapeSummary(msg scrapedMsg) string {
 		return "No feeds were due for a fetch"
 	case msg.failed > 0:
 		return fmt.Sprintf("Fetched %d new posts · %d feed(s) failed", msg.saved, msg.failed)
+	case msg.unchanged > 0:
+		return fmt.Sprintf("Fetched %d new posts · %d unchanged", msg.saved, msg.unchanged)
 	default:
 		return fmt.Sprintf("Fetched %d new posts from %d feeds", msg.saved, msg.feeds)
 	}

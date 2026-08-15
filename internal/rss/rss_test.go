@@ -2,6 +2,7 @@ package rss
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -28,6 +29,18 @@ const sampleFeed = `<?xml version="1.0" encoding="UTF-8"?>
   </channel>
 </rss>`
 
+// fetch je bezuslovno preuzimanje, sto je slucaj za vecinu testova ovde.
+// Uslovne zahteve testira TestFetchFeedConditional* nize.
+func fetch(t *testing.T, url string) (*RSSFeed, error) {
+	t.Helper()
+	return fetchCtx(t.Context(), url)
+}
+
+func fetchCtx(ctx context.Context, url string) (*RSSFeed, error) {
+	feed, _, err := FetchFeed(ctx, url, Validators{})
+	return feed, err
+}
+
 func serve(t *testing.T, status int, body string) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +57,7 @@ func serve(t *testing.T, status int, body string) *httptest.Server {
 func TestFetchFeed(t *testing.T) {
 	srv := serve(t, http.StatusOK, sampleFeed)
 
-	feed, err := FetchFeed(t.Context(), srv.URL)
+	feed, err := fetch(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -77,7 +90,7 @@ func TestFetchFeed(t *testing.T) {
 func TestFetchFeedMissingFieldsAreEmpty(t *testing.T) {
 	srv := serve(t, http.StatusOK, sampleFeed)
 
-	feed, err := FetchFeed(t.Context(), srv.URL)
+	feed, err := fetch(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -92,7 +105,7 @@ func TestFetchFeedMissingFieldsAreEmpty(t *testing.T) {
 func TestFetchFeedMalformedXML(t *testing.T) {
 	srv := serve(t, http.StatusOK, "<rss><channel><item></channel></rss>")
 
-	if _, err := FetchFeed(t.Context(), srv.URL); err == nil {
+	if _, err := fetch(t, srv.URL); err == nil {
 		t.Fatal("expected error for malformed XML, got nil")
 	}
 }
@@ -114,7 +127,7 @@ func TestFetchFeedDecodesNonUTF8(t *testing.T) {
 </channel></rss>`
 			srv := serve(t, http.StatusOK, body)
 
-			feed, err := FetchFeed(t.Context(), srv.URL)
+			feed, err := fetch(t, srv.URL)
 			if err != nil {
 				t.Fatalf("FetchFeed: %v", err)
 			}
@@ -132,7 +145,7 @@ func TestFetchFeedUnknownCharsetIsAnError(t *testing.T) {
 	body := `<?xml version="1.0" encoding="nepostojeci-charset"?><rss><channel></channel></rss>`
 	srv := serve(t, http.StatusOK, body)
 
-	_, err := FetchFeed(t.Context(), srv.URL)
+	_, err := fetch(t, srv.URL)
 	if err == nil {
 		t.Fatal("expected an error for an unknown charset, got nil")
 	}
@@ -166,7 +179,7 @@ const sampleAtom = `<?xml version="1.0" encoding="utf-8"?>
 func TestFetchFeedParsesAtom(t *testing.T) {
 	srv := serve(t, http.StatusOK, sampleAtom)
 
-	feed, err := FetchFeed(t.Context(), srv.URL)
+	feed, err := fetch(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -203,7 +216,7 @@ func TestFetchFeedParsesAtom(t *testing.T) {
 func TestFetchFeedAtomFallsBackToContentAndUpdated(t *testing.T) {
 	srv := serve(t, http.StatusOK, sampleAtom)
 
-	feed, err := FetchFeed(t.Context(), srv.URL)
+	feed, err := fetch(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -236,7 +249,7 @@ func TestFetchFeedPrefersContentEncoded(t *testing.T) {
 </rss>`
 	srv := serve(t, http.StatusOK, body)
 
-	feed, err := FetchFeed(t.Context(), srv.URL)
+	feed, err := fetch(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -260,7 +273,7 @@ func TestFetchFeedAtomPrefersContentOverSummary(t *testing.T) {
 </feed>`
 	srv := serve(t, http.StatusOK, body)
 
-	feed, err := FetchFeed(t.Context(), srv.URL)
+	feed, err := fetch(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -289,7 +302,7 @@ func TestFetchFeedParsesRSS1(t *testing.T) {
 </rdf:RDF>`
 	srv := serve(t, http.StatusOK, rdf)
 
-	feed, err := FetchFeed(t.Context(), srv.URL)
+	feed, err := fetch(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -313,7 +326,7 @@ func TestFetchFeedParsesRSS1(t *testing.T) {
 func TestFetchFeedUnsupportedRootIsNamed(t *testing.T) {
 	srv := serve(t, http.StatusOK, `<html><body>not a feed</body></html>`)
 
-	_, err := FetchFeed(t.Context(), srv.URL)
+	_, err := fetch(t, srv.URL)
 	if err == nil {
 		t.Fatal("expected an error for a non-feed document, got nil")
 	}
@@ -336,7 +349,7 @@ func TestFetchFeedHTTPError(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := serve(t, tc.status, `<rss version="2.0"><channel></channel></rss>`)
 
-			_, err := FetchFeed(t.Context(), srv.URL)
+			_, err := fetch(t, srv.URL)
 			if err == nil {
 				t.Fatal("expected error for non-2xx status, got nil")
 			}
@@ -350,7 +363,7 @@ func TestFetchFeedHTTPError(t *testing.T) {
 func TestFetchFeedEmptyChannelIsNotAnError(t *testing.T) {
 	srv := serve(t, http.StatusOK, `<rss version="2.0"><channel><title>Prazan</title></channel></rss>`)
 
-	feed, err := FetchFeed(t.Context(), srv.URL)
+	feed, err := fetch(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -365,13 +378,147 @@ func TestFetchFeedContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	if _, err := FetchFeed(ctx, srv.URL); err == nil {
+	if _, err := fetchCtx(ctx, srv.URL); err == nil {
 		t.Fatal("expected error for canceled context, got nil")
 	}
 }
 
 func TestFetchFeedBadURL(t *testing.T) {
-	if _, err := FetchFeed(t.Context(), "://not-a-url"); err == nil {
+	if _, err := fetch(t, "://not-a-url"); err == nil {
 		t.Fatal("expected error for invalid URL, got nil")
+	}
+}
+
+// --- uslovno preuzimanje -----------------------------------------------------
+
+// conditionalServer glumi server koji postuje uslovne zahteve: vraca 304 kad se
+// otisci poklope. Belezi zaglavlja svakog zahteva radi provere.
+func conditionalServer(t *testing.T, etag, lastMod, body string) (*httptest.Server, *[]http.Header) {
+	t.Helper()
+
+	var seen []http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.Header.Clone())
+
+		if (etag != "" && r.Header.Get("If-None-Match") == etag) ||
+			(lastMod != "" && r.Header.Get("If-Modified-Since") == lastMod) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		if etag != "" {
+			w.Header().Set("ETag", etag)
+		}
+		if lastMod != "" {
+			w.Header().Set("Last-Modified", lastMod)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &seen
+}
+
+func TestFetchFeedReturnsValidators(t *testing.T) {
+	const etag, lastMod = `"abc123"`, "Wed, 13 Aug 2026 09:00:00 GMT"
+	srv, seen := conditionalServer(t, etag, lastMod, sampleFeed)
+
+	feed, got, err := FetchFeed(t.Context(), srv.URL, Validators{})
+	if err != nil {
+		t.Fatalf("FetchFeed: %v", err)
+	}
+	if feed == nil {
+		t.Fatal("first fetch returned no feed")
+	}
+	if got.ETag != etag || got.LastModified != lastMod {
+		t.Errorf("validators = %+v, want ETag=%q LastModified=%q", got, etag, lastMod)
+	}
+
+	// Prvi zahtev nema sta da posalje, pa ne sme da nosi uslovna zaglavlja.
+	first := (*seen)[0]
+	if v := first.Get("If-None-Match"); v != "" {
+		t.Errorf("first request sent If-None-Match: %q", v)
+	}
+	if v := first.Get("If-Modified-Since"); v != "" {
+		t.Errorf("first request sent If-Modified-Since: %q", v)
+	}
+}
+
+func TestFetchFeedNotModified(t *testing.T) {
+	const etag, lastMod = `"abc123"`, "Wed, 13 Aug 2026 09:00:00 GMT"
+	srv, seen := conditionalServer(t, etag, lastMod, sampleFeed)
+
+	_, prev, err := FetchFeed(t.Context(), srv.URL, Validators{})
+	if err != nil {
+		t.Fatalf("first fetch: %v", err)
+	}
+
+	feed, got, err := FetchFeed(t.Context(), srv.URL, prev)
+	if !errors.Is(err, ErrNotModified) {
+		t.Fatalf("second fetch err = %v, want ErrNotModified", err)
+	}
+	if feed != nil {
+		t.Error("304 returned a feed; there is no body to parse")
+	}
+	// Validatori se vracaju nepromenjeni, inace bi ih pozivalac obrisao i
+	// sledeci zahtev bi opet bio bezuslovan.
+	if got != prev {
+		t.Errorf("validators after 304 = %+v, want them unchanged (%+v)", got, prev)
+	}
+
+	second := (*seen)[1]
+	if v := second.Get("If-None-Match"); v != etag {
+		t.Errorf("If-None-Match = %q, want %q", v, etag)
+	}
+	if v := second.Get("If-Modified-Since"); v != lastMod {
+		t.Errorf("If-Modified-Since = %q, want %q", v, lastMod)
+	}
+}
+
+// Trecina feedova ne salje otiske uopste. Tada se ide bezuslovno i sve mora da
+// radi kao i pre.
+func TestFetchFeedWithoutValidatorsStaysUnconditional(t *testing.T) {
+	srv, seen := conditionalServer(t, "", "", sampleFeed)
+
+	_, prev, err := FetchFeed(t.Context(), srv.URL, Validators{})
+	if err != nil {
+		t.Fatalf("first fetch: %v", err)
+	}
+	if prev != (Validators{}) {
+		t.Errorf("validators = %+v, want empty when the server sends none", prev)
+	}
+
+	feed, _, err := FetchFeed(t.Context(), srv.URL, prev)
+	if err != nil {
+		t.Fatalf("second fetch: %v", err)
+	}
+	if feed == nil || len(feed.Channel.Item) != 2 {
+		t.Error("second fetch did not return the full feed")
+	}
+	if v := (*seen)[1].Get("If-None-Match"); v != "" {
+		t.Errorf("sent If-None-Match with nothing to send: %q", v)
+	}
+}
+
+// Server koji salje otiske pa ih ignorise (Ars Technica) mora da radi kao da
+// uslovnog preuzimanja nema.
+func TestFetchFeedServerIgnoringConditionalsStillWorks(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("ETag", `"stalno-isti"`)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(sampleFeed))
+	}))
+	t.Cleanup(srv.Close)
+
+	_, prev, err := FetchFeed(t.Context(), srv.URL, Validators{})
+	if err != nil {
+		t.Fatalf("first fetch: %v", err)
+	}
+
+	feed, _, err := FetchFeed(t.Context(), srv.URL, prev)
+	if err != nil {
+		t.Fatalf("second fetch: %v", err)
+	}
+	if feed == nil || len(feed.Channel.Item) != 2 {
+		t.Error("full fetch path broke when the server ignored the conditional request")
 	}
 }

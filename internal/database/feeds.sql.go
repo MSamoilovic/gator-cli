@@ -22,7 +22,7 @@ VALUES (
     $5,
     $6
 )
-RETURNING id, created_at, updated_at, name, url, user_id, last_fetched_at
+RETURNING id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified
 `
 
 type CreateFeedParams struct {
@@ -52,12 +52,14 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 		&i.Url,
 		&i.UserID,
 		&i.LastFetchedAt,
+		&i.Etag,
+		&i.LastModified,
 	)
 	return i, err
 }
 
 const getFeedByUrl = `-- name: GetFeedByUrl :one
-SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at FROM feeds WHERE url = $1
+SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified FROM feeds WHERE url = $1
 `
 
 func (q *Queries) GetFeedByUrl(ctx context.Context, url string) (Feed, error) {
@@ -71,6 +73,8 @@ func (q *Queries) GetFeedByUrl(ctx context.Context, url string) (Feed, error) {
 		&i.Url,
 		&i.UserID,
 		&i.LastFetchedAt,
+		&i.Etag,
+		&i.LastModified,
 	)
 	return i, err
 }
@@ -111,7 +115,7 @@ func (q *Queries) GetFeeds(ctx context.Context) ([]GetFeedsRow, error) {
 }
 
 const getFeedsToFetch = `-- name: GetFeedsToFetch :many
-SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at FROM feeds
+SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified FROM feeds
 ORDER BY last_fetched_at ASC NULLS FIRST
 `
 
@@ -132,6 +136,8 @@ func (q *Queries) GetFeedsToFetch(ctx context.Context) ([]Feed, error) {
 			&i.Url,
 			&i.UserID,
 			&i.LastFetchedAt,
+			&i.Etag,
+			&i.LastModified,
 		); err != nil {
 			return nil, err
 		}
@@ -147,7 +153,7 @@ func (q *Queries) GetFeedsToFetch(ctx context.Context) ([]Feed, error) {
 }
 
 const getNextFeedToFetch = `-- name: GetNextFeedToFetch :one
-SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at FROM feeds
+SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified FROM feeds
 ORDER BY last_fetched_at ASC NULLS FIRST
 LIMIT 1
 `
@@ -163,6 +169,8 @@ func (q *Queries) GetNextFeedToFetch(ctx context.Context) (Feed, error) {
 		&i.Url,
 		&i.UserID,
 		&i.LastFetchedAt,
+		&i.Etag,
+		&i.LastModified,
 	)
 	return i, err
 }
@@ -175,5 +183,25 @@ WHERE id = $1
 
 func (q *Queries) MarkFeedFetched(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, markFeedFetched, id)
+	return err
+}
+
+const saveFeedValidators = `-- name: SaveFeedValidators :exec
+UPDATE feeds
+SET etag = $2, last_modified = $3, updated_at = NOW()
+WHERE id = $1
+`
+
+type SaveFeedValidatorsParams struct {
+	ID           uuid.UUID
+	Etag         string
+	LastModified string
+}
+
+// Odvojeno od MarkFeedFetched, koji se namerno izvrsava pre preuzimanja da feed
+// koji stalno puca ne bi bio pokusavan u svakom krugu. Validatori se, naprotiv,
+// znaju tek posle uspesnog odgovora.
+func (q *Queries) SaveFeedValidators(ctx context.Context, arg SaveFeedValidatorsParams) error {
+	_, err := q.db.ExecContext(ctx, saveFeedValidators, arg.ID, arg.Etag, arg.LastModified)
 	return err
 }

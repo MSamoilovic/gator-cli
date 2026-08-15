@@ -51,9 +51,10 @@ type (
 		failed int
 	}
 	scrapedMsg struct {
-		feeds  int
-		saved  int
-		failed int
+		feeds     int
+		saved     int
+		failed    int
+		unchanged int
 	}
 	openedMsg        struct{ url string }
 	copiedMsg        struct{ url string }
@@ -278,11 +279,14 @@ func scrapeFeeds(ctx context.Context, q *database.Queries) tea.Cmd {
 
 		msg := scrapedMsg{feeds: len(results)}
 		for _, r := range results {
-			if r.Err != nil {
+			switch {
+			case r.Err != nil:
 				msg.failed++
-				continue
+			case r.NotModified:
+				msg.unchanged++
+			default:
+				msg.saved += r.Saved
 			}
-			msg.saved += r.Saved
 		}
 		return msg
 	}
