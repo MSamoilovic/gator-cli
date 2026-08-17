@@ -12,6 +12,7 @@ import (
 
 	"gator-cli/internal/database"
 	"gator-cli/internal/feeds"
+	"gator-cli/internal/text"
 	"gator-cli/internal/tui"
 )
 
@@ -192,13 +193,28 @@ func handlerFeeds(s *state, _ command) error {
 	return nil
 }
 
+// previewLen je koliko znakova opisa ide u plain ispis. Feedovi salju ceo
+// clanak u <content:encoded>, pa bi bez ovoga jedan post umeo da bude 45 KB
+// HTML-a u terminalu. Ceo tekst se cita u TUI-ju.
+const previewLen = 400
+
 func printPost(p database.Post) {
 	fmt.Printf("--- %s ---\n", p.Title)
 	fmt.Printf("URL: %s\n", p.Url)
-	if p.Description.Valid {
-		fmt.Printf("%s\n", p.Description.String)
+	if body := postPreview(p); body != "" {
+		fmt.Printf("%s\n", body)
 	}
 	fmt.Println()
+}
+
+func postPreview(p database.Post) string {
+	if !p.Description.Valid {
+		return ""
+	}
+	// Novi red u izvodu bi razbio jednoredni oblik ispisa, pa se pasusi
+	// spajaju u jedan red.
+	body := strings.Join(strings.Fields(text.StripHTML(p.Description.String)), " ")
+	return text.Truncate(body, previewLen)
 }
 
 func scrapeFeeds(s *state) {

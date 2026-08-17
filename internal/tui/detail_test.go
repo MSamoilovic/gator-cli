@@ -12,58 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestStripHTML(t *testing.T) {
-	cases := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{
-			name:  "paragraphs become blank lines",
-			input: `<p>Article URL: <a href="http://x">http://x</a></p><p>Points: 42</p>`,
-			want:  "Article URL: http://x\n\nPoints: 42",
-		},
-		{
-			name:  "entities are decoded",
-			input: "Go &amp; Rust &lt;3 &quot;fast&quot;",
-			want:  `Go & Rust <3 "fast"`,
-		},
-		{
-			name:  "br becomes newline",
-			input: "prvi<br/>drugi",
-			want:  "prvi\ndrugi",
-		},
-		{
-			name:  "attributes on block tags are handled",
-			input: `<div class="a b"><p style="x">tekst</p></div>`,
-			want:  "tekst",
-		},
-		{
-			name:  "inline tags are dropped without spacing damage",
-			input: "<b>bold</b><i>italic</i>",
-			want:  "bolditalic",
-		},
-		{
-			name:  "plain text passes through",
-			input: "nema tagova",
-			want:  "nema tagova",
-		},
-		{
-			name:  "only markup collapses to empty",
-			input: "<p></p>",
-			want:  "",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := stripHTML(tc.input); got != tc.want {
-				t.Errorf("stripHTML(%q) = %q, want %q", tc.input, got, tc.want)
-			}
-		})
-	}
-}
-
 func TestRenderDetailHeader(t *testing.T) {
 	post := database.Post{
 		Title:       "Learn Go",
