@@ -195,3 +195,38 @@ func TestFeedHintsShownWhenFeedsFocused(t *testing.T) {
 		t.Errorf("posts hints shown while feeds have focus:\n%s", got)
 	}
 }
+
+func TestFeedPanelMarksBrokenFeeds(t *testing.T) {
+	healthy := testFeed("BBC Sport")
+	broken := testFeed("CBR")
+	broken.FeedFailures = 3
+
+	m := withFeeds(t, ready(t, testPost("Prvi")), healthy, broken)
+
+	items := m.feedList.Items()
+	if got := items[1].(feedItem).Title(); strings.Contains(got, brokenMark) {
+		t.Errorf("healthy feed carries the broken mark: %q", got)
+	}
+	if got := items[2].(feedItem).Title(); !strings.Contains(got, brokenMark) {
+		t.Errorf("failing feed = %q, want it marked with %q", got, brokenMark)
+	}
+
+	if view := m.View(); !strings.Contains(view, brokenMark+" CBR") {
+		t.Errorf("feed panel does not show the broken feed:\n%s", view)
+	}
+}
+
+// Marker i brojac nepracitanih moraju da stoje zajedno, ne da se iskljucuju.
+func TestBrokenMarkAndUnreadCountCoexist(t *testing.T) {
+	broken := testFeed("CBR")
+	broken.FeedFailures = 1
+
+	m := withFeeds(t, ready(t, testPost("Prvi")), broken)
+	item := m.feedList.Items()[1].(feedItem)
+	m.unread[item.id] = 4
+
+	got := item.Title()
+	if !strings.Contains(got, brokenMark) || !strings.Contains(got, "(4)") {
+		t.Errorf("title = %q, want both the broken mark and the unread count", got)
+	}
+}

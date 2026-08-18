@@ -194,12 +194,16 @@ func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result
 	rssFeed, next, err := rss.FetchFeed(ctx, feed.Url, prev)
 	switch {
 	case errors.Is(err, rss.ErrNotModified):
+		// 304 je uredan odgovor servera, dakle feed je ziv.
+		markHealthy(ctx, q, feed)
 		res.NotModified = true
 		return res
 	case err != nil:
+		markFailed(ctx, q, feed, err)
 		res.Err = fmt.Errorf("fetching %s: %w", feed.Name, err)
 		return res
 	}
+	markHealthy(ctx, q, feed)
 
 	// Otisci se pamte tek posle uspesnog parsiranja: da su upisani ranije, feed
 	// koji vrati neispravan XML bi sledeci put dobio 304 i nikad se ne bi
@@ -240,6 +244,21 @@ func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result
 	}
 
 	return res
+}
+
+// markFailed i markHealthy su knjigovodstvo o zdravlju feeda. Namerno se
+// pozivaju samo oko FetchFeed: pad upisa u bazu nije krivica feeda, pa ne sme
+// da ga obelezi kao pokvaren. Iz istog razloga se greska pri samom upisu
+// zanemaruje — ne sme da zameni stvarni ishod povlacenja.
+func markFailed(ctx context.Context, q *database.Queries, feed database.Feed, cause error) {
+	_ = q.MarkFeedFailed(ctx, database.MarkFeedFailedParams{
+		ID:        feed.ID,
+		LastError: cause.Error(),
+	})
+}
+
+func markHealthy(ctx context.Context, q *database.Queries, feed database.Feed) {
+	_ = q.MarkFeedHealthy(ctx, feed.ID)
 }
 
 func isDuplicate(err error) bool {

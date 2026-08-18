@@ -210,7 +210,13 @@ func (m model) feedItems(feeds []database.GetFeedFollowsForUserRow) []list.Item 
 	items := make([]list.Item, 0, len(feeds)+1)
 	items = append(items, feedItem{id: uuid.Nil, name: allFeedsLabel, unread: m.unread})
 	for _, f := range feeds {
-		items = append(items, feedItem{id: f.FeedID, name: f.FeedName, url: f.FeedUrl, unread: m.unread})
+		items = append(items, feedItem{
+			id:       f.FeedID,
+			name:     f.FeedName,
+			url:      f.FeedUrl,
+			failures: f.FeedFailures,
+			unread:   m.unread,
+		})
 	}
 	return items
 }

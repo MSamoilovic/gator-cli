@@ -22,7 +22,8 @@ SELECT
     feed_follows.*,
     users.name AS user_name,
     feeds.name AS feed_name,
-    feeds.url AS feed_url
+    feeds.url AS feed_url,
+    feeds.failure_count AS feed_failures
 FROM feed_follows
 JOIN users ON feed_follows.user_id = users.id
 JOIN feeds ON feed_follows.feed_id = feeds.id
