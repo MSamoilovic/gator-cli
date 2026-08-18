@@ -187,11 +187,24 @@ func handlerFeeds(s *state, _ command) error {
 		return fmt.Errorf("error fetching feeds: %v", err)
 	}
 
+	broken := 0
 	for _, f := range feeds {
-		fmt.Printf("Name: %s\nURL: %s\nUser: %s\n\n", f.Name, f.Url, f.UserName)
+		fmt.Printf("Name: %s\nURL: %s\nUser: %s\n", f.Name, f.Url, f.UserName)
+		if f.FailureCount > 0 {
+			broken++
+			fmt.Printf("%s failing since %d attempt(s): %s\n", brokenMark, f.FailureCount, f.LastError)
+		}
+		fmt.Println()
+	}
+
+	if broken > 0 {
+		fmt.Fprintf(os.Stderr, "%d of %d feeds are failing\n", broken, len(feeds))
 	}
 	return nil
 }
+
+// brokenMark obelezava feed cije poslednje povlacenje nije uspelo.
+const brokenMark = "⚠"
 
 // previewLen je koliko znakova opisa ide u plain ispis. Feedovi salju ceo
 // clanak u <content:encoded>, pa bi bez ovoga jedan post umeo da bude 45 KB

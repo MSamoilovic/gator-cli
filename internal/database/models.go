@@ -28,6 +28,8 @@ type Feed struct {
 	LastFetchedAt sql.NullTime
 	Etag          string
 	LastModified  string
+	LastError     string
+	FailureCount  int32
 }
 
 type FeedFollow struct {

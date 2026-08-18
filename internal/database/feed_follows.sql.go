@@ -103,7 +103,8 @@ SELECT
     feed_follows.id, feed_follows.created_at, feed_follows.updated_at, feed_follows.user_id, feed_follows.feed_id,
     users.name AS user_name,
     feeds.name AS feed_name,
-    feeds.url AS feed_url
+    feeds.url AS feed_url,
+    feeds.failure_count AS feed_failures
 FROM feed_follows
 JOIN users ON feed_follows.user_id = users.id
 JOIN feeds ON feed_follows.feed_id = feeds.id
@@ -111,14 +112,15 @@ WHERE feed_follows.user_id = $1
 `
 
 type GetFeedFollowsForUserRow struct {
-	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	UserID    uuid.UUID
-	FeedID    uuid.UUID
-	UserName  string
-	FeedName  string
-	FeedUrl   string
+	ID           uuid.UUID
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	UserID       uuid.UUID
+	FeedID       uuid.UUID
+	UserName     string
+	FeedName     string
+	FeedUrl      string
+	FeedFailures int32
 }
 
 func (q *Queries) GetFeedFollowsForUser(ctx context.Context, userID uuid.UUID) ([]GetFeedFollowsForUserRow, error) {
@@ -139,6 +141,7 @@ func (q *Queries) GetFeedFollowsForUser(ctx context.Context, userID uuid.UUID) (
 			&i.UserName,
 			&i.FeedName,
 			&i.FeedUrl,
+			&i.FeedFailures,
 		); err != nil {
 			return nil, err
 		}

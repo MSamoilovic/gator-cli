@@ -85,7 +85,7 @@ you already follow is reported as *already known*, not as an error.
 ```bash
 gator addfeed https://example.com/feed.xml                # add a feed and follow it (name taken from the feed)
 gator addfeed "Feed Name" https://example.com/feed.xml   # ...or name it yourself
-gator feeds                                               # list all feeds
+gator feeds                                               # list all feeds (⚠ marks ones that fail to fetch)
 gator follow https://example.com/feed.xml                # follow an existing feed
 gator unfollow https://example.com/feed.xml              # unfollow a feed
 gator following                                          # list feeds you follow

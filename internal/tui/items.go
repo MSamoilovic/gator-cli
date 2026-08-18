@@ -41,18 +41,29 @@ func (i postItem) Description() string {
 
 func (i postItem) FilterValue() string { return i.post.Title }
 
+// brokenMark stoji uz feed koji ne uspeva da se povuce, kao sto ● stoji uz
+// nepracitan post.
+const brokenMark = "⚠"
+
 type feedItem struct {
-	id     uuid.UUID
-	name   string
-	url    string
-	unread map[uuid.UUID]int
+	id       uuid.UUID
+	name     string
+	url      string
+	failures int32
+	unread   map[uuid.UUID]int
 }
 
 func (i feedItem) Title() string {
-	if n := i.unread[i.id]; n > 0 {
-		return i.name + " (" + strconv.Itoa(n) + ")"
+	name := i.name
+	// Feed koji ne uspeva da se povuce inace tiho prestane da radi i to niko
+	// ne primeti mesecima.
+	if i.failures > 0 {
+		name = brokenMark + " " + name
 	}
-	return i.name
+	if n := i.unread[i.id]; n > 0 {
+		return name + " (" + strconv.Itoa(n) + ")"
+	}
+	return name
 }
 func (i feedItem) Description() string { return "" }
 func (i feedItem) FilterValue() string { return i.name }

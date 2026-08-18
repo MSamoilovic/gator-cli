@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ VALUES (
     $5,
     $6
 )
-RETURNING id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified
+RETURNING id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified, last_error, failure_count
 `
 
 type CreateFeedParams struct {
@@ -54,12 +55,60 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 		&i.LastFetchedAt,
 		&i.Etag,
 		&i.LastModified,
+		&i.LastError,
+		&i.FailureCount,
 	)
 	return i, err
 }
 
+const getBrokenFeeds = `-- name: GetBrokenFeeds :many
+SELECT id, name, url, last_error, failure_count, last_fetched_at
+FROM feeds
+WHERE failure_count > 0
+ORDER BY failure_count DESC, name
+`
+
+type GetBrokenFeedsRow struct {
+	ID            uuid.UUID
+	Name          string
+	Url           string
+	LastError     string
+	FailureCount  int32
+	LastFetchedAt sql.NullTime
+}
+
+func (q *Queries) GetBrokenFeeds(ctx context.Context) ([]GetBrokenFeedsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getBrokenFeeds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetBrokenFeedsRow
+	for rows.Next() {
+		var i GetBrokenFeedsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Url,
+			&i.LastError,
+			&i.FailureCount,
+			&i.LastFetchedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFeedByUrl = `-- name: GetFeedByUrl :one
-SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified FROM feeds WHERE url = $1
+SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified, last_error, failure_count FROM feeds WHERE url = $1
 `
 
 func (q *Queries) GetFeedByUrl(ctx context.Context, url string) (Feed, error) {
@@ -75,20 +124,25 @@ func (q *Queries) GetFeedByUrl(ctx context.Context, url string) (Feed, error) {
 		&i.LastFetchedAt,
 		&i.Etag,
 		&i.LastModified,
+		&i.LastError,
+		&i.FailureCount,
 	)
 	return i, err
 }
 
 const getFeeds = `-- name: GetFeeds :many
-SELECT feeds.name, feeds.url, users.name AS user_name
+SELECT feeds.name, feeds.url, users.name AS user_name,
+       feeds.last_error, feeds.failure_count
 FROM feeds
 JOIN users ON feeds.user_id = users.id
 `
 
 type GetFeedsRow struct {
-	Name     string
-	Url      string
-	UserName string
+	Name         string
+	Url          string
+	UserName     string
+	LastError    string
+	FailureCount int32
 }
 
 func (q *Queries) GetFeeds(ctx context.Context) ([]GetFeedsRow, error) {
@@ -100,7 +154,13 @@ func (q *Queries) GetFeeds(ctx context.Context) ([]GetFeedsRow, error) {
 	var items []GetFeedsRow
 	for rows.Next() {
 		var i GetFeedsRow
-		if err := rows.Scan(&i.Name, &i.Url, &i.UserName); err != nil {
+		if err := rows.Scan(
+			&i.Name,
+			&i.Url,
+			&i.UserName,
+			&i.LastError,
+			&i.FailureCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -115,7 +175,7 @@ func (q *Queries) GetFeeds(ctx context.Context) ([]GetFeedsRow, error) {
 }
 
 const getFeedsToFetch = `-- name: GetFeedsToFetch :many
-SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified FROM feeds
+SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified, last_error, failure_count FROM feeds
 ORDER BY last_fetched_at ASC NULLS FIRST
 `
 
@@ -138,6 +198,8 @@ func (q *Queries) GetFeedsToFetch(ctx context.Context) ([]Feed, error) {
 			&i.LastFetchedAt,
 			&i.Etag,
 			&i.LastModified,
+			&i.LastError,
+			&i.FailureCount,
 		); err != nil {
 			return nil, err
 		}
@@ -153,7 +215,7 @@ func (q *Queries) GetFeedsToFetch(ctx context.Context) ([]Feed, error) {
 }
 
 const getNextFeedToFetch = `-- name: GetNextFeedToFetch :one
-SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified FROM feeds
+SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified, last_error, failure_count FROM feeds
 ORDER BY last_fetched_at ASC NULLS FIRST
 LIMIT 1
 `
@@ -171,8 +233,27 @@ func (q *Queries) GetNextFeedToFetch(ctx context.Context) (Feed, error) {
 		&i.LastFetchedAt,
 		&i.Etag,
 		&i.LastModified,
+		&i.LastError,
+		&i.FailureCount,
 	)
 	return i, err
+}
+
+const markFeedFailed = `-- name: MarkFeedFailed :exec
+UPDATE feeds
+SET last_error = $2, failure_count = failure_count + 1, updated_at = NOW()
+WHERE id = $1
+`
+
+type MarkFeedFailedParams struct {
+	ID        uuid.UUID
+	LastError string
+}
+
+// failure_count raste po uzastopnim neuspesima; resetuje ga tek uspeh.
+func (q *Queries) MarkFeedFailed(ctx context.Context, arg MarkFeedFailedParams) error {
+	_, err := q.db.ExecContext(ctx, markFeedFailed, arg.ID, arg.LastError)
+	return err
 }
 
 const markFeedFetched = `-- name: MarkFeedFetched :exec
@@ -183,6 +264,19 @@ WHERE id = $1
 
 func (q *Queries) MarkFeedFetched(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, markFeedFetched, id)
+	return err
+}
+
+const markFeedHealthy = `-- name: MarkFeedHealthy :exec
+UPDATE feeds
+SET last_error = '', failure_count = 0, updated_at = NOW()
+WHERE id = $1 AND (last_error <> '' OR failure_count <> 0)
+`
+
+// Uslov na kraju stedi upis kod feedova koji su i inace zdravi, sto je vecina
+// u svakom krugu.
+func (q *Queries) MarkFeedHealthy(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, markFeedHealthy, id)
 	return err
 }
 
