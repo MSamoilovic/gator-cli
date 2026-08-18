@@ -2,30 +2,14 @@ package tui
 
 import (
 	"fmt"
-	"html"
-	"regexp"
-	"strings"
 
 	"gator-cli/internal/database"
+	"gator-cli/internal/text"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
 const detailChromeHeight = 6
-
-var (
-	blockTagRe  = regexp.MustCompile(`(?i)</?(br|p|div|li|tr|h[1-6])[^>]*>`)
-	anyTagRe    = regexp.MustCompile(`<[^>]*>`)
-	blankLineRe = regexp.MustCompile(`\n{3,}`)
-)
-
-func stripHTML(s string) string {
-	s = blockTagRe.ReplaceAllString(s, "\n")
-	s = anyTagRe.ReplaceAllString(s, "")
-	s = html.UnescapeString(s)
-	s = blankLineRe.ReplaceAllString(s, "\n\n")
-	return strings.TrimSpace(s)
-}
 
 // renderDetailHeader uvek vraca tacno detailChromeHeight-1 redova; racunica
 // visine viewport-a zavisi od toga.
@@ -50,7 +34,7 @@ func renderDetailBody(p database.Post, width int) string {
 		return "(no description)"
 	}
 
-	desc := stripHTML(p.Description.String)
+	desc := text.StripHTML(p.Description.String)
 	if desc == "" {
 		return "(no description)"
 	}
