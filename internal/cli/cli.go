@@ -50,6 +50,8 @@ func defaultCommands() commands {
 	cmds.register("bookmarks", middlewareLoggedIn(handlerBookmarks))
 	cmds.register("search", middlewareLoggedIn(handlerSearch))
 	cmds.register("tui", middlewareLoggedIn(handlerTUI))
+	cmds.register("import", middlewareLoggedIn(handlerImport))
+	cmds.register("export", middlewareLoggedIn(handlerExport))
 
 	return cmds
 }
