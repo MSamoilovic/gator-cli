@@ -80,6 +80,20 @@ Feeds are fetched in parallel and validated before they are stored, so a dead
 URL in one category does not stop the rest. Running it twice is safe — a feed
 you already follow is reported as *already known*, not as an error.
 
+### Moving in and out (extra)
+
+Subscriptions travel as OPML, the format every reader speaks:
+
+```bash
+gator import feedly.opml     # add and follow everything in the file
+curl -s $URL | gator import - # ...or straight from a pipe
+gator export feeds.opml      # write your subscriptions out
+gator export > feeds.opml    # same, on stdout
+```
+
+Nested folders are flattened and a feed listed twice is imported once. OPML
+carries subscriptions only — not read state, bookmarks or posts.
+
 ### Managing feeds
 
 ```bash
