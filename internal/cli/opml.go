@@ -27,7 +27,7 @@ func handlerExport(s *state, cmd command, user database.User) error {
 
 	list := make([]opml.Feed, len(follows))
 	for i, f := range follows {
-		list[i] = opml.Feed{Title: f.FeedName, XMLURL: f.FeedUrl}
+		list[i] = opml.Feed{Title: f.FeedName, XMLURL: f.FeedUrl, Category: f.Category}
 	}
 
 	out := os.Stdout
@@ -78,7 +78,7 @@ func handlerImport(s *state, cmd command, user database.User) error {
 
 	entries := make([]feeds.Entry, len(list))
 	for i, f := range list {
-		entries[i] = feeds.Entry{Name: f.Title, URL: f.XMLURL}
+		entries[i] = feeds.Entry{Name: f.Title, URL: f.XMLURL, Category: f.Category}
 	}
 
 	fmt.Printf("Importing %d feeds…\n", len(entries))

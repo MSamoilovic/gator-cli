@@ -102,7 +102,8 @@ gator addfeed "Feed Name" https://example.com/feed.xml   # ...or name it yoursel
 gator feeds                                               # list all feeds (⚠ marks ones that fail to fetch)
 gator follow https://example.com/feed.xml                # follow an existing feed
 gator unfollow https://example.com/feed.xml              # unfollow a feed
-gator following                                          # list feeds you follow
+gator following                                          # list feeds you follow, grouped by folder
+gator categorize <feed_url> <folder>                     # put a feed in a folder (empty folder = root)
 ```
 
 ### Aggregation

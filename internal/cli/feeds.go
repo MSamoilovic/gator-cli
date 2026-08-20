@@ -85,18 +85,6 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func handlerFollowing(s *state, _ command, user database.User) error {
-	follows, err := s.Db.GetFeedFollowsForUser(context.Background(), user.ID)
-	if err != nil {
-		return fmt.Errorf("error fetching follows: %v", err)
-	}
-
-	for _, f := range follows {
-		fmt.Println(f.FeedName)
-	}
-	return nil
-}
-
 func handlerBrowse(s *state, cmd command, user database.User) error {
 	fs := flag.NewFlagSet("browse", flag.ContinueOnError)
 	limit := fs.Int("limit", 2, "number of posts to show")

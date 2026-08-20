@@ -17,10 +17,10 @@ WITH inserted AS (
     INSERT INTO feed_follows (id, created_at, updated_at, user_id, feed_id)
     VALUES ($1, $2, $3, $4, $5)
     ON CONFLICT (user_id, feed_id) DO NOTHING
-    RETURNING id, created_at, updated_at, user_id, feed_id
+    RETURNING id, created_at, updated_at, user_id, feed_id, category
 )
 SELECT
-    inserted.id, inserted.created_at, inserted.updated_at, inserted.user_id, inserted.feed_id,
+    inserted.id, inserted.created_at, inserted.updated_at, inserted.user_id, inserted.feed_id, inserted.category,
     users.name AS user_name,
     feeds.name AS feed_name
 FROM inserted
@@ -42,6 +42,7 @@ type CreateFeedFollowRow struct {
 	UpdatedAt time.Time
 	UserID    uuid.UUID
 	FeedID    uuid.UUID
+	Category  string
 	UserName  string
 	FeedName  string
 }
@@ -67,6 +68,7 @@ func (q *Queries) CreateFeedFollow(ctx context.Context, arg CreateFeedFollowPara
 			&i.UpdatedAt,
 			&i.UserID,
 			&i.FeedID,
+			&i.Category,
 			&i.UserName,
 			&i.FeedName,
 		); err != nil {
@@ -100,7 +102,7 @@ func (q *Queries) DeleteFeedFollow(ctx context.Context, arg DeleteFeedFollowPara
 
 const getFeedFollowsForUser = `-- name: GetFeedFollowsForUser :many
 SELECT
-    feed_follows.id, feed_follows.created_at, feed_follows.updated_at, feed_follows.user_id, feed_follows.feed_id,
+    feed_follows.id, feed_follows.created_at, feed_follows.updated_at, feed_follows.user_id, feed_follows.feed_id, feed_follows.category,
     users.name AS user_name,
     feeds.name AS feed_name,
     feeds.url AS feed_url,
@@ -117,6 +119,7 @@ type GetFeedFollowsForUserRow struct {
 	UpdatedAt    time.Time
 	UserID       uuid.UUID
 	FeedID       uuid.UUID
+	Category     string
 	UserName     string
 	FeedName     string
 	FeedUrl      string
@@ -138,6 +141,7 @@ func (q *Queries) GetFeedFollowsForUser(ctx context.Context, userID uuid.UUID) (
 			&i.UpdatedAt,
 			&i.UserID,
 			&i.FeedID,
+			&i.Category,
 			&i.UserName,
 			&i.FeedName,
 			&i.FeedUrl,
@@ -154,4 +158,21 @@ func (q *Queries) GetFeedFollowsForUser(ctx context.Context, userID uuid.UUID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const setFeedFollowCategory = `-- name: SetFeedFollowCategory :exec
+UPDATE feed_follows
+SET category = $3, updated_at = NOW()
+WHERE user_id = $1 AND feed_id = $2
+`
+
+type SetFeedFollowCategoryParams struct {
+	UserID   uuid.UUID
+	FeedID   uuid.UUID
+	Category string
+}
+
+func (q *Queries) SetFeedFollowCategory(ctx context.Context, arg SetFeedFollowCategoryParams) error {
+	_, err := q.db.ExecContext(ctx, setFeedFollowCategory, arg.UserID, arg.FeedID, arg.Category)
+	return err
 }

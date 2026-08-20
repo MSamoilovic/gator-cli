@@ -83,7 +83,11 @@ func (m model) confirmCatalog() (tea.Model, tea.Cmd) {
 				continue
 			}
 			seen[f.URL] = true
-			entries = append(entries, feeds.Entry{Name: f.Name, URL: f.URL})
+			entries = append(entries, feeds.Entry{
+				Name:     f.Name,
+				URL:      f.URL,
+				Category: item.cat.Label,
+			})
 		}
 	}
 

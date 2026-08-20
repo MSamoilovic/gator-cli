@@ -51,9 +51,20 @@ func Find(id string) (Category, error) {
 	return Category{}, fmt.Errorf("unknown category %q (have: %s)", id, strings.Join(known, ", "))
 }
 
-func Resolve(ids []string) ([]Feed, error) {
+// Entry je feed iz kataloga zajedno sa labelom kategorije iz koje je uzet.
+// Feed sam po sebi je ne nosi — u JSON-u zivi ispod kategorije — a pozivaocu
+// treba da bi pretplatu smestio u odgovarajuci folder.
+type Entry struct {
+	Feed
+	Category string
+}
+
+// Resolve skupi feedove iz zadatih kategorija. Isti URL u dve kategorije se
+// vraca jednom, da AddMany ne bi dva puta povlacio isti feed; pobedjuje prva
+// navedena kategorija.
+func Resolve(ids []string) ([]Entry, error) {
 	var (
-		out  []Feed
+		out  []Entry
 		seen = make(map[string]bool)
 	)
 	for _, id := range ids {
@@ -66,7 +77,7 @@ func Resolve(ids []string) ([]Feed, error) {
 				continue
 			}
 			seen[f.URL] = true
-			out = append(out, f)
+			out = append(out, Entry{Feed: f, Category: c.Label})
 		}
 	}
 	return out, nil

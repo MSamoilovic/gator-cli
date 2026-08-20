@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 )
@@ -88,24 +89,47 @@ func Parse(r io.Reader) ([]Feed, error) {
 	return out, nil
 }
 
-// Write ispise feedove kao OPML 2.0. Lista je ravna: gator ne pamti kategorije
-// feedova, a izmisljanje foldera iz kataloga bi lagalo o rucno dodatim.
+// Write ispise feedove kao OPML 2.0, grupisane po kategoriji: svaka kategorija
+// je jedan folder-outline, a feedovi bez kategorije stoje u korenu iza njih.
+// Folderi idu abecedno da bi izlaz bio isti za isti ulaz.
 func Write(w io.Writer, title string, feeds []Feed) error {
 	var doc opmlDoc
 	doc.Version = "2.0"
 	doc.Head.Title = title
 	doc.Head.DateCreated = time.Now().UTC().Format(time.RFC1123Z)
 
-	doc.Body.Outlines = make([]outline, len(feeds))
-	for i, f := range feeds {
-		doc.Body.Outlines[i] = outline{
+	grouped := make(map[string][]outline)
+	var rooted []outline
+
+	for _, f := range feeds {
+		o := outline{
 			Text:    f.Title,
 			Title:   f.Title,
 			Type:    "rss",
 			XMLURL:  f.XMLURL,
 			HTMLURL: f.HTMLURL,
 		}
+		if c := strings.TrimSpace(f.Category); c != "" {
+			grouped[c] = append(grouped[c], o)
+			continue
+		}
+		rooted = append(rooted, o)
 	}
+
+	names := make([]string, 0, len(grouped))
+	for name := range grouped {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		doc.Body.Outlines = append(doc.Body.Outlines, outline{
+			Text:     name,
+			Title:    name,
+			Children: grouped[name],
+		})
+	}
+	doc.Body.Outlines = append(doc.Body.Outlines, rooted...)
 
 	if _, err := io.WriteString(w, xml.Header); err != nil {
 		return err

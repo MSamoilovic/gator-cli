@@ -43,6 +43,7 @@ func defaultCommands() commands {
 	cmds.register("feeds", handlerFeeds)
 	cmds.register("follow", middlewareLoggedIn(handlerFollow))
 	cmds.register("following", middlewareLoggedIn(handlerFollowing))
+	cmds.register("categorize", middlewareLoggedIn(handlerCategorize))
 	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))
 	cmds.register("browse", middlewareLoggedIn(handlerBrowse))
 	cmds.register("bookmark", middlewareLoggedIn(handlerBookmark))

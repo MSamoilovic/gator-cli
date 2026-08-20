@@ -113,7 +113,7 @@ func addCategories(ctx context.Context, s *state, user database.User, ids []stri
 
 	entries := make([]feeds.Entry, len(catFeeds))
 	for i, f := range catFeeds {
-		entries[i] = feeds.Entry{Name: f.Name, URL: f.URL}
+		entries[i] = feeds.Entry{Name: f.Name, URL: f.URL, Category: f.Category}
 	}
 
 	results := feeds.AddMany(ctx, s.Db, user.ID, entries, func(r feeds.AddResult) {
