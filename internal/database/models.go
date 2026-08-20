@@ -38,6 +38,7 @@ type FeedFollow struct {
 	UpdatedAt time.Time
 	UserID    uuid.UUID
 	FeedID    uuid.UUID
+	Category  string
 }
 
 type Post struct {

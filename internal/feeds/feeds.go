@@ -77,10 +77,12 @@ func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url s
 }
 
 // Entry je jedan feed koji treba dodati. Ime je opciono, isto kao kod Add —
-// prazno znaci "uzmi <title> iz samog feeda".
+// prazno znaci "uzmi <title> iz samog feeda". Category je folder u koji ide
+// pretplata; prazno znaci koren.
 type Entry struct {
-	Name string
-	URL  string
+	Name     string
+	URL      string
+	Category string
 }
 
 type AddResult struct {
@@ -98,6 +100,15 @@ const maxParallelAdds = 8
 func AddMany(ctx context.Context, q *database.Queries, userID uuid.UUID, entries []Entry, onResult func(AddResult)) []AddResult {
 	return addAll(ctx, entries, maxParallelAdds, onResult, func(ctx context.Context, e Entry) AddResult {
 		feed, created, err := Add(ctx, q, userID, e.Name, e.URL)
+		if err == nil && e.Category != "" {
+			// Kategorija je organizacija, ne sadrzaj: neuspeh njenog upisa ne
+			// sme da pretvori uspesno dodat feed u gresku.
+			_ = q.SetFeedFollowCategory(ctx, database.SetFeedFollowCategoryParams{
+				UserID:   userID,
+				FeedID:   feed.ID,
+				Category: e.Category,
+			})
+		}
 		return AddResult{Entry: e, Feed: feed, Created: created, Err: err}
 	})
 }

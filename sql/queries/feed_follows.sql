@@ -28,3 +28,7 @@ FROM feed_follows
 JOIN users ON feed_follows.user_id = users.id
 JOIN feeds ON feed_follows.feed_id = feeds.id
 WHERE feed_follows.user_id = $1;
+-- name: SetFeedFollowCategory :exec
+UPDATE feed_follows
+SET category = $3, updated_at = NOW()
+WHERE user_id = $1 AND feed_id = $2;

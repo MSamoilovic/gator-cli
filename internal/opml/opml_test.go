@@ -171,3 +171,69 @@ func TestWriteEmptyList(t *testing.T) {
 		t.Errorf("got %d feeds from an empty export", len(got))
 	}
 }
+
+// Ovo je i bio povod za kategorije: pre nje je uvoz iz Feedly-ja citao foldere
+// pa ih bacao, a izvoz je uvek bio ravan.
+func TestWriteGroupsByCategoryAndRoundTrips(t *testing.T) {
+	in := []Feed{
+		{Title: "Lobsters", XMLURL: "https://lobste.rs/rss", Category: "Tech"},
+		{Title: "Bez foldera", XMLURL: "https://example.com/a.xml"},
+		{Title: "Ars Technica", XMLURL: "https://arstechnica.com/feed/", Category: "Tech"},
+		{Title: "BBC Sport", XMLURL: "https://feeds.bbci.co.uk/sport/rss.xml", Category: "Sport"},
+	}
+
+	var buf bytes.Buffer
+	if err := Write(&buf, "test", in); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	got, err := Parse(&buf)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(got) != len(in) {
+		t.Fatalf("round trip returned %d feeds, want %d", len(got), len(in))
+	}
+
+	byURL := make(map[string]Feed, len(got))
+	for _, f := range got {
+		byURL[f.XMLURL] = f
+	}
+	for _, want := range in {
+		f, ok := byURL[want.XMLURL]
+		if !ok {
+			t.Errorf("%s did not survive the round trip", want.XMLURL)
+			continue
+		}
+		if f.Category != want.Category {
+			t.Errorf("%s category = %q, want %q", want.Title, f.Category, want.Category)
+		}
+		if f.Title != want.Title {
+			t.Errorf("title = %q, want %q", f.Title, want.Title)
+		}
+	}
+}
+
+func TestWriteSortsFoldersAndPutsRootLast(t *testing.T) {
+	var buf bytes.Buffer
+	err := Write(&buf, "test", []Feed{
+		{Title: "R", XMLURL: "https://r", Category: "Sport"},
+		{Title: "K", XMLURL: "https://k"},
+		{Title: "A", XMLURL: "https://a", Category: "Comics"},
+	})
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	out := buf.String()
+	comics, sport, root := strings.Index(out, `"Comics"`), strings.Index(out, `"Sport"`), strings.Index(out, "https://k")
+	if comics < 0 || sport < 0 || root < 0 {
+		t.Fatalf("missing entries in output:\n%s", out)
+	}
+	if !(comics < sport) {
+		t.Error("folders are not in alphabetical order")
+	}
+	if !(sport < root) {
+		t.Error("uncategorized feed is not last")
+	}
+}
