@@ -1,6 +1,3 @@
-// Package cli je sloj komandne linije: registar komandi, njihovi handleri i
-// stanje koje dele. Sve sto handler radi je parsiranje argumenata i ispis —
-// logika koju deli sa TUI-jem zivi u internal/feeds i internal/catalog.
 package cli
 
 import (
@@ -10,14 +7,13 @@ import (
 	"gator-cli/internal/database"
 )
 
-// state je ono sto svaki handler dobija: veza sa bazom i procitan config.
+
 type state struct {
 	Db  *database.Queries
 	Cfg *config.Config
 }
 
-// Run izvrsi jednu komandu iz args, gde je args[0] njeno ime. Greska se vraca
-// pozivaocu; nijedan handler ne zove os.Exit sam.
+
 func Run(cfg *config.Config, db *database.Queries, args []string) error {
 	if len(args) == 0 {
 		return errors.New("usage: gator <command> [args...]")
