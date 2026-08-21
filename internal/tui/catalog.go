@@ -13,8 +13,6 @@ import (
 
 const catalogTitle = "Pick your interests"
 
-// openCatalog napuni birac iz ugradjenog kataloga. Izbor se svaki put pocinje
-// od nule — prosli izbor nema smisla pamtiti kad su feedovi vec zapraceni.
 func (m model) openCatalog() (model, tea.Cmd) {
 	cats, err := catalog.Categories()
 	if err != nil {
@@ -51,7 +49,7 @@ func (m model) updateCatalog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		// Mapa se deli sa stavkama, pa se menja u mestu — nikad se ne dodeljuje nova.
+		
 		if m.picked[item.cat.ID] {
 			delete(m.picked, item.cat.ID)
 		} else {
@@ -72,7 +70,6 @@ func (m model) confirmCatalog() (tea.Model, tea.Cmd) {
 	var entries []feeds.Entry
 	seen := make(map[string]bool)
 
-	// Redosled prati katalog, ne redosled kojim je korisnik cekirao.
 	for _, it := range m.catalogList.Items() {
 		item, ok := it.(catalogItem)
 		if !ok || !m.picked[item.cat.ID] {
@@ -104,9 +101,6 @@ func (m model) catalogView() string {
 	return m.catalogList.View() + "\n" + m.footer()
 }
 
-// followedURLs pravi skup URL-ova koje korisnik prati, iz feed liste koja je
-// vec ucitana — bez novog upita. Poredi se po URL-u jer ime feeda u bazi moze
-// doci iz <title> i razlikovati se od onog u katalogu.
 func (m model) followedURLs() map[string]bool {
 	followed := make(map[string]bool, len(m.feedList.Items()))
 	for _, it := range m.feedList.Items() {
