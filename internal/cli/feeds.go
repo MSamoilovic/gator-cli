@@ -129,13 +129,7 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 }
 
 // stdoutIsTerminal razlikuje interaktivni terminal od pipe-a ili fajla.
-func stdoutIsTerminal() bool {
-	fi, err := os.Stdout.Stat()
-	if err != nil {
-		return false
-	}
-	return fi.Mode()&os.ModeCharDevice != 0
-}
+func stdoutIsTerminal() bool { return isTerminal(os.Stdout) }
 
 func handlerSearch(s *state, cmd command, user database.User) error {
 	fs := flag.NewFlagSet("search", flag.ContinueOnError)
