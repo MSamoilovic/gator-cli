@@ -19,7 +19,7 @@ func (c *commands) run(s *state, cmd command) error {
 	f, ok := c.registeredCommands[cmd.Name]
 
 	if !ok {
-		return fmt.Errorf("command %s doesn't exist", cmd.Name)
+		return fmt.Errorf("command %s doesn't exist (try: gator help)", cmd.Name)
 	}
 
 	err := f(s, cmd)

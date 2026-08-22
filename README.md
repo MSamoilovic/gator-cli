@@ -57,6 +57,19 @@ Create `~/.gatorconfig.json` with your database connection string:
 
 ## Usage
 
+Run `gator` with no arguments and it offers the commands you can actually run —
+greeting you by name when you are logged in, and showing only `register` /
+`login` when you are not. Arrow keys move, `/` filters, `⏎` runs; commands
+that take arguments ask for them first.
+
+```bash
+gator          # pick a command interactively
+gator help     # ...or print the same list as plain text
+```
+
+Piping or redirecting (`gator | less`) prints the list and exits non-zero
+instead, so a script that forgets the command still fails.
+
 ### Register and log in
 
 ```bash
@@ -173,3 +186,6 @@ gator unbookmark <post_url>   # remove a saved post
 ```bash
 gator reset     # delete all users (use with caution)
 ```
+
+`reset` is deliberately left out of the interactive menu — it is still there
+when you type it, just not something to land on by accident.
