@@ -1,0 +1,61 @@
+# Konfiguracija za GoReleaser: `goreleaser release` pravi binarne arhive za
+# svaki podrzani sistem, da instalacija ne trazi ni Go ni klonirani repozitorijum.
+# Provera bez izdavanja: goreleaser check && goreleaser build --snapshot --clean
+version: 2
+
+# Ime modula je gator-cli, ali se komanda svuda zove gator.
+project_name: gator
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - binary: gator
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      # -s -w izbacuju tabele simbola; -X upisuje tag izdanja u cli.version,
+      # odakle ga `gator version` cita.
+      - -s -w -X github.com/MSamoilovic/gator-cli/internal/cli.version={{.Version}}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore"
+      - "^Merge"
+
+release:
+  footer: |
+    ## Getting started
+
+    Unpack the archive, put `gator` on your PATH, then:
+
+    ```
+    gator init      # writes the config and creates the database schema
+    gator           # pick a command
+    ```

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +18,18 @@ type uiState struct {
 	SortDir    string `json:"sort_dir,omitempty"`
 	UnreadOnly bool   `json:"unread_only,omitempty"`
 	SinceHours int    `json:"since_hours,omitempty"`
+	// Collapsed su imena sklopljenih foldera. Lista, a ne mapa, da bi JSON
+	// bio stabilan izmedju upisa.
+	Collapsed []string `json:"collapsed,omitempty"`
+}
+
+// collapsedSet pretvara ono sto je zapamceno u mapu koju model menja u mestu.
+func collapsedSet(names []string) map[string]bool {
+	set := make(map[string]bool, len(names))
+	for _, name := range names {
+		set[name] = true
+	}
+	return set
 }
 
 func statePath() (string, error) {
@@ -93,5 +106,10 @@ func (m model) snapshot() uiState {
 	if m.feedID != uuid.Nil {
 		s.FeedID, s.FeedName = m.feedID.String(), m.feedName
 	}
+
+	for name := range m.collapsed {
+		s.Collapsed = append(s.Collapsed, name)
+	}
+	sort.Strings(s.Collapsed)
 	return s
 }

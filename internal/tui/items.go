@@ -50,6 +50,7 @@ type feedItem struct {
 	name     string
 	url      string
 	failures int32
+	indent   bool // stoji u folderu, pa je uvucen ispod zaglavlja
 	unread   map[uuid.UUID]int
 }
 
@@ -61,12 +62,64 @@ func (i feedItem) Title() string {
 		name = brokenMark + " " + name
 	}
 	if n := i.unread[i.id]; n > 0 {
-		return name + " (" + strconv.Itoa(n) + ")"
+		name += " (" + strconv.Itoa(n) + ")"
+	}
+	if i.indent {
+		name = feedIndent + name
 	}
 	return name
 }
 func (i feedItem) Description() string { return "" }
 func (i feedItem) FilterValue() string { return i.name }
+
+const (
+	feedIndent   = "  "
+	folderOpen   = "▾"
+	folderClosed = "▸"
+)
+
+// folderItem je zaglavlje jedne grupe. bubbles/list nema zaglavlja i sve
+// stavke su mu iste visine, pa je jedini nacin da grupa postoji taj da i ona
+// bude obican red u listi. Posto je red kao i svaki drugi, moze i da se
+// selektuje — i time je ⏎ nad njom prirodno mesto za sklapanje.
+type folderItem struct {
+	name    string
+	feedIDs []uuid.UUID
+	broken  int
+	// collapsed se, kao i unread, deli po referenci sa modelom: menja se u
+	// mestu, nikad se ne dodeljuje nova mapa.
+	collapsed map[string]bool
+	unread    map[uuid.UUID]int
+}
+
+func (i folderItem) Title() string {
+	label := folderOpen
+	if i.collapsed[i.name] {
+		label = folderClosed
+	}
+	label += " " + i.name
+
+	// Pokvaren feed u sklopljenom folderu bi inace bio nevidljiv — bas ono
+	// protiv cega brokenMark i postoji.
+	if i.broken > 0 {
+		label += " " + brokenMark
+	}
+	if n := i.unreadTotal(); n > 0 {
+		label += " (" + strconv.Itoa(n) + ")"
+	}
+	return label
+}
+
+func (i folderItem) unreadTotal() int {
+	n := 0
+	for _, id := range i.feedIDs {
+		n += i.unread[id]
+	}
+	return n
+}
+
+func (i folderItem) Description() string { return "" }
+func (i folderItem) FilterValue() string { return i.name }
 
 // catalogItem je jedna kategorija u biracu. picked se, kao i markeri kod
 // postova, deli po referenci sa modelom — space menja mapu, ne stavku.
