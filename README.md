@@ -141,6 +141,13 @@ gator search golang --limit 5                    # full-text search across post 
 (`gator browse | less`) falls back to plain output, so scripts keep working.
 The `--limit`, `--page`, `--feed` and `--sort` flags apply to plain output only.
 
+The feed pane groups by folder, in the same order as `gator following` and
+`gator export` — folders alphabetical, uncategorized last. `⏎` on a `▾` header
+folds it away; the header keeps showing the folder's total unread count, and a
+`⚠` if something inside it is failing to fetch. Folded folders are remembered
+between runs. If you have not put anything in a folder yet, the pane stays the
+flat list it always was.
+
 The TUI remembers the selected feed, sort order, unread filter and time range in
 `~/.gator-state.json`, so it reopens where you left off. Delete that file to start
 fresh; a missing or unreadable one is not an error.
@@ -150,7 +157,7 @@ fresh; a missing or unreadable one is not an error.
 | Key | Action |
 |---|---|
 | `↑`/`↓`, `k`/`j` | Move (loads more posts at the bottom) |
-| `⏎` | Read post (marks it read) / select feed |
+| `⏎` | Read post (marks it read) / select feed / fold a folder |
 | `u` | Toggle read / unread (`●` = unread) |
 | `A` | Mark everything in the list as read |
 | `U` | Show only unread posts |

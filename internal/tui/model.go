@@ -74,9 +74,15 @@ type model struct {
 	reads     map[uuid.UUID]bool
 	unread    map[uuid.UUID]int
 	picked    map[string]bool
-	feedID    uuid.UUID
-	feedName  string
-	query     string
+	// collapsed drzi imena sklopljenih foldera. Deli se po referenci sa
+	// folderItem-ima, pa se menja u mestu.
+	collapsed map[string]bool
+	// feeds su pretplate onako kako su stigle iz baze. Cuvaju se da bi panel
+	// mogao da se prekomponuje pri sklapanju foldera bez novog upita.
+	feeds    []database.GetFeedFollowsForUserRow
+	feedID   uuid.UUID
+	feedName string
+	query    string
 
 	sortDir     string
 	since       time.Duration
@@ -155,6 +161,7 @@ func newModel(ctx context.Context, q *database.Queries, user database.User, save
 		reads:       make(map[uuid.UUID]bool),
 		unread:      make(map[uuid.UUID]int),
 		picked:      make(map[string]bool),
+		collapsed:   collapsedSet(saved.Collapsed),
 		sortDir:     saved.SortDir,
 		since:       saved.since(),
 		unreadOnly:  saved.UnreadOnly,

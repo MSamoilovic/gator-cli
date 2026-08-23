@@ -101,12 +101,12 @@ func (m model) catalogView() string {
 	return m.catalogList.View() + "\n" + m.footer()
 }
 
+// followedURLs se cita iz m.feeds, a ne iz feed liste: u listi nema feedova iz
+// sklopljenih foldera, pa bi katalog za njih tvrdio da se ne prate.
 func (m model) followedURLs() map[string]bool {
-	followed := make(map[string]bool, len(m.feedList.Items()))
-	for _, it := range m.feedList.Items() {
-		if fi, ok := it.(feedItem); ok && fi.url != "" {
-			followed[fi.url] = true
-		}
+	followed := make(map[string]bool, len(m.feeds))
+	for _, f := range m.feeds {
+		followed[f.FeedUrl] = true
 	}
 	return followed
 }

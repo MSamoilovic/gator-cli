@@ -53,7 +53,9 @@ func defaultKeyMap() keyMap {
 		),
 		Select: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("⏎", "select"),
+			// U feed panelu ⏎ nad zaglavljem foldera sklapa umesto da bira,
+			// pa opis pokriva oba posla.
+			key.WithHelp("⏎", "select/fold"),
 		),
 		Open: key.NewBinding(
 			key.WithKeys("o"),

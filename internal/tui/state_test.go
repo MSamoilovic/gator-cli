@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -21,12 +22,13 @@ func TestStateRoundTrip(t *testing.T) {
 		SortDir:    sortAsc,
 		UnreadOnly: true,
 		SinceHours: 168,
+		Collapsed:  []string{"Sport", "Tech"},
 	}
 	if err := want.save(); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
-	if got := loadState(); got != want {
+	if got := loadState(); !reflect.DeepEqual(got, want) {
 		t.Errorf("round trip mismatch:\ngot  %+v\nwant %+v", got, want)
 	}
 }
