@@ -522,3 +522,11 @@ func TestFetchFeedServerIgnoringConditionalsStillWorks(t *testing.T) {
 		t.Error("full fetch path broke when the server ignored the conditional request")
 	}
 }
+
+// newServer je serve za slucajeve koji traze sopstveni handler.
+func newServer(t *testing.T, h http.HandlerFunc) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+	return srv
+}

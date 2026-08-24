@@ -9,6 +9,7 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -28,12 +29,8 @@ type RSSFeed struct {
 type RSSItem struct {
 	Title string `xml:"title"`
 	Link  string `xml:"link"`
-	// Description je posle parsiranja uvek najduzi tekst koji feed nudi:
-	// Content ako postoji, inace <description>. Vidi resolveBody.
 	Description string `xml:"description"`
-	// Content je <content:encoded>, gde vecina feedova salje ceo clanak dok u
-	// <description> stoji samo izvod. Namespace se navodi jer je <encoded>
-	// suvise obicno ime da bi se hvatalo po lokalnom delu.
+	
 	Content string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
 	PubDate string `xml:"pubDate"`
 }
@@ -192,7 +189,10 @@ func FetchFeed(ctx context.Context, feedURL string, prev Validators) (*RSSFeed, 
 		return nil, prev, fmt.Errorf("reading %s: %w", feedURL, err)
 	}
 
-	feed, err := parseFeed(data, feedURL)
+	// Parsira se u odnosu na adresu na kojoj smo zavrsili, ne na onu koja je
+	// zatrazena: ako je bilo preusmerenja, relativne veze u stranici vaze
+	// prema krajnjoj.
+	feed, err := parseFeed(data, finalURL(res, feedURL))
 	if err != nil {
 		return nil, prev, err
 	}
@@ -206,9 +206,6 @@ func FetchFeed(ctx context.Context, feedURL string, prev Validators) (*RSSFeed, 
 	return feed, next, nil
 }
 
-// parseFeed prepozna format po korenskom elementu i sve svede na RSS 2.0
-// oblik, pa pozivaoci (feeds.Add, feeds.Scrape) i dalje rade samo sa
-// Channel/Item i ne znaju kojim je formatom feed napisan.
 func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 	root, err := rootElement(data)
 	if err != nil {
@@ -239,7 +236,7 @@ func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 		feed = r.toRSS()
 
 	default:
-		return nil, fmt.Errorf("parsing %s: unsupported feed format, root element is <%s>", feedURL, root)
+		return nil, notAFeed(data, feedURL, root)
 	}
 
 	resolveBody(feed)
@@ -247,11 +244,7 @@ func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 	return feed, nil
 }
 
-// resolveBody bira najduzi tekst koji feed nudi za svaku stavku. Vecina
-// feedova u <description> salje samo izvod, a ceo clanak u <content:encoded>
-// (Atom: <content>), pa detalj panel bez ovoga prikazuje dva pasusa umesto
-// teksta. Pravilo stoji ovde, a ne u feeds.Scrape, da bi sva tri formata
-// prolazila kroz isto.
+
 func resolveBody(f *RSSFeed) {
 	for i := range f.Channel.Item {
 		it := &f.Channel.Item[i]
@@ -303,4 +296,25 @@ func unescapeString(rss *RSSFeed) *RSSFeed {
 		rss.Channel.Item[i].Description = html.UnescapeString(rss.Channel.Item[i].Description)
 	}
 	return rss
+}
+
+// finalURL je adresa na kojoj je zahtev zavrsio, posle svih preusmerenja.
+func finalURL(res *http.Response, requested string) string {
+	if res.Request != nil && res.Request.URL != nil {
+		return res.Request.URL.String()
+	}
+	return requested
+}
+
+// notAFeed pravi gresku za odgovor koji nije feed. Ako je HTML, usput
+// pokupi feedove koje stranica oglasava — telo je vec tu, pa je to besplatno.
+func notAFeed(data []byte, pageURL, root string) error {
+	e := &NotAFeedError{URL: pageURL, Root: root}
+	if !strings.EqualFold(root, "html") {
+		return e
+	}
+	if base, err := url.Parse(pageURL); err == nil {
+		e.Links = discoverLinks(data, base)
+	}
+	return e
 }
