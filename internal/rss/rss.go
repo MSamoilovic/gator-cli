@@ -29,12 +29,8 @@ type RSSFeed struct {
 type RSSItem struct {
 	Title string `xml:"title"`
 	Link  string `xml:"link"`
-	// Description je posle parsiranja uvek najduzi tekst koji feed nudi:
-	// Content ako postoji, inace <description>. Vidi resolveBody.
 	Description string `xml:"description"`
-	// Content je <content:encoded>, gde vecina feedova salje ceo clanak dok u
-	// <description> stoji samo izvod. Namespace se navodi jer je <encoded>
-	// suvise obicno ime da bi se hvatalo po lokalnom delu.
+	
 	Content string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
 	PubDate string `xml:"pubDate"`
 }
@@ -210,9 +206,6 @@ func FetchFeed(ctx context.Context, feedURL string, prev Validators) (*RSSFeed, 
 	return feed, next, nil
 }
 
-// parseFeed prepozna format po korenskom elementu i sve svede na RSS 2.0
-// oblik, pa pozivaoci (feeds.Add, feeds.Scrape) i dalje rade samo sa
-// Channel/Item i ne znaju kojim je formatom feed napisan.
 func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 	root, err := rootElement(data)
 	if err != nil {
@@ -251,11 +244,7 @@ func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 	return feed, nil
 }
 
-// resolveBody bira najduzi tekst koji feed nudi za svaku stavku. Vecina
-// feedova u <description> salje samo izvod, a ceo clanak u <content:encoded>
-// (Atom: <content>), pa detalj panel bez ovoga prikazuje dva pasusa umesto
-// teksta. Pravilo stoji ovde, a ne u feeds.Scrape, da bi sva tri formata
-// prolazila kroz isto.
+
 func resolveBody(f *RSSFeed) {
 	for i := range f.Channel.Item {
 		it := &f.Channel.Item[i]
