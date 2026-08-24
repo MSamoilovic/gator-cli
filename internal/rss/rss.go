@@ -9,6 +9,7 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -192,7 +193,10 @@ func FetchFeed(ctx context.Context, feedURL string, prev Validators) (*RSSFeed, 
 		return nil, prev, fmt.Errorf("reading %s: %w", feedURL, err)
 	}
 
-	feed, err := parseFeed(data, feedURL)
+	// Parsira se u odnosu na adresu na kojoj smo zavrsili, ne na onu koja je
+	// zatrazena: ako je bilo preusmerenja, relativne veze u stranici vaze
+	// prema krajnjoj.
+	feed, err := parseFeed(data, finalURL(res, feedURL))
 	if err != nil {
 		return nil, prev, err
 	}
@@ -239,7 +243,7 @@ func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 		feed = r.toRSS()
 
 	default:
-		return nil, fmt.Errorf("parsing %s: unsupported feed format, root element is <%s>", feedURL, root)
+		return nil, notAFeed(data, feedURL, root)
 	}
 
 	resolveBody(feed)
@@ -303,4 +307,25 @@ func unescapeString(rss *RSSFeed) *RSSFeed {
 		rss.Channel.Item[i].Description = html.UnescapeString(rss.Channel.Item[i].Description)
 	}
 	return rss
+}
+
+// finalURL je adresa na kojoj je zahtev zavrsio, posle svih preusmerenja.
+func finalURL(res *http.Response, requested string) string {
+	if res.Request != nil && res.Request.URL != nil {
+		return res.Request.URL.String()
+	}
+	return requested
+}
+
+// notAFeed pravi gresku za odgovor koji nije feed. Ako je HTML, usput
+// pokupi feedove koje stranica oglasava — telo je vec tu, pa je to besplatno.
+func notAFeed(data []byte, pageURL, root string) error {
+	e := &NotAFeedError{URL: pageURL, Root: root}
+	if !strings.EqualFold(root, "html") {
+		return e
+	}
+	if base, err := url.Parse(pageURL); err == nil {
+		e.Links = discoverLinks(data, base)
+	}
+	return e
 }

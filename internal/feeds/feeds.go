@@ -36,12 +36,39 @@ func Follow(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID) 
 	return rows[0], true, nil
 }
 
-func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url string) (feed database.Feed, created bool, err error) {
+// resolve povlaci zadatu adresu i vrati feed zajedno sa adresom na kojoj je
+// stvarno nadjen. Kad korisnik zalepi adresu sajta umesto feeda — a to je
+// uobicajeno, jer RSS adrese niko ne pamti — uzima se feed koji stranica sama
+// oglasava.
+//
+// Uzima se prvi oglaseni: sajtovi glavni feed navode ispred sporednih, pa je
+// kod WordPress-a to clanci a ne komentari, a kod sajtova koji nude i Atom i
+// RSS isti sadrzaj u dva formata.
+func resolve(ctx context.Context, url string) (*rss.RSSFeed, string, error) {
 	// Bezuslovno: feed koji se tek dodaje nema sacuvane validatore, a i da ih
 	// ima, ovde nam treba telo da bi se izvuklo ime iz <title>.
-	rssFeed, _, err := rss.FetchFeed(ctx, url, rss.Validators{})
+	feed, _, err := rss.FetchFeed(ctx, url, rss.Validators{})
+	if err == nil {
+		return feed, url, nil
+	}
+
+	var notFeed *rss.NotAFeedError
+	if !errors.As(err, &notFeed) || len(notFeed.Links) == 0 {
+		return nil, "", fmt.Errorf("not a usable RSS feed: %w", err)
+	}
+
+	discovered := notFeed.Links[0].URL
+	feed, _, err = rss.FetchFeed(ctx, discovered, rss.Validators{})
 	if err != nil {
-		return database.Feed{}, false, fmt.Errorf("not a usable RSS feed: %w", err)
+		return nil, "", fmt.Errorf("%s advertises %s, which is not a usable feed: %w", url, discovered, err)
+	}
+	return feed, discovered, nil
+}
+
+func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url string) (feed database.Feed, created bool, err error) {
+	rssFeed, url, err := resolve(ctx, url)
+	if err != nil {
+		return database.Feed{}, false, err
 	}
 
 	if name = strings.TrimSpace(name); name == "" {

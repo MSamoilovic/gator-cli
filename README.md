@@ -107,9 +107,27 @@ gator export > feeds.opml    # same, on stdout
 Nested folders are flattened and a feed listed twice is imported once. OPML
 carries subscriptions only — not read state, bookmarks or posts.
 
+### Adding a feed you cannot name
+
+Nobody remembers RSS addresses, so `addfeed` takes the site instead. If what you
+give it turns out to be a web page, gator reads the `<link rel="alternate">`
+tags the page publishes and follows the feed it finds there:
+
+```
+$ gator addfeed https://jvns.ca
+Added feed "Julia Evans" (https://jvns.ca/atom.xml)
+```
+
+When a page advertises several — WordPress publishes a comments feed next to the
+articles one, some sites offer both RSS and Atom — the first is taken, which is
+the one sites put first. The stored address is the feed's, not the page's, so
+`gator export` and later fetches use the right URL. The same applies to `a` in
+the TUI feed pane.
+
 ### Managing feeds
 
 ```bash
+gator addfeed https://example.com                         # paste the site; gator finds its feed
 gator addfeed https://example.com/feed.xml                # add a feed and follow it (name taken from the feed)
 gator addfeed "Feed Name" https://example.com/feed.xml   # ...or name it yourself
 gator feeds                                               # list all feeds (⚠ marks ones that fail to fetch)
