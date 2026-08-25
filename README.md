@@ -135,7 +135,39 @@ gator follow https://example.com/feed.xml                # follow an existing fe
 gator unfollow https://example.com/feed.xml              # unfollow a feed
 gator following                                          # list feeds you follow, grouped by folder
 gator categorize <feed_url> <folder>                     # put a feed in a folder (empty folder = root)
+gator stats                                              # which feeds you read, and which just arrive
 ```
+
+### Knowing what to unfollow (extra)
+
+Subscriptions accumulate. `gator stats` puts volume next to attention, so it is
+obvious which feeds are worth keeping:
+
+```
+28 feeds · 1126 posts · 3 read (<1%) · 0 saved · 369 in the last 7 days
+
+FEED                 POSTS  /WEEK  READ  UNREAD  LAST POST  LAST READ
+Lobsters             216    23     0     216     4d         never
+Martin Fowler        33     2      1     32      5d         7d
+Julia Evans          20     0      0     20      1mo        never
+...
+
+Arriving but never opened:
+  CNBC               50/week  https://www.cnbc.com/id/100003114/device/rss/rss.html
+  Guardian Business  42/week  https://www.theguardian.com/uk/business/rss
+
+Drop one with: gator unfollow <url>
+```
+
+```bash
+gator stats                       # busiest feeds first
+gator stats --sort stale          # feeds that have gone quiet
+gator stats --sort read           # what you actually open
+gator stats --sort unread --limit 10
+```
+
+`--sort` also takes `week` and `name`. Feeds that fail to fetch are marked `⚠`,
+and a feed with no posts yet reads `never` rather than a fake date.
 
 ### Aggregation
 
