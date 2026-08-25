@@ -61,6 +61,7 @@ func allCommands() []entry {
 		{group: "feeds", name: "following", summary: "List the feeds you follow, grouped by folder", runAuth: handlerFollowing},
 		{group: "feeds", name: "addfeed", args: "[name] <url>", summary: "Add a feed and follow it", runAuth: handlerAddFeed},
 		{group: "feeds", name: "feeds", summary: "List every feed in the database", run: handlerFeeds},
+		{group: "feeds", name: "stats", args: "[flags]", summary: "Which feeds you actually read, and which just arrive", runAuth: handlerStats},
 		{group: "feeds", name: "follow", args: "<url>", summary: "Follow a feed someone else added", runAuth: handlerFollow},
 		{group: "feeds", name: "unfollow", args: "<url>", summary: "Stop following a feed", runAuth: handlerUnfollow},
 		{group: "feeds", name: "categorize", args: "<url> <folder>", summary: "Move a feed into a folder", runAuth: handlerCategorize},
