@@ -9,8 +9,6 @@ import (
 
 var kebab = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
-// TestCatalogIsWellFormed cuva ugradjeni JSON. Pokvaren katalog bi se inace
-// video tek kad korisnik pokrene discover, jer se parsira u run-time-u.
 func TestCatalogIsWellFormed(t *testing.T) {
 	cats, err := Categories()
 	if err != nil {
@@ -53,7 +51,6 @@ func TestCatalogIsWellFormed(t *testing.T) {
 				t.Errorf("%s: %q is not an absolute https URL", f.Name, f.URL)
 			}
 
-			// Isti feed u dve kategorije bi ga dva puta povukao pri --add.
 			if prev, dup := seenURL[f.URL]; dup {
 				t.Errorf("%q appears in both %q and %q", f.URL, prev, c.ID)
 			}

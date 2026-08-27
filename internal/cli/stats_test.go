@@ -33,7 +33,6 @@ func TestAgo(t *testing.T) {
 		{"godine", now.Add(-400 * 24 * time.Hour), "1y"},
 		{"granica sata", now.Add(-59 * time.Minute), "59m"},
 		{"granica dana", now.Add(-23 * time.Hour), "23h"},
-		// Feed koji objavi datum u buducnosti ne sme da izgleda kao najstariji.
 		{"buducnost", now.Add(2 * time.Hour), "just now"},
 	}
 
@@ -51,11 +50,10 @@ func TestPercent(t *testing.T) {
 		part, whole int64
 		want        string
 	}{
-		{0, 0, "0%"}, // feed bez postova ne deli nulom
+		{0, 0, "0%"},
 		{0, 100, "0%"},
 		{50, 100, "50%"},
 		{100, 100, "100%"},
-		// Zaokruzivanje na nulu bi tvrdilo da nista nije procitano.
 		{3, 1126, "<1%"},
 		{1, 100000, "<1%"},
 	}
@@ -91,7 +89,6 @@ func TestStatsOrderRejectsUnknownNames(t *testing.T) {
 }
 
 func TestStatsOrderKnowsEveryNameItAdvertises(t *testing.T) {
-	// Imena iz poruke o gresci moraju stvarno da rade.
 	for _, name := range []string{"posts", "week", "read", "unread", "stale", "name"} {
 		if _, err := statsOrder(name); err != nil {
 			t.Errorf("statsOrder(%q): %v", name, err)
@@ -119,7 +116,6 @@ func TestStatsOrderByStalePutsSilentFeedsFirst(t *testing.T) {
 	now := time.Now()
 	fresh := statRow("CNBC", 89, 50, 0, now.Add(-3*24*time.Hour))
 	quiet := statRow("Julia Evans", 20, 0, 0, now.Add(-40*24*time.Hour))
-	// Feed bez ijednog posta nosi nulto vreme i time je najstariji od svih.
 	empty := statRow("Rust Blog", 0, 0, 0, time.Time{})
 
 	less, err := statsOrder("stale")
@@ -152,7 +148,6 @@ func TestStatsOrderByUnread(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 50 nepročitanih je više od 5, iako je ukupan broj manji.
 	if !less(untouched, mostlyRead) {
 		t.Error("unread ordering compares the backlog, not the total")
 	}

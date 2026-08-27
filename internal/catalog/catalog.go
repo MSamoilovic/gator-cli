@@ -1,6 +1,3 @@
-// Package catalog nosi kuriranu listu feedova po kategorijama, ugradjenu u
-// binary. Zahvaljujuci njoj novi korisnik ne mora unapred da zna nijedan RSS
-// URL da bi poceo da cita.
 package catalog
 
 import (
@@ -51,17 +48,11 @@ func Find(id string) (Category, error) {
 	return Category{}, fmt.Errorf("unknown category %q (have: %s)", id, strings.Join(known, ", "))
 }
 
-// Entry je feed iz kataloga zajedno sa labelom kategorije iz koje je uzet.
-// Feed sam po sebi je ne nosi — u JSON-u zivi ispod kategorije — a pozivaocu
-// treba da bi pretplatu smestio u odgovarajuci folder.
 type Entry struct {
 	Feed
 	Category string
 }
 
-// Resolve skupi feedove iz zadatih kategorija. Isti URL u dve kategorije se
-// vraca jednom, da AddMany ne bi dva puta povlacio isti feed; pobedjuje prva
-// navedena kategorija.
 func Resolve(ids []string) ([]Entry, error) {
 	var (
 		out  []Entry

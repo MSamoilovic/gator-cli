@@ -13,17 +13,14 @@ import (
 const stateFileName = ".gator-state.json"
 
 type uiState struct {
-	FeedID     string `json:"feed_id,omitempty"`
-	FeedName   string `json:"feed_name,omitempty"`
-	SortDir    string `json:"sort_dir,omitempty"`
-	UnreadOnly bool   `json:"unread_only,omitempty"`
-	SinceHours int    `json:"since_hours,omitempty"`
-	// Collapsed su imena sklopljenih foldera. Lista, a ne mapa, da bi JSON
-	// bio stabilan izmedju upisa.
-	Collapsed []string `json:"collapsed,omitempty"`
+	FeedID     string   `json:"feed_id,omitempty"`
+	FeedName   string   `json:"feed_name,omitempty"`
+	SortDir    string   `json:"sort_dir,omitempty"`
+	UnreadOnly bool     `json:"unread_only,omitempty"`
+	SinceHours int      `json:"since_hours,omitempty"`
+	Collapsed  []string `json:"collapsed,omitempty"`
 }
 
-// collapsedSet pretvara ono sto je zapamceno u mapu koju model menja u mestu.
 func collapsedSet(names []string) map[string]bool {
 	set := make(map[string]bool, len(names))
 	for _, name := range names {

@@ -28,8 +28,6 @@ func testPost(title string) database.Post {
 	}
 }
 
-// step primeni jednu poruku i vrati novi model, da testovi ne rade
-// type assertion na svakom koraku.
 func step(t *testing.T, m model, msg tea.Msg) (model, tea.Cmd) {
 	t.Helper()
 	next, cmd := m.Update(msg)
@@ -40,7 +38,6 @@ func step(t *testing.T, m model, msg tea.Msg) (model, tea.Cmd) {
 	return got, cmd
 }
 
-// ready vrati model dimenzionisan na 80x24 sa ucitanim postovima.
 func ready(t *testing.T, posts ...database.Post) model {
 	t.Helper()
 	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
@@ -201,7 +198,6 @@ func TestCtrlCQuitsFromDetail(t *testing.T) {
 	}
 }
 
-// Dok je filter aktivan "q" je obican karakter, ne izlaz iz aplikacije.
 func TestQDoesNotQuitWhileFiltering(t *testing.T) {
 	m := ready(t, testPost("Prvi"))
 

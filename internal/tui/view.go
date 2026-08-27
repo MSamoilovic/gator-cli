@@ -119,8 +119,6 @@ func (m model) footer() string {
 		Render(line)
 }
 
-// userTagged zalepi ime ulogovanog korisnika uz desnu ivicu footera, ali samo
-// ako izmedju ostane bar jedan razmak — u uskom terminalu pomoc je vaznija.
 func (m model) userTagged(line string) string {
 	if m.userName == "" {
 		return line

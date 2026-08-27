@@ -16,8 +16,6 @@ func entries(names ...string) []Entry {
 	return out
 }
 
-// TestAddAllKeepsInputOrder je razlog zasto addAll pise u results[i] umesto da
-// koristi append: prvi unos je najsporiji, pa bi sa append-om zavrsio poslednji.
 func TestAddAllKeepsInputOrder(t *testing.T) {
 	in := entries("prvi", "drugi", "treci")
 
@@ -88,8 +86,6 @@ func TestAddAllRespectsLimit(t *testing.T) {
 	}
 }
 
-// onResult se zove iz goroutine po unosu, pa brojac bez ikakve sinhronizacije
-// prolazi samo ako ga addAll serijalizuje. `go test -race` je ovde poenta.
 func TestAddAllSerializesCallback(t *testing.T) {
 	calls := 0
 	in := entries("a", "b", "c", "d", "e", "f")
@@ -108,7 +104,6 @@ func TestAddAllHandlesEmptyAndBadLimit(t *testing.T) {
 		t.Errorf("empty input returned %d results", len(got))
 	}
 
-	// limit 0 bi bez zastite napravio kanal kapaciteta 0 i zaglavio se.
 	got := addAll(t.Context(), entries("a", "b"), 0, nil, func(_ context.Context, e Entry) AddResult {
 		return AddResult{Entry: e}
 	})

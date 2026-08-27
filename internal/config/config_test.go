@@ -5,7 +5,6 @@ import (
 )
 
 func TestReadWriteRoundTrip(t *testing.T) {
-	// Izolujemo HOME na privremeni direktorijum da ne diramo pravi ~/.gatorconfig.json
 	t.Setenv("HOME", t.TempDir())
 
 	want := Config{
@@ -29,7 +28,6 @@ func TestReadWriteRoundTrip(t *testing.T) {
 func TestSetUsername(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	// Pocetni config na disku
 	if err := write(Config{DBURL: "postgres://localhost/gator"}); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -43,7 +41,6 @@ func TestSetUsername(t *testing.T) {
 		t.Fatalf("SetUsername: %v", err)
 	}
 
-	// SetUsername mora i da izmeni struct i da upise na disk
 	if cfg.CurrentUserName != "allan" {
 		t.Errorf("in-memory username = %q, want %q", cfg.CurrentUserName, "allan")
 	}
@@ -55,7 +52,6 @@ func TestSetUsername(t *testing.T) {
 	if reread.CurrentUserName != "allan" {
 		t.Errorf("persisted username = %q, want %q", reread.CurrentUserName, "allan")
 	}
-	// DBURL mora ostati netaknut
 	if reread.DBURL != "postgres://localhost/gator" {
 		t.Errorf("DBURL changed: got %q", reread.DBURL)
 	}

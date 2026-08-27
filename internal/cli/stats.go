@@ -14,13 +14,8 @@ import (
 	"gator-cli/internal/database"
 )
 
-// statsWindow je period po kom se racuna tempo objavljivanja. Nedelja je dovoljno
-// duga da preskoci vikend zatisje, a dovoljno kratka da primeti feed koji je
-// juce poludeo.
 const statsWindow = 7 * 24 * time.Hour
 
-// neverLabel stoji tamo gde vremena nema — feed bez postova ili bez ijednog
-// otvorenog posta.
 const neverLabel = "never"
 
 func handlerStats(s *state, cmd command, user database.User) error {
@@ -108,9 +103,6 @@ func printStatsTable(rows []database.GetFeedStatsForUserRow, now time.Time) {
 	w.Flush()
 }
 
-// printStatsAdvice imenuje feedove koji stizu, a ne citaju se. To je jedini
-// razlog zbog kog se ova komanda i gleda: sa 49 pretplata pitanje nije koliko
-// ih ima nego kojih se osloboditi.
 func printStatsAdvice(rows []database.GetFeedStatsForUserRow) {
 	var noisy []database.GetFeedStatsForUserRow
 	for _, r := range rows {
@@ -149,7 +141,6 @@ func statsOrder(name string) (func(a, b database.GetFeedStatsForUserRow) bool, e
 			return a.PostCount-a.ReadCount > b.PostCount-b.ReadCount
 		}, nil
 	case "stale":
-		// Najstariji prvi, a feed bez ijednog posta je najstariji od svih.
 		return func(a, b database.GetFeedStatsForUserRow) bool {
 			return a.LastPublished.Before(b.LastPublished)
 		}, nil
@@ -161,7 +152,6 @@ func statsOrder(name string) (func(a, b database.GetFeedStatsForUserRow) bool, e
 	return nil, fmt.Errorf("invalid sort %q: use posts, week, read, unread, stale or name", name)
 }
 
-// plural izbegava "1 feeds" u zbirnom redu.
 func plural(n int64, word string) string {
 	if n == 1 {
 		return "1 " + word
@@ -175,14 +165,11 @@ func percent(part, whole int64) string {
 	}
 	p := float64(part) * 100 / float64(whole)
 	if p > 0 && p < 1 {
-		// Zaokruzivanje na nulu bi tvrdilo da nista nije procitano.
 		return "<1%"
 	}
 	return strconv.FormatFloat(p, 'f', 0, 64) + "%"
 }
 
-// ago daje priblizno vreme unazad. Nulto vreme je dogovor iz upita za
-// "nikad" — feed bez postova ili bez ijednog otvorenog posta.
 func ago(t, now time.Time) string {
 	if t.IsZero() {
 		return neverLabel
@@ -191,7 +178,6 @@ func ago(t, now time.Time) string {
 	d := now.Sub(t)
 	switch {
 	case d < 0:
-		// Feed sa datumom u buducnosti; ne lazi da je star.
 		return "just now"
 	case d < time.Hour:
 		return strconv.Itoa(int(d.Minutes())) + "m"

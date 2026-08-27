@@ -11,7 +11,6 @@ import (
 const testFeedXML = `<?xml version="1.0"?>
 <rss version="2.0"><channel><title>Julia Evans</title></channel></rss>`
 
-// site vraca stranicu na /, a feed na putanjama koje su joj zadate.
 func site(t *testing.T, page string, feeds map[string]string) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +51,6 @@ func TestResolveFollowsWhatThePageAdvertises(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	// Adresa feeda, a ne ona koju je korisnik zalepio, ide u bazu.
 	if want := srv.URL + "/atom.xml"; url != want {
 		t.Errorf("url = %q, want %q", url, want)
 	}
@@ -62,7 +60,6 @@ func TestResolveFollowsWhatThePageAdvertises(t *testing.T) {
 }
 
 func TestResolveTakesTheFirstAdvertisedFeed(t *testing.T) {
-	// Glavni feed stoji ispred komentara — provereno na WordPress sajtovima.
 	page := `<html><head>
 		<link rel="alternate" type="application/rss+xml" title="Feed" href="/feed/">
 		<link rel="alternate" type="application/rss+xml" title="Comments Feed" href="/comments/feed/">
@@ -94,7 +91,6 @@ func TestResolveOnAPageWithNoFeed(t *testing.T) {
 }
 
 func TestResolveWhenTheAdvertisedFeedIsBroken(t *testing.T) {
-	// Greska mora da imenuje obe adrese: korisnik je dao jednu, a pukla je druga.
 	page := `<html><head>
 		<link rel="alternate" type="application/rss+xml" href="/feed.xml">
 	</head></html>`

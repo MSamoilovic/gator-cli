@@ -1,6 +1,3 @@
-// Package text sredjuje tekst posta za prikaz. Feedovi salju HTML, a i TUI i
-// CLI ispis treba da vide isti ociscen tekst — zato ovo ne zivi u nijednom od
-// njih.
 package text
 
 import (
@@ -16,8 +13,6 @@ var (
 	blankLineRe = regexp.MustCompile(`\n{3,}`)
 )
 
-// StripHTML izbaci markup i dekodira entitete. Blok tagovi postaju novi red da
-// pasusi ne bi bili slepljeni, ostali se samo brisu.
 func StripHTML(s string) string {
 	s = blockTagRe.ReplaceAllString(s, "\n")
 	s = anyTagRe.ReplaceAllString(s, "")
@@ -26,9 +21,6 @@ func StripHTML(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// Truncate skrati na najvise max znakova i doda "…". Rez ide na granici reci,
-// osim ako je prva rec duza od celog ogranicenja. Meri se u znakovima, ne u
-// bajtovima — inace bi rez umeo da raspolovi ćirilicu ili emoji.
 func Truncate(s string, max int) string {
 	if max <= 0 {
 		return ""

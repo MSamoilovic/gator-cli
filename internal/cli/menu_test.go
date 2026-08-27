@@ -19,8 +19,6 @@ func TestEveryCommandHasExactlyOneHandler(t *testing.T) {
 }
 
 func TestGuestCommandsDoNotRequireLogin(t *testing.T) {
-	// Nudjenje komande izlogovanom korisniku koja ipak trazi prijavu je
-	// obecanje koje middleware odmah pokvari.
 	for _, e := range allCommands() {
 		if e.guest && e.needsLogin() {
 			t.Errorf("command %q is offered to guests but requires login", e.name)
@@ -50,8 +48,6 @@ func TestCommandNamesAreUnique(t *testing.T) {
 }
 
 func TestGroupsAreContiguous(t *testing.T) {
-	// printUsage stampa zaglavlje kad se grupa promeni, pa razbijena grupa
-	// znaci isto zaglavlje dva puta.
 	var last string
 	seen := make(map[string]bool)
 	for _, e := range allCommands() {
@@ -80,7 +76,6 @@ func TestDefaultCommandsRegistersEveryEntry(t *testing.T) {
 }
 
 func TestHiddenCommandsStayCallable(t *testing.T) {
-	// reset se ne nudi, ali mora da se otkuca.
 	if _, ok := defaultCommands().registeredCommands["reset"]; !ok {
 		t.Error("reset is hidden from the menu but also unreachable")
 	}
@@ -123,7 +118,6 @@ func TestHiddenCommandsAreNeverOffered(t *testing.T) {
 }
 
 func TestReadingComesFirstForALoggedInUser(t *testing.T) {
-	// Meni se otvara zbog citanja, pa tui ne sme da bude na dnu liste.
 	items := offered(true)
 	if len(items) == 0 {
 		t.Fatal("nothing offered")
@@ -172,7 +166,6 @@ func TestPrintUsageListsEveryVisibleCommand(t *testing.T) {
 }
 
 func TestPrintUsageIsPlainText(t *testing.T) {
-	// Ide i na stderr kad izlaz nije terminal, pa ne sme da nosi ANSI kodove.
 	var sb strings.Builder
 	printUsage(&sb)
 

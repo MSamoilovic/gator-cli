@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-// Ovako izgleda izvoz iz Feedly-ja: folderi na prvom nivou, feedovi u njima,
-// plus poneki feed u korenu.
 const feedlyLike = `<?xml version="1.0" encoding="UTF-8"?>
 <opml version="1.0">
   <head><title>marko subscriptions</title></head>
@@ -44,18 +42,14 @@ func TestParseNestedOutlines(t *testing.T) {
 		t.Errorf("htmlUrl = %q", first.HTMLURL)
 	}
 
-	// text se koristi kad title fali.
 	if got[1].Title != "Lobsters" {
 		t.Errorf("feed without title attr = %q, want it to fall back to text", got[1].Title)
 	}
-	// Feed u korenu nema kategoriju.
 	if got[3].Category != "" {
 		t.Errorf("root feed category = %q, want empty", got[3].Category)
 	}
 }
 
-// Folder bez xmlUrl nije feed. Ranije verzije ovog parsera su ih uvlacile kao
-// unose sa praznim URL-om, sto bi AddMany posle pokusao da povuce.
 func TestParseSkipsFolders(t *testing.T) {
 	got, err := Parse(strings.NewReader(feedlyLike))
 	if err != nil {
@@ -138,8 +132,6 @@ func TestWriteEscapesAndRoundTrips(t *testing.T) {
 	if !strings.HasPrefix(out, "<?xml") {
 		t.Error("output has no XML declaration")
 	}
-	// Sirovi & ili < u atributu bi napravio nevalidan XML koji drugi citaci
-	// odbijaju.
 	if strings.Contains(out, `"Friends"`) || strings.Contains(out, "Ars & ") {
 		t.Errorf("title was not escaped:\n%s", out)
 	}
@@ -172,8 +164,6 @@ func TestWriteEmptyList(t *testing.T) {
 	}
 }
 
-// Ovo je i bio povod za kategorije: pre nje je uvoz iz Feedly-ja citao foldere
-// pa ih bacao, a izvoz je uvek bio ravan.
 func TestWriteGroupsByCategoryAndRoundTrips(t *testing.T) {
 	in := []Feed{
 		{Title: "Lobsters", XMLURL: "https://lobste.rs/rss", Category: "Tech"},

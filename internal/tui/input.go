@@ -164,7 +164,6 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Unfollow):
 		item, ok := m.feedList.SelectedItem().(feedItem)
 		if !ok {
-			// Zaglavlje foldera; folder se ne otprati, otprate se feedovi.
 			return m.withStatus("Pick a feed to unfollow")
 		}
 		if item.id == uuid.Nil {

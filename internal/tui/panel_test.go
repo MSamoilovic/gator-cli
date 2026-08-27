@@ -16,7 +16,6 @@ func testFeedIn(name, category string) database.GetFeedFollowsForUserRow {
 	return f
 }
 
-// panelTitles su naslovi redova u feed panelu, onako kako se i crtaju.
 func panelTitles(m model) []string {
 	items := m.feedList.Items()
 	titles := make([]string, len(items))
@@ -32,7 +31,6 @@ func panelTitles(m model) []string {
 }
 
 func TestPanelStaysFlatWithoutCategories(t *testing.T) {
-	// Jedno jedino "(uncategorized)" zaglavlje iznad svega je cista buka.
 	m := withFeeds(t, ready(t, testPost("Prvi")), testFeed("BBC"), testFeed("CBR"))
 
 	for _, it := range m.feedList.Items() {
@@ -79,9 +77,9 @@ func TestEnterOnHeaderCollapsesTheFolder(t *testing.T) {
 		testFeedIn("Ars", "Tech"),
 	)
 
-	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})   // fokus na feedove
-	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})  // na "Comics"
-	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter}) // sklopi
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
 	if !m.collapsed["Comics"] {
 		t.Fatal("enter on a header did not collapse the folder")
@@ -95,12 +93,11 @@ func TestEnterOnHeaderCollapsesTheFolder(t *testing.T) {
 		t.Errorf("header did not switch to the closed arrow: %q", panelTitles(m)[1])
 	}
 
-	// Fokus ostaje na istom zaglavlju, jer se broj redova ispod promenio.
 	if fol, ok := m.feedList.SelectedItem().(folderItem); !ok || fol.name != "Comics" {
 		t.Errorf("selection moved off the folder that was toggled: %v", m.feedList.SelectedItem())
 	}
 
-	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter}) // rasklopi
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 	if m.collapsed["Comics"] {
 		t.Error("enter did not expand the folder again")
 	}
@@ -148,7 +145,6 @@ func TestFolderHeaderCountsUnreadAcrossItsFeeds(t *testing.T) {
 }
 
 func TestFolderHeaderMarksBrokenFeeds(t *testing.T) {
-	// Pokvaren feed u sklopljenom folderu bi inace bio nevidljiv.
 	broken := testFeedIn("Ars", "Tech")
 	broken.FeedFailures = 4
 	m := withFeeds(t, ready(t, testPost("Prvi")), broken)
@@ -171,7 +167,7 @@ func TestUnfollowOnHeaderIsRefused(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")), testFeedIn("XKCD", "Comics"))
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
-	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown}) // na zaglavlje
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
 
 	if m.confirming {
@@ -183,7 +179,6 @@ func TestUnfollowOnHeaderIsRefused(t *testing.T) {
 }
 
 func TestStoredFeedIsRevealedInsideACollapsedFolder(t *testing.T) {
-	// Zapamcen izbor ne sme da ostane sakriven iza sklopljenog zaglavlja.
 	feed := testFeedIn("Ars", "Tech")
 
 	m := ready(t, testPost("Prvi"))
@@ -207,8 +202,6 @@ func TestStoredFeedIsRevealedInsideACollapsedFolder(t *testing.T) {
 }
 
 func TestCatalogSeesFeedsInCollapsedFolders(t *testing.T) {
-	// followedURLs cita m.feeds, ne listu — inace bi katalog za sklopljene
-	// foldere tvrdio da se ti feedovi ne prate.
 	feed := testFeedIn("Ars", "Tech")
 	feed.FeedUrl = "https://arstechnica.test/rss"
 
@@ -243,8 +236,8 @@ func TestSelectingAFeedInsideAFolderStillFilters(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")), feed)
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
-	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown}) // zaglavlje Tech
-	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown}) // feed Ars
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
 	if m.feedID != feed.FeedID {

@@ -86,7 +86,6 @@ func TestTruncate(t *testing.T) {
 			want:  "aaaaa…",
 		},
 		{
-			// Rez po bajtovima bi raspolovio ćirilicu; meri se u znakovima.
 			name:  "multibyte text is not broken",
 			input: "Ćirilica је ту",
 			max:   9,

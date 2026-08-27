@@ -18,9 +18,6 @@ const (
 	superviseHealthy   = 30 * time.Second
 )
 
-// handlerSupervise keeps `gator agg` running, restarting it with exponential
-// backoff whenever it crashes. It logs to both the terminal and a log file,
-// and shuts down cleanly on SIGINT/SIGTERM.
 func handlerSupervise(_ *state, cmd command) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: supervise <time_between_reqs>")
@@ -83,7 +80,6 @@ func handlerSupervise(_ *state, cmd command) error {
 			}
 		}
 
-		// Ako je dete radilo dovoljno dugo, tretiramo restart kao svez pocetak.
 		if time.Since(start) > superviseHealthy {
 			backoff = superviseMinBackff
 		}

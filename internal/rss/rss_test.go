@@ -29,8 +29,6 @@ const sampleFeed = `<?xml version="1.0" encoding="UTF-8"?>
   </channel>
 </rss>`
 
-// fetch je bezuslovno preuzimanje, sto je slucaj za vecinu testova ovde.
-// Uslovne zahteve testira TestFetchFeedConditional* nize.
 func fetch(t *testing.T, url string) (*RSSFeed, error) {
 	t.Helper()
 	return fetchCtx(t.Context(), url)
@@ -110,8 +108,6 @@ func TestFetchFeedMalformedXML(t *testing.T) {
 	}
 }
 
-// Stariji feedovi jos deklarisu ISO-8859-1 ili windows-1252. Bajtovi ispod su
-// namerno latin-1, ne UTF-8 — bez CharsetReader-a ovo ne prodje kroz parser.
 func TestFetchFeedDecodesNonUTF8(t *testing.T) {
 	cases := []struct{ name, declared string }{
 		{"latin-1", "ISO-8859-1"},
@@ -190,7 +186,6 @@ func TestFetchFeedParsesAtom(t *testing.T) {
 	if got, want := feed.Channel.Description, "Go & friends"; got != want {
 		t.Errorf("channel description = %q, want %q", got, want)
 	}
-	// rel="self" vodi na feed, ne na sajt — mora biti preskocen.
 	if got, want := feed.Channel.Link, "https://go.dev/blog"; got != want {
 		t.Errorf("channel link = %q, want %q", got, want)
 	}
@@ -230,8 +225,6 @@ func TestFetchFeedAtomFallsBackToContentAndUpdated(t *testing.T) {
 	}
 }
 
-// Vecina feedova u <description> salje izvod, a ceo tekst u <content:encoded>.
-// Kad su oba tu, pun tekst mora da pobedi.
 func TestFetchFeedPrefersContentEncoded(t *testing.T) {
 	body := `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
@@ -389,10 +382,6 @@ func TestFetchFeedBadURL(t *testing.T) {
 	}
 }
 
-// --- uslovno preuzimanje -----------------------------------------------------
-
-// conditionalServer glumi server koji postuje uslovne zahteve: vraca 304 kad se
-// otisci poklope. Belezi zaglavlja svakog zahteva radi provere.
 func conditionalServer(t *testing.T, etag, lastMod, body string) (*httptest.Server, *[]http.Header) {
 	t.Helper()
 
@@ -433,7 +422,6 @@ func TestFetchFeedReturnsValidators(t *testing.T) {
 		t.Errorf("validators = %+v, want ETag=%q LastModified=%q", got, etag, lastMod)
 	}
 
-	// Prvi zahtev nema sta da posalje, pa ne sme da nosi uslovna zaglavlja.
 	first := (*seen)[0]
 	if v := first.Get("If-None-Match"); v != "" {
 		t.Errorf("first request sent If-None-Match: %q", v)
@@ -459,8 +447,6 @@ func TestFetchFeedNotModified(t *testing.T) {
 	if feed != nil {
 		t.Error("304 returned a feed; there is no body to parse")
 	}
-	// Validatori se vracaju nepromenjeni, inace bi ih pozivalac obrisao i
-	// sledeci zahtev bi opet bio bezuslovan.
 	if got != prev {
 		t.Errorf("validators after 304 = %+v, want them unchanged (%+v)", got, prev)
 	}
@@ -474,8 +460,6 @@ func TestFetchFeedNotModified(t *testing.T) {
 	}
 }
 
-// Trecina feedova ne salje otiske uopste. Tada se ide bezuslovno i sve mora da
-// radi kao i pre.
 func TestFetchFeedWithoutValidatorsStaysUnconditional(t *testing.T) {
 	srv, seen := conditionalServer(t, "", "", sampleFeed)
 
@@ -499,8 +483,6 @@ func TestFetchFeedWithoutValidatorsStaysUnconditional(t *testing.T) {
 	}
 }
 
-// Server koji salje otiske pa ih ignorise (Ars Technica) mora da radi kao da
-// uslovnog preuzimanja nema.
 func TestFetchFeedServerIgnoringConditionalsStillWorks(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("ETag", `"stalno-isti"`)
@@ -523,7 +505,6 @@ func TestFetchFeedServerIgnoringConditionalsStillWorks(t *testing.T) {
 	}
 }
 
-// newServer je serve za slucajeve koji traze sopstveni handler.
 func newServer(t *testing.T, h http.HandlerFunc) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(h)

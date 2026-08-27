@@ -78,7 +78,6 @@ func TestNextPageIsAppended(t *testing.T) {
 func TestStalePageIsIgnored(t *testing.T) {
 	m := loaded(t, fullPage("a"))
 
-	// Korisnik je promenio feed dok je strana bila u letu: offset se vratio na 0.
 	m, _ = step(t, m, postsLoadedMsg{posts: fullPage("b")[:5], offset: pageSize, paged: true})
 
 	if got, want := len(m.list.Items()), pageSize; got != want {

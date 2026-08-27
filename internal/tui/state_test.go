@@ -177,8 +177,6 @@ func TestSnapshotCapturesCurrentView(t *testing.T) {
 	}
 }
 
-// Pretraga i bookmark-i su trenutna stanja; pamtiti ih znacilo bi da se TUI
-// otvori u filtriranom pogledu bez ocigledog razloga.
 func TestSnapshotSkipsTransientViews(t *testing.T) {
 	m := loaded(t, fullPage("a"))
 
@@ -218,7 +216,6 @@ func TestUnfollowedFeedFallsBackToAll(t *testing.T) {
 		t.Fatal("saved feed was not applied")
 	}
 
-	// Feed vise nije medju pracenima.
 	m, cmd := step(t, m, feedsLoadedMsg{feeds: nil})
 
 	if m.feedID != uuid.Nil {

@@ -11,27 +11,23 @@ import (
 )
 
 type Item struct {
-	Name    string // "addfeed"
-	Args    string // "[name] <url>"; prazno kad komanda ne uzima argumente
+	Name    string
+	Args    string
 	Summary string
 	Group   string
 }
 
-// Config je sve sto birac treba da nacrta: pozdrav i ponuda.
 type Config struct {
-	Title    string // traka na vrhu, npr. "gator"
-	Greeting string // red ispod nje, npr. "Hello, Tsunami"
+	Title    string
+	Greeting string
 	Items    []Item
 }
 
-// Choice je izabrana komanda, spremna za dispatch.
 type Choice struct {
 	Name string
 	Args []string
 }
 
-// needsArgs je tacno kad bar jedan argument nije opcion. Dogovor je isti kao u
-// usage porukama: obavezno ide u <>, opciono u [].
 func (i Item) needsArgs() bool { return strings.Contains(i.Args, "<") }
 
 func (i Item) Title() string {
@@ -43,13 +39,11 @@ func (i Item) Title() string {
 
 func (i Item) Description() string { return i.Summary }
 
-// FilterValue hvata i grupu i opis, pa "feed" nadje i `import` i `following`.
 func (i Item) FilterValue() string { return i.Name + " " + i.Group + " " + i.Summary }
 
 const (
-	listHint = "↑↓ move · ⏎ run · / filter · q quit"
-	askHint  = "⏎ run · esc back"
-	// footerHeight je koliko redova ispod liste drzimo za prompt i poruku.
+	listHint     = "↑↓ move · ⏎ run · / filter · q quit"
+	askHint      = "⏎ run · esc back"
 	footerHeight = 4
 )
 
@@ -66,7 +60,7 @@ type model struct {
 	keys     keyMap
 	greeting string
 
-	asking  bool // ceka se unos argumenata
+	asking  bool
 	pending Item
 	status  string
 
@@ -131,12 +125,10 @@ func (m model) greetingHeight() int {
 	if m.greeting == "" {
 		return 0
 	}
-	return 2 // pozdrav i prazan red ispod njega
+	return 2
 }
 
 func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Dok se filtrira, slova pripadaju filteru — inace bi "q" u "queue"
-	// zatvorilo program.
 	if m.list.FilterState() != list.Filtering {
 		switch {
 		case msg.Type == tea.KeyCtrlC, key.Matches(msg, m.keys.Quit):
@@ -181,8 +173,6 @@ func (m model) updatePrompt(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// ask prebacuje birac na unos argumenata za item. Fokus mora da se postavi nad
-// kopijom koja se vraca — textinput ignorise tastere dok nije fokusiran.
 func (m model) ask(item Item) (model, tea.Cmd) {
 	m.asking = true
 	m.pending = item
@@ -220,8 +210,6 @@ func (m model) View() string {
 	return b.String()
 }
 
-// Select otvori birac i vrati izabranu komandu. ok je netacno kad je korisnik
-// izasao bez izbora — to nije greska.
 func Select(cfg Config) (Choice, bool, error) {
 	final, err := tea.NewProgram(newModel(cfg), tea.WithAltScreen()).Run()
 	if err != nil {
