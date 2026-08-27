@@ -169,6 +169,22 @@ gator stats --sort unread --limit 10
 `--sort` also takes `week` and `name`. Feeds that fail to fetch are marked `⚠`,
 and a feed with no posts yet reads `never` rather than a fake date.
 
+### Feeds that move
+
+Feeds get relocated, and a server that answers `301 Moved Permanently` is
+telling you the old address is dead. `agg` follows the redirect, stores the new
+address and says so:
+
+```
+Fetched 20 posts from io9 (0 new)
+Moved: io9 now lives at https://gizmodo.com/feed
+```
+
+Only permanent redirects (`301`, `308`) are recorded, and only when every hop in
+the chain was permanent — a `302` is the server saying *this time*, not *from now
+on*. `addfeed` does the same, so a feed added at an address that has moved is
+stored at the one it actually lives at.
+
 ### Aggregation
 
 ```bash

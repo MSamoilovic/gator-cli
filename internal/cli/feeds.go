@@ -213,6 +213,9 @@ func scrapeFeeds(s *state) {
 		default:
 			fmt.Printf("Fetched %d posts from %s (%d new)\n", r.Items, r.Feed.Name, r.Saved)
 		}
+		if r.MovedTo != "" {
+			fmt.Printf("Moved: %s now lives at %s\n", r.Feed.Name, r.MovedTo)
+		}
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

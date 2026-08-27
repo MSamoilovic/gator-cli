@@ -36,9 +36,9 @@ func Follow(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID) 
 }
 
 func resolve(ctx context.Context, url string) (*rss.RSSFeed, string, error) {
-	feed, _, err := rss.FetchFeed(ctx, url, rss.Validators{})
+	feed, src, err := rss.FetchFeed(ctx, rss.Source{URL: url})
 	if err == nil {
-		return feed, url, nil
+		return feed, src.URL, nil
 	}
 
 	var notFeed *rss.NotAFeedError
@@ -47,11 +47,11 @@ func resolve(ctx context.Context, url string) (*rss.RSSFeed, string, error) {
 	}
 
 	discovered := notFeed.Links[0].URL
-	feed, _, err = rss.FetchFeed(ctx, discovered, rss.Validators{})
+	feed, src, err = rss.FetchFeed(ctx, rss.Source{URL: discovered})
 	if err != nil {
 		return nil, "", fmt.Errorf("%s advertises %s, which is not a usable feed: %w", url, discovered, err)
 	}
-	return feed, discovered, nil
+	return feed, src.URL, nil
 }
 
 func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url string) (feed database.Feed, created bool, err error) {
@@ -159,6 +159,7 @@ func addAll(ctx context.Context, entries []Entry, limit int, onResult func(AddRe
 type Result struct {
 	Feed        database.Feed
 	NotModified bool
+	MovedTo     string
 	Items       int
 	Saved       int
 	Err         error
@@ -195,6 +196,21 @@ func ScrapeAll(ctx context.Context, q *database.Queries, onResult func(Result)) 
 	return results, nil
 }
 
+func rememberMove(ctx context.Context, q *database.Queries, feed database.Feed, url string) (string, error) {
+	if url == "" || url == feed.Url {
+		return "", nil
+	}
+
+	switch err := q.SetFeedUrl(ctx, database.SetFeedUrlParams{ID: feed.ID, Url: url}); {
+	case err == nil:
+		return url, nil
+	case isDuplicate(err):
+		return "", nil
+	default:
+		return "", err
+	}
+}
+
 func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result {
 	res := Result{Feed: feed}
 
@@ -203,12 +219,15 @@ func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result
 		return res
 	}
 
-	prev := rss.Validators{ETag: feed.Etag, LastModified: feed.LastModified}
+	prev := rss.Source{URL: feed.Url, ETag: feed.Etag, LastModified: feed.LastModified}
 
-	rssFeed, next, err := rss.FetchFeed(ctx, feed.Url, prev)
+	rssFeed, next, err := rss.FetchFeed(ctx, prev)
 	switch {
 	case errors.Is(err, rss.ErrNotModified):
 		markHealthy(ctx, q, feed)
+		if res.MovedTo, err = rememberMove(ctx, q, feed, next.URL); err != nil {
+			res.Err = fmt.Errorf("saving new url for %s: %w", feed.Name, err)
+		}
 		res.NotModified = true
 		return res
 	case err != nil:
@@ -218,7 +237,12 @@ func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result
 	}
 	markHealthy(ctx, q, feed)
 
-	if next != prev {
+	if res.MovedTo, err = rememberMove(ctx, q, feed, next.URL); err != nil {
+		res.Err = fmt.Errorf("saving new url for %s: %w", feed.Name, err)
+		return res
+	}
+
+	if next.ETag != prev.ETag || next.LastModified != prev.LastModified {
 		if err := q.SaveFeedValidators(ctx, database.SaveFeedValidatorsParams{
 			ID:           feed.ID,
 			Etag:         next.ETag,

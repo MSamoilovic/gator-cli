@@ -131,55 +131,78 @@ func firstNonEmpty(vals ...string) string {
 
 var ErrNotModified = errors.New("feed not modified")
 
-type Validators struct {
+const maxRedirects = 10
+
+type Source struct {
+	URL          string
 	ETag         string
 	LastModified string
 }
 
-func FetchFeed(ctx context.Context, feedURL string, prev Validators) (*RSSFeed, Validators, error) {
+func FetchFeed(ctx context.Context, src Source) (*RSSFeed, Source, error) {
+	movedForGood := true
 	httpClient := http.Client{
 		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= maxRedirects {
+				return fmt.Errorf("stopped after %d redirects", maxRedirects)
+			}
+			if req.Response != nil && !isPermanentRedirect(req.Response.StatusCode) {
+				movedForGood = false
+			}
+			return nil
+		},
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", feedURL, nil)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", src.URL, nil)
 	if err != nil {
-		return nil, prev, err
+		return nil, src, err
 	}
 	req.Header.Set("User-Agent", "gator")
-	if prev.ETag != "" {
-		req.Header.Set("If-None-Match", prev.ETag)
+	if src.ETag != "" {
+		req.Header.Set("If-None-Match", src.ETag)
 	}
-	if prev.LastModified != "" {
-		req.Header.Set("If-Modified-Since", prev.LastModified)
+	if src.LastModified != "" {
+		req.Header.Set("If-Modified-Since", src.LastModified)
 	}
 
 	res, err := httpClient.Do(req)
 	if err != nil {
-		return nil, prev, err
+		return nil, src, err
 	}
 	defer res.Body.Close()
 
+	landed := finalURL(res, src.URL)
+
+	next := src
+	if movedForGood {
+		next.URL = landed
+	}
+
 	if res.StatusCode == http.StatusNotModified {
-		return nil, prev, ErrNotModified
+		return nil, next, ErrNotModified
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, prev, fmt.Errorf("fetching %s: unexpected status %s", feedURL, res.Status)
+		return nil, src, fmt.Errorf("fetching %s: unexpected status %s", src.URL, res.Status)
 	}
 
 	data, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, prev, fmt.Errorf("reading %s: %w", feedURL, err)
+		return nil, src, fmt.Errorf("reading %s: %w", src.URL, err)
 	}
 
-	feed, err := parseFeed(data, finalURL(res, feedURL))
+	feed, err := parseFeed(data, landed)
 	if err != nil {
-		return nil, prev, err
+		return nil, src, err
 	}
 
-	next := Validators{
-		ETag:         res.Header.Get("ETag"),
-		LastModified: res.Header.Get("Last-Modified"),
-	}
+	next.ETag = res.Header.Get("ETag")
+	next.LastModified = res.Header.Get("Last-Modified")
 	return feed, next, nil
+}
+
+func isPermanentRedirect(status int) bool {
+	return status == http.StatusMovedPermanently || status == http.StatusPermanentRedirect
 }
 
 func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {

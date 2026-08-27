@@ -113,3 +113,35 @@ func TestResolvePropagatesTransportErrors(t *testing.T) {
 		t.Fatal("expected an error for an unreachable host, got nil")
 	}
 }
+
+func TestResolveStoresWhereAPermanentRedirectLands(t *testing.T) {
+	feed := site(t, "", map[string]string{"/feed.xml": testFeedXML})
+	old := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, feed.URL+"/feed.xml", http.StatusMovedPermanently)
+	}))
+	t.Cleanup(old.Close)
+
+	_, url, err := resolve(context.Background(), old.URL)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if want := feed.URL + "/feed.xml"; url != want {
+		t.Errorf("url = %q, want %q", url, want)
+	}
+}
+
+func TestResolveKeepsTheGivenURLOnATemporaryRedirect(t *testing.T) {
+	feed := site(t, "", map[string]string{"/feed.xml": testFeedXML})
+	old := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, feed.URL+"/feed.xml", http.StatusFound)
+	}))
+	t.Cleanup(old.Close)
+
+	_, url, err := resolve(context.Background(), old.URL)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if url != old.URL {
+		t.Errorf("url = %q, want the address that was given: %q", url, old.URL)
+	}
+}

@@ -35,7 +35,7 @@ func fetch(t *testing.T, url string) (*RSSFeed, error) {
 }
 
 func fetchCtx(ctx context.Context, url string) (*RSSFeed, error) {
-	feed, _, err := FetchFeed(ctx, url, Validators{})
+	feed, _, err := FetchFeed(ctx, Source{URL: url})
 	return feed, err
 }
 
@@ -411,7 +411,7 @@ func TestFetchFeedReturnsValidators(t *testing.T) {
 	const etag, lastMod = `"abc123"`, "Wed, 13 Aug 2026 09:00:00 GMT"
 	srv, seen := conditionalServer(t, etag, lastMod, sampleFeed)
 
-	feed, got, err := FetchFeed(t.Context(), srv.URL, Validators{})
+	feed, got, err := FetchFeed(t.Context(), Source{URL: srv.URL})
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -435,12 +435,12 @@ func TestFetchFeedNotModified(t *testing.T) {
 	const etag, lastMod = `"abc123"`, "Wed, 13 Aug 2026 09:00:00 GMT"
 	srv, seen := conditionalServer(t, etag, lastMod, sampleFeed)
 
-	_, prev, err := FetchFeed(t.Context(), srv.URL, Validators{})
+	_, prev, err := FetchFeed(t.Context(), Source{URL: srv.URL})
 	if err != nil {
 		t.Fatalf("first fetch: %v", err)
 	}
 
-	feed, got, err := FetchFeed(t.Context(), srv.URL, prev)
+	feed, got, err := FetchFeed(t.Context(), prev)
 	if !errors.Is(err, ErrNotModified) {
 		t.Fatalf("second fetch err = %v, want ErrNotModified", err)
 	}
@@ -463,15 +463,15 @@ func TestFetchFeedNotModified(t *testing.T) {
 func TestFetchFeedWithoutValidatorsStaysUnconditional(t *testing.T) {
 	srv, seen := conditionalServer(t, "", "", sampleFeed)
 
-	_, prev, err := FetchFeed(t.Context(), srv.URL, Validators{})
+	_, prev, err := FetchFeed(t.Context(), Source{URL: srv.URL})
 	if err != nil {
 		t.Fatalf("first fetch: %v", err)
 	}
-	if prev != (Validators{}) {
+	if prev.ETag != "" || prev.LastModified != "" {
 		t.Errorf("validators = %+v, want empty when the server sends none", prev)
 	}
 
-	feed, _, err := FetchFeed(t.Context(), srv.URL, prev)
+	feed, _, err := FetchFeed(t.Context(), prev)
 	if err != nil {
 		t.Fatalf("second fetch: %v", err)
 	}
@@ -491,12 +491,12 @@ func TestFetchFeedServerIgnoringConditionalsStillWorks(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	_, prev, err := FetchFeed(t.Context(), srv.URL, Validators{})
+	_, prev, err := FetchFeed(t.Context(), Source{URL: srv.URL})
 	if err != nil {
 		t.Fatalf("first fetch: %v", err)
 	}
 
-	feed, _, err := FetchFeed(t.Context(), srv.URL, prev)
+	feed, _, err := FetchFeed(t.Context(), prev)
 	if err != nil {
 		t.Fatalf("second fetch: %v", err)
 	}
