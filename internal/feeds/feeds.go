@@ -16,7 +16,6 @@ import (
 	"github.com/lib/pq"
 )
 
-// pqUniqueViolation je Postgres kod za prekrsen unique constraint.
 const pqUniqueViolation = "23505"
 
 func Follow(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID) (row database.CreateFeedFollowRow, created bool, err error) {
@@ -36,20 +35,10 @@ func Follow(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID) 
 	return rows[0], true, nil
 }
 
-// resolve povlaci zadatu adresu i vrati feed zajedno sa adresom na kojoj je
-// stvarno nadjen. Kad korisnik zalepi adresu sajta umesto feeda — a to je
-// uobicajeno, jer RSS adrese niko ne pamti — uzima se feed koji stranica sama
-// oglasava.
-//
-// Uzima se prvi oglaseni: sajtovi glavni feed navode ispred sporednih, pa je
-// kod WordPress-a to clanci a ne komentari, a kod sajtova koji nude i Atom i
-// RSS isti sadrzaj u dva formata.
 func resolve(ctx context.Context, url string) (*rss.RSSFeed, string, error) {
-	// Bezuslovno: feed koji se tek dodaje nema sacuvane validatore, a i da ih
-	// ima, ovde nam treba telo da bi se izvuklo ime iz <title>.
-	feed, _, err := rss.FetchFeed(ctx, url, rss.Validators{})
+	feed, src, err := rss.FetchFeed(ctx, rss.Source{URL: url})
 	if err == nil {
-		return feed, url, nil
+		return feed, src.URL, nil
 	}
 
 	var notFeed *rss.NotAFeedError
@@ -58,11 +47,11 @@ func resolve(ctx context.Context, url string) (*rss.RSSFeed, string, error) {
 	}
 
 	discovered := notFeed.Links[0].URL
-	feed, _, err = rss.FetchFeed(ctx, discovered, rss.Validators{})
+	feed, src, err = rss.FetchFeed(ctx, rss.Source{URL: discovered})
 	if err != nil {
 		return nil, "", fmt.Errorf("%s advertises %s, which is not a usable feed: %w", url, discovered, err)
 	}
-	return feed, discovered, nil
+	return feed, src.URL, nil
 }
 
 func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url string) (feed database.Feed, created bool, err error) {
@@ -103,9 +92,6 @@ func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url s
 	return feed, created, nil
 }
 
-// Entry je jedan feed koji treba dodati. Ime je opciono, isto kao kod Add —
-// prazno znaci "uzmi <title> iz samog feeda". Category je folder u koji ide
-// pretplata; prazno znaci koren.
 type Entry struct {
 	Name     string
 	URL      string
@@ -119,17 +105,12 @@ type AddResult struct {
 	Err     error
 }
 
-
 const maxParallelAdds = 8
 
-// AddMany doda i zaprati sve unose. Jedan mrtav URL ne obara ostale — greska
-// zavrsi u AddResult.Err, a posao ide dalje.
 func AddMany(ctx context.Context, q *database.Queries, userID uuid.UUID, entries []Entry, onResult func(AddResult)) []AddResult {
 	return addAll(ctx, entries, maxParallelAdds, onResult, func(ctx context.Context, e Entry) AddResult {
 		feed, created, err := Add(ctx, q, userID, e.Name, e.URL)
 		if err == nil && e.Category != "" {
-			// Kategorija je organizacija, ne sadrzaj: neuspeh njenog upisa ne
-			// sme da pretvori uspesno dodat feed u gresku.
 			_ = q.SetFeedFollowCategory(ctx, database.SetFeedFollowCategoryParams{
 				UserID:   userID,
 				FeedID:   feed.ID,
@@ -140,9 +121,6 @@ func AddMany(ctx context.Context, q *database.Queries, userID uuid.UUID, entries
 	})
 }
 
-// addAll pusti add nad svakim unosom paralelno, ali upisuje rezultat po
-// indeksu — izlaz prati redosled ulaza. (ScrapeAll koristi append pod mutexom,
-// pa je tamo redosled nedeterministican.) Mutex ovde cuva samo onResult.
 func addAll(ctx context.Context, entries []Entry, limit int, onResult func(AddResult), add func(context.Context, Entry) AddResult) []AddResult {
 	if limit < 1 {
 		limit = 1
@@ -179,10 +157,9 @@ func addAll(ctx context.Context, entries []Entry, limit int, onResult func(AddRe
 }
 
 type Result struct {
-	Feed database.Feed
-	// NotModified znaci da je server vratio 304 — nista nije preuzeto ni
-	// upisano, pa su Items i Saved nula, a to nije greska.
+	Feed        database.Feed
 	NotModified bool
+	MovedTo     string
 	Items       int
 	Saved       int
 	Err         error
@@ -219,6 +196,21 @@ func ScrapeAll(ctx context.Context, q *database.Queries, onResult func(Result)) 
 	return results, nil
 }
 
+func rememberMove(ctx context.Context, q *database.Queries, feed database.Feed, url string) (string, error) {
+	if url == "" || url == feed.Url {
+		return "", nil
+	}
+
+	switch err := q.SetFeedUrl(ctx, database.SetFeedUrlParams{ID: feed.ID, Url: url}); {
+	case err == nil:
+		return url, nil
+	case isDuplicate(err):
+		return "", nil
+	default:
+		return "", err
+	}
+}
+
 func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result {
 	res := Result{Feed: feed}
 
@@ -227,13 +219,15 @@ func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result
 		return res
 	}
 
-	prev := rss.Validators{ETag: feed.Etag, LastModified: feed.LastModified}
+	prev := rss.Source{URL: feed.Url, ETag: feed.Etag, LastModified: feed.LastModified}
 
-	rssFeed, next, err := rss.FetchFeed(ctx, feed.Url, prev)
+	rssFeed, next, err := rss.FetchFeed(ctx, prev)
 	switch {
 	case errors.Is(err, rss.ErrNotModified):
-		// 304 je uredan odgovor servera, dakle feed je ziv.
 		markHealthy(ctx, q, feed)
+		if res.MovedTo, err = rememberMove(ctx, q, feed, next.URL); err != nil {
+			res.Err = fmt.Errorf("saving new url for %s: %w", feed.Name, err)
+		}
 		res.NotModified = true
 		return res
 	case err != nil:
@@ -243,10 +237,12 @@ func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result
 	}
 	markHealthy(ctx, q, feed)
 
-	// Otisci se pamte tek posle uspesnog parsiranja: da su upisani ranije, feed
-	// koji vrati neispravan XML bi sledeci put dobio 304 i nikad se ne bi
-	// oporavio.
-	if next != prev {
+	if res.MovedTo, err = rememberMove(ctx, q, feed, next.URL); err != nil {
+		res.Err = fmt.Errorf("saving new url for %s: %w", feed.Name, err)
+		return res
+	}
+
+	if next.ETag != prev.ETag || next.LastModified != prev.LastModified {
 		if err := q.SaveFeedValidators(ctx, database.SaveFeedValidatorsParams{
 			ID:           feed.ID,
 			Etag:         next.ETag,
@@ -284,10 +280,6 @@ func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result
 	return res
 }
 
-// markFailed i markHealthy su knjigovodstvo o zdravlju feeda. Namerno se
-// pozivaju samo oko FetchFeed: pad upisa u bazu nije krivica feeda, pa ne sme
-// da ga obelezi kao pokvaren. Iz istog razloga se greska pri samom upisu
-// zanemaruje — ne sme da zameni stvarni ishod povlacenja.
 func markFailed(ctx context.Context, q *database.Queries, feed database.Feed, cause error) {
 	_ = q.MarkFeedFailed(ctx, database.MarkFeedFailedParams{
 		ID:        feed.ID,
@@ -303,13 +295,13 @@ func isDuplicate(err error) bool {
 	var pqErr *pq.Error
 	return errors.As(err, &pqErr) && pqErr.Code == pqUniqueViolation
 }
+
 var pubDateFormats = []string{
 	time.RFC1123Z,
 	time.RFC1123,
 	time.RFC3339,
 	"02 Jan 2006 15:04:05 -0700",
 	"02 Jan 2006 15:04:05 MST",
-	// RSS 1.0 feedovi cesto salju samo datum u dc:date (Nature).
 	time.DateOnly,
 }
 

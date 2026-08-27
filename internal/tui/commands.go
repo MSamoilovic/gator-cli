@@ -19,8 +19,7 @@ type (
 	postsLoadedMsg struct {
 		posts  []database.Post
 		offset int32
-		// paged je false za rezultate pretrage, koja nema OFFSET.
-		paged bool
+		paged  bool
 	}
 	bookmarksLoadedMsg struct{ postIDs []uuid.UUID }
 	bookmarkToggledMsg struct {
@@ -69,8 +68,6 @@ const (
 	statusTimeout = 3 * time.Second
 )
 
-// postFilter skuplja sve sto odredjuje koji se postovi ucitavaju, da lista
-// parametara loadPosts ne postane niz anonimnih argumenata.
 type postFilter struct {
 	feedID     uuid.UUID
 	sortDir    string
@@ -237,9 +234,6 @@ func addFeed(ctx context.Context, q *database.Queries, userID uuid.UUID, url str
 	}
 }
 
-// addCatalogFeeds povlaci sve izabrane feedove u jednoj komandi. Napredak po
-// feedu se ne prikazuje: onResult se zove iz goroutine, a za slanje poruke u
-// petlju treba tea.Program.Send, sto tea.Cmd ne moze sam.
 func addCatalogFeeds(ctx context.Context, q *database.Queries, userID uuid.UUID, entries []feeds.Entry) tea.Cmd {
 	return func() tea.Msg {
 		var msg catalogAddedMsg

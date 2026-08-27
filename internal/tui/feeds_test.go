@@ -216,7 +216,6 @@ func TestFeedPanelMarksBrokenFeeds(t *testing.T) {
 	}
 }
 
-// Marker i brojac nepracitanih moraju da stoje zajedno, ne da se iskljucuju.
 func TestBrokenMarkAndUnreadCountCoexist(t *testing.T) {
 	broken := testFeed("CBR")
 	broken.FeedFailures = 1

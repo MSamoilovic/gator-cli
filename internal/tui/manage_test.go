@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// feedsFocused vrati model sa feed panelom u fokusu i kursorom na prvom feedu.
 func feedsFocused(t *testing.T, m model) model {
 	t.Helper()
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})

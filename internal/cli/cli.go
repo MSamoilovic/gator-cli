@@ -1,6 +1,3 @@
-// Package cli je sloj komandne linije: registar komandi, njihovi handleri i
-// stanje koje dele. Sve sto handler radi je parsiranje argumenata i ispis —
-// logika koju deli sa TUI-jem zivi u internal/feeds i internal/catalog.
 package cli
 
 import (
@@ -8,30 +5,22 @@ import (
 	"gator-cli/internal/database"
 )
 
-// state je ono sto svaki handler dobija: veza sa bazom i procitan config.
 type state struct {
 	Db  *database.Queries
 	Cfg *config.Config
 }
 
-// entry je jedna komanda sa svime sto se o njoj zna: kako se zove, sta uzima,
-// sta radi i ko sme da je pozove. Iz iste tabele se pravi registar, birac
-// komandi i ispis `gator help`, pa ne moze da se desi da komanda postoji a da
-// je u meniju nema — ili obrnuto.
 type entry struct {
 	name    string
-	args    string // "[name] <url>"; prazno kad komanda ne uzima argumente
+	args    string
 	summary string
 	group   string
 
-	// Tacno jedno od run i runAuth je postavljeno. runAuth je i jedini izvor
-	// istine o tome trazi li komanda prijavu: iz njega se izvodi i umotavanje
-	// u middleware i to da li se komanda nudi izlogovanom korisniku.
 	run     func(*state, command) error
 	runAuth func(*state, command, database.User) error
 
-	guest  bool // nudi se i kad korisnik nije prijavljen
-	hidden bool // postoji, ali se ne nudi u meniju
+	guest  bool
+	hidden bool
 }
 
 func (e entry) needsLogin() bool { return e.runAuth != nil }
@@ -43,11 +32,6 @@ func (e entry) handler() func(*state, command) error {
 	return e.run
 }
 
-// allCommands je poredjano po poslu, ne azbucno — mapa komandi redosled ionako
-// ne bi sacuvala. Citanje je prvo jer je to ono zbog cega se gator i otvara.
-//
-// Funkcija je, a ne promenljiva, jer `help` ispisuje bas ovu tabelu: kao
-// promenljiva bi tabela zavisila od handlera koji zavisi od nje.
 func allCommands() []entry {
 	return []entry{
 		{group: "reading", name: "tui", summary: "Open the interactive reader", runAuth: handlerTUI},
@@ -80,9 +64,6 @@ func allCommands() []entry {
 	}
 }
 
-// Run izvrsi jednu komandu iz args, gde je args[0] njeno ime. Bez argumenata
-// otvara birac komandi umesto da odmah padne. Greska se vraca pozivaocu;
-// nijedan handler ne zove os.Exit sam.
 func Run(cfg *config.Config, db *database.Queries, args []string) error {
 	s := state{Cfg: cfg, Db: db}
 	cmds := defaultCommands()

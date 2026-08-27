@@ -59,3 +59,8 @@ SELECT id, name, url, last_error, failure_count, last_fetched_at
 FROM feeds
 WHERE failure_count > 0
 ORDER BY failure_count DESC, name;
+
+-- name: SetFeedUrl :exec
+UPDATE feeds
+SET url = $2, updated_at = NOW()
+WHERE id = $1;

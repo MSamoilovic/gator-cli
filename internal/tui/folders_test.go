@@ -46,8 +46,6 @@ func equal(a, b []string) bool {
 }
 
 func TestGroupFeedsSortsFoldersWithRootLast(t *testing.T) {
-	// Isti redosled kao `gator following` i `gator export`: folderi azbucno,
-	// nekategorisani na kraju.
 	rows := []database.GetFeedFollowsForUserRow{
 		follow("BBC", ""),
 		follow("XKCD", "Comics"),
@@ -123,7 +121,6 @@ func TestFolderOf(t *testing.T) {
 	if got := folderOf(rows, tech.FeedID); got != "Tech" {
 		t.Errorf("folderOf(categorised) = %q, want Tech", got)
 	}
-	// Nekategorisan feed se vraca pod imenom pod kojim je i prikazan.
 	if got := folderOf(rows, root.FeedID); got != rootFolder {
 		t.Errorf("folderOf(uncategorised) = %q, want %q", got, rootFolder)
 	}

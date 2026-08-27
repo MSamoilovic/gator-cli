@@ -11,8 +11,6 @@ import (
 
 const detailChromeHeight = 6
 
-// renderDetailHeader uvek vraca tacno detailChromeHeight-1 redova; racunica
-// visine viewport-a zavisi od toga.
 func renderDetailHeader(p database.Post, width int, scroll float64) string {
 	published := "unknown"
 	if p.PublishedAt.Valid {

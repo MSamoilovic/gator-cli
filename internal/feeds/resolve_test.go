@@ -11,7 +11,6 @@ import (
 const testFeedXML = `<?xml version="1.0"?>
 <rss version="2.0"><channel><title>Julia Evans</title></channel></rss>`
 
-// site vraca stranicu na /, a feed na putanjama koje su joj zadate.
 func site(t *testing.T, page string, feeds map[string]string) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +51,6 @@ func TestResolveFollowsWhatThePageAdvertises(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	// Adresa feeda, a ne ona koju je korisnik zalepio, ide u bazu.
 	if want := srv.URL + "/atom.xml"; url != want {
 		t.Errorf("url = %q, want %q", url, want)
 	}
@@ -62,7 +60,6 @@ func TestResolveFollowsWhatThePageAdvertises(t *testing.T) {
 }
 
 func TestResolveTakesTheFirstAdvertisedFeed(t *testing.T) {
-	// Glavni feed stoji ispred komentara — provereno na WordPress sajtovima.
 	page := `<html><head>
 		<link rel="alternate" type="application/rss+xml" title="Feed" href="/feed/">
 		<link rel="alternate" type="application/rss+xml" title="Comments Feed" href="/comments/feed/">
@@ -94,7 +91,6 @@ func TestResolveOnAPageWithNoFeed(t *testing.T) {
 }
 
 func TestResolveWhenTheAdvertisedFeedIsBroken(t *testing.T) {
-	// Greska mora da imenuje obe adrese: korisnik je dao jednu, a pukla je druga.
 	page := `<html><head>
 		<link rel="alternate" type="application/rss+xml" href="/feed.xml">
 	</head></html>`
@@ -115,5 +111,37 @@ func TestResolvePropagatesTransportErrors(t *testing.T) {
 	_, _, err := resolve(context.Background(), "http://127.0.0.1:1/nothing")
 	if err == nil {
 		t.Fatal("expected an error for an unreachable host, got nil")
+	}
+}
+
+func TestResolveStoresWhereAPermanentRedirectLands(t *testing.T) {
+	feed := site(t, "", map[string]string{"/feed.xml": testFeedXML})
+	old := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, feed.URL+"/feed.xml", http.StatusMovedPermanently)
+	}))
+	t.Cleanup(old.Close)
+
+	_, url, err := resolve(context.Background(), old.URL)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if want := feed.URL + "/feed.xml"; url != want {
+		t.Errorf("url = %q, want %q", url, want)
+	}
+}
+
+func TestResolveKeepsTheGivenURLOnATemporaryRedirect(t *testing.T) {
+	feed := site(t, "", map[string]string{"/feed.xml": testFeedXML})
+	old := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, feed.URL+"/feed.xml", http.StatusFound)
+	}))
+	t.Cleanup(old.Close)
+
+	_, url, err := resolve(context.Background(), old.URL)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if url != old.URL {
+		t.Errorf("url = %q, want the address that was given: %q", url, old.URL)
 	}
 }

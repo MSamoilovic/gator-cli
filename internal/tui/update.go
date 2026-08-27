@@ -35,8 +35,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.expandFolderOf(m.feedID)
 		cmd := m.feedList.SetItems(m.feedItems())
 
-		// Katalog se otvara tek ovde, ne u Init: openCatalog cita feed listu
-		// da bi znao sta se vec prati, a ona do sada nije bila ucitana.
 		if m.openOnLoad {
 			m.openOnLoad = false
 			opened, openCmd := m.openCatalog()
@@ -208,9 +206,6 @@ func (m model) selectStoredFeed(cmd tea.Cmd) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmd, m.startLoad())
 }
 
-// feedItems komponuje panel iz m.feeds. Bez ijedne kategorije ostaje ravan
-// spisak kakav je i bio; cim postoji makar jedan folder, feedovi se uvlace pod
-// zaglavlja, a sklopljeni folderi izostavljaju svoje feedove iz liste.
 func (m model) feedItems() []list.Item {
 	items := make([]list.Item, 0, len(m.feeds)+1)
 	items = append(items, feedItem{id: uuid.Nil, name: allFeedsLabel, unread: m.unread})
@@ -261,10 +256,7 @@ func (m model) newFolderItem(fol folder) folderItem {
 	return item
 }
 
-// toggleFolder sklapa ili rasklapa folder i prekomponuje panel. Selekcija se
-// vraca na isto zaglavlje, jer se ispod njega broj redova upravo promenio.
 func (m model) toggleFolder(name string) (model, tea.Cmd) {
-	// Mapa se deli sa stavkama, pa se menja u mestu.
 	if m.collapsed[name] {
 		delete(m.collapsed, name)
 	} else {
@@ -285,8 +277,6 @@ func (m *model) selectFolder(name string) {
 	}
 }
 
-// expandFolderOf rasklapa folder u kom stoji feed, da zapamcen izbor ne bi
-// ostao sakriven iza sklopljenog zaglavlja.
 func (m *model) expandFolderOf(feedID uuid.UUID) {
 	if name := folderOf(m.feeds, feedID); name != "" {
 		delete(m.collapsed, name)

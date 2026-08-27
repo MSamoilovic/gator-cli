@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// rootLabel je ono sto se ispisuje umesto prazne kategorije.
 const rootLabel = "(uncategorized)"
 
 func handlerCategorize(s *state, cmd command, user database.User) error {
@@ -28,7 +27,6 @@ func handlerCategorize(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("feed not found: %w", err)
 	}
 
-	// Kategorija se pise na pretplatu, pa je bez nje nema sta da se menja.
 	follows, err := s.Db.GetFeedFollowsForUser(ctx, user.ID)
 	if err != nil {
 		return fmt.Errorf("error fetching follows: %w", err)
@@ -62,8 +60,6 @@ func followsFeed(follows []database.GetFeedFollowsForUserRow, feedID uuid.UUID) 
 	return false
 }
 
-// handlerFollowing grupise pretplate po kategoriji; nekategorisane idu na kraj,
-// jer su ostatak a ne prva grupa.
 func handlerFollowing(s *state, _ command, user database.User) error {
 	follows, err := s.Db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err != nil {

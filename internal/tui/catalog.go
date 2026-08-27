@@ -49,7 +49,7 @@ func (m model) updateCatalog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		
+
 		if m.picked[item.cat.ID] {
 			delete(m.picked, item.cat.ID)
 		} else {
@@ -101,8 +101,6 @@ func (m model) catalogView() string {
 	return m.catalogList.View() + "\n" + m.footer()
 }
 
-// followedURLs se cita iz m.feeds, a ne iz feed liste: u listi nema feedova iz
-// sklopljenih foldera, pa bi katalog za njih tvrdio da se ne prate.
 func (m model) followedURLs() map[string]bool {
 	followed := make(map[string]bool, len(m.feeds))
 	for _, f := range m.feeds {

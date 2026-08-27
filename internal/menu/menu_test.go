@@ -17,8 +17,6 @@ var testConfig = Config{
 	},
 }
 
-// newTestModel daje model koji je vec dobio dimenzije, kao sto bi ih dobio od
-// Bubble Tea odmah po pokretanju.
 func newTestModel(t *testing.T) model {
 	t.Helper()
 	next, _ := newModel(testConfig).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
@@ -92,7 +90,7 @@ func TestTypedArgsReachTheChoice(t *testing.T) {
 func TestRequiredArgsCannotBeSkipped(t *testing.T) {
 	m := press(t, newTestModel(t),
 		hit(tea.KeyDown), hit(tea.KeyEnter),
-		hit(tea.KeyEnter), // prazno
+		hit(tea.KeyEnter),
 	)
 
 	if m.chosen {
@@ -107,7 +105,6 @@ func TestRequiredArgsCannotBeSkipped(t *testing.T) {
 }
 
 func TestOptionalArgsMayBeSkipped(t *testing.T) {
-	// browse [flags] bez ijednog flaga je potpuno ispravan poziv.
 	m := press(t, newTestModel(t),
 		hit(tea.KeyDown), hit(tea.KeyDown), hit(tea.KeyEnter),
 		hit(tea.KeyEnter),
@@ -134,14 +131,12 @@ func TestEscLeavesThePromptWithoutChoosing(t *testing.T) {
 		t.Error("esc did not return to the list")
 	}
 
-	// Posle povratka lista opet prima tastere.
 	if m = press(t, m, hit(tea.KeyEnter)); !m.asking {
 		t.Error("the list stopped responding after esc")
 	}
 }
 
 func TestPromptStartsEmptyOnSecondVisit(t *testing.T) {
-	// Otkucano ime ne sme da ostane u polju kad se komanda otvori ponovo.
 	m := press(t, newTestModel(t),
 		hit(tea.KeyDown), hit(tea.KeyEnter),
 		typed("mako"), hit(tea.KeyEsc),
@@ -160,7 +155,6 @@ func TestQuittingChoosesNothing(t *testing.T) {
 }
 
 func TestFilteringSwallowsQuitKeys(t *testing.T) {
-	// "q" je i precica za izlaz i slovo — dok se filtrira, pripada filteru.
 	m := press(t, newTestModel(t), typed("/"), typed("q"))
 
 	if m.chosen {
@@ -201,7 +195,6 @@ func TestItemTitleShowsArgs(t *testing.T) {
 }
 
 func TestFilterValueCoversGroupAndSummary(t *testing.T) {
-	// Da bi "feed" nasao i komande kojima to nije u imenu.
 	got := Item{Name: "import", Group: "feeds", Summary: "Follow everything in an OPML file"}.FilterValue()
 	for _, want := range []string{"import", "feeds", "OPML"} {
 		if !strings.Contains(got, want) {

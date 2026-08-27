@@ -11,8 +11,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// openPicker dodje do birača istim putem kojim i korisnik: tab u feed panel,
-// pa c.
 func openPicker(t *testing.T, feeds ...database.GetFeedFollowsForUserRow) model {
 	t.Helper()
 
@@ -126,8 +124,6 @@ func TestEscapeLeavesCatalogWithoutAdding(t *testing.T) {
 	}
 }
 
-// Izbor se ne pamti izmedju otvaranja: kad su feedovi jednom zapraceni,
-// prosli cekiranje vise nista ne znaci.
 func TestReopeningCatalogClearsPicks(t *testing.T) {
 	m := openPicker(t)
 	first := firstCategory(t)
@@ -215,7 +211,6 @@ func TestCatalogAddedReloadsFeeds(t *testing.T) {
 		t.Fatal("a successful add did not reload anything")
 	}
 
-	// Neuspeh nema sta da osvezi, pa se lista ne dira.
 	m2 := openPicker(t)
 	m2, _ = step(t, m2, tea.KeyMsg{Type: tea.KeyEsc})
 	m2, _ = step(t, m2, catalogAddedMsg{failed: 2})
@@ -225,9 +220,6 @@ func TestCatalogAddedReloadsFeeds(t *testing.T) {
 	}
 }
 
-// RunCatalog (`gator discover` na terminalu) startuje sa openOnLoad. Katalog
-// se sme otvoriti tek posle feedsLoadedMsg — pre toga feed lista je prazna, pa
-// bi svaka kategorija tvrdila da nijedan njen feed nije zapracen.
 func TestCatalogOpensAfterFeedsLoadWhenAskedTo(t *testing.T) {
 	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
 	m.openOnLoad = true

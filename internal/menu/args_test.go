@@ -38,8 +38,6 @@ func TestSplitArgs(t *testing.T) {
 }
 
 func TestSplitArgsEmptyLineIsNil(t *testing.T) {
-	// Handleri granaju na len(cmd.Args), pa prazna linija ne sme da im
-	// podmetne jedan prazan argument.
 	if got := SplitArgs("  "); got != nil {
 		t.Errorf("SplitArgs(spaces) = %q, want nil", got)
 	}

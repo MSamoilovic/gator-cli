@@ -10,9 +10,6 @@ import (
 	"gator-cli/internal/opml"
 )
 
-// stdioName je dogovor iz Unix alata: "-" znaci stdin odnosno stdout, pa
-// `curl ... | gator import -` i `gator export - > f.opml` rade bez privremenog
-// fajla.
 const stdioName = "-"
 
 func handlerExport(s *state, cmd command, user database.User) error {
@@ -44,7 +41,6 @@ func handlerExport(s *state, cmd command, user database.User) error {
 		return err
 	}
 
-	// Poruka ide na stderr da ne zaprlja OPML kad izlaz ide u pipe.
 	if out == os.Stdout {
 		fmt.Fprintf(os.Stderr, "Exported %d feeds\n", len(list))
 	} else {

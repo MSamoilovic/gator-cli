@@ -16,8 +16,6 @@ type postItem struct {
 	reads     map[uuid.UUID]bool
 }
 
-// Markeri se dele preko mapa koje model mutira, pa se stavke ne moraju
-// ponovo praviti kad se stanje promeni.
 func (i postItem) Title() string {
 	prefix := ""
 	if !i.reads[i.post.ID] {
@@ -41,8 +39,6 @@ func (i postItem) Description() string {
 
 func (i postItem) FilterValue() string { return i.post.Title }
 
-// brokenMark stoji uz feed koji ne uspeva da se povuce, kao sto ● stoji uz
-// nepracitan post.
 const brokenMark = "⚠"
 
 type feedItem struct {
@@ -50,14 +46,12 @@ type feedItem struct {
 	name     string
 	url      string
 	failures int32
-	indent   bool // stoji u folderu, pa je uvucen ispod zaglavlja
+	indent   bool
 	unread   map[uuid.UUID]int
 }
 
 func (i feedItem) Title() string {
 	name := i.name
-	// Feed koji ne uspeva da se povuce inace tiho prestane da radi i to niko
-	// ne primeti mesecima.
 	if i.failures > 0 {
 		name = brokenMark + " " + name
 	}
@@ -78,16 +72,10 @@ const (
 	folderClosed = "▸"
 )
 
-// folderItem je zaglavlje jedne grupe. bubbles/list nema zaglavlja i sve
-// stavke su mu iste visine, pa je jedini nacin da grupa postoji taj da i ona
-// bude obican red u listi. Posto je red kao i svaki drugi, moze i da se
-// selektuje — i time je ⏎ nad njom prirodno mesto za sklapanje.
 type folderItem struct {
-	name    string
-	feedIDs []uuid.UUID
-	broken  int
-	// collapsed se, kao i unread, deli po referenci sa modelom: menja se u
-	// mestu, nikad se ne dodeljuje nova mapa.
+	name      string
+	feedIDs   []uuid.UUID
+	broken    int
 	collapsed map[string]bool
 	unread    map[uuid.UUID]int
 }
@@ -99,8 +87,6 @@ func (i folderItem) Title() string {
 	}
 	label += " " + i.name
 
-	// Pokvaren feed u sklopljenom folderu bi inace bio nevidljiv — bas ono
-	// protiv cega brokenMark i postoji.
 	if i.broken > 0 {
 		label += " " + brokenMark
 	}
@@ -121,8 +107,6 @@ func (i folderItem) unreadTotal() int {
 func (i folderItem) Description() string { return "" }
 func (i folderItem) FilterValue() string { return i.name }
 
-// catalogItem je jedna kategorija u biracu. picked se, kao i markeri kod
-// postova, deli po referenci sa modelom — space menja mapu, ne stavku.
 type catalogItem struct {
 	cat      catalog.Category
 	picked   map[string]bool

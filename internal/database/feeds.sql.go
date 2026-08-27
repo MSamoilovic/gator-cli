@@ -299,3 +299,19 @@ func (q *Queries) SaveFeedValidators(ctx context.Context, arg SaveFeedValidators
 	_, err := q.db.ExecContext(ctx, saveFeedValidators, arg.ID, arg.Etag, arg.LastModified)
 	return err
 }
+
+const setFeedUrl = `-- name: SetFeedUrl :exec
+UPDATE feeds
+SET url = $2, updated_at = NOW()
+WHERE id = $1
+`
+
+type SetFeedUrlParams struct {
+	ID  uuid.UUID
+	Url string
+}
+
+func (q *Queries) SetFeedUrl(ctx context.Context, arg SetFeedUrlParams) error {
+	_, err := q.db.ExecContext(ctx, setFeedUrl, arg.ID, arg.Url)
+	return err
+}

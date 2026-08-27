@@ -26,8 +26,6 @@ func TestRenderDetailHeader(t *testing.T) {
 		}
 	}
 
-	// Header mora biti tacno detailChromeHeight - 2 reda da bi racunica
-	// visine viewport-a bila tacna.
 	if n := strings.Count(got, "\n"); n != detailChromeHeight-2 {
 		t.Errorf("header = %d newlines, want %d", n, detailChromeHeight-2)
 	}

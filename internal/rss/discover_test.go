@@ -55,8 +55,6 @@ func TestDiscoverFindsAdvertisedFeed(t *testing.T) {
 }
 
 func TestDiscoverKeepsTheOrderThePageGave(t *testing.T) {
-	// Redosled je znacajan: pozivalac uzima prvi, a sajtovi glavni feed
-	// navode ispred komentara.
 	page := `<html><head>
 		<link rel="alternate" type="application/rss+xml" title="Feed" href="/feed/">
 		<link rel="alternate" type="application/rss+xml" title="Comments Feed" href="/comments/feed/">
@@ -70,7 +68,6 @@ func TestDiscoverKeepsTheOrderThePageGave(t *testing.T) {
 }
 
 func TestDiscoverHandlesATagSplitAcrossLines(t *testing.T) {
-	// Lobste.rs pise bas ovako. Linijska pretraga bi ga promasila.
 	page := "<html><head>\n<link rel=\"alternate\" type=\"application/rss+xml\"\n      title=\"RSS 2.0\" href=\"https://lobste.rs/rss\">\n</head></html>"
 
 	got := links(t, page, "https://lobste.rs")
@@ -152,7 +149,6 @@ func TestDiscoverDropsRepeatedURLs(t *testing.T) {
 }
 
 func TestDiscoverStopsAtTheBody(t *testing.T) {
-	// <link> pripada zaglavlju; ono u telu je tudji sadrzaj, ne ponuda sajta.
 	page := `<html><head>
 		<link rel="alternate" type="application/rss+xml" href="/real.xml">
 	</head><body>
@@ -225,8 +221,6 @@ func TestNotAFeedErrorForNonHTMLRoot(t *testing.T) {
 }
 
 func TestDiscoveryResolvesAgainstTheURLAfterRedirects(t *testing.T) {
-	// Relativna adresa u stranici vazi prema mestu na kom smo zavrsili, ne
-	// prema onome sto je zatrazeno.
 	final := serve(t, http.StatusOK,
 		`<html><head><link rel="alternate" type="application/rss+xml" href="feed.xml"></head></html>`)
 

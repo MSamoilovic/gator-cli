@@ -216,7 +216,6 @@ func TestFooterShowsUserName(t *testing.T) {
 		t.Errorf("footer does not name the user: %q", got)
 	}
 
-	// I u detalju, jer footer dele oba pogleda.
 	m, _ = step(t, m, press("enter"))
 	if got := m.footer(); !strings.Contains(got, "@marko") {
 		t.Errorf("detail footer does not name the user: %q", got)
@@ -231,7 +230,6 @@ func TestUserNameYieldsToHelpWhenNarrow(t *testing.T) {
 		t.Errorf("user tag pushed into a 30-column footer: %q", got)
 	}
 
-	// Pun help je viseredni; tag tu nema gde da stane.
 	m, _ = step(t, m, tea.WindowSizeMsg{Width: 80, Height: 24})
 	m, _ = step(t, m, press("?"))
 	if got := m.footer(); strings.Contains(got, "@marko") {

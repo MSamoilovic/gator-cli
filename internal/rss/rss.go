@@ -27,16 +27,14 @@ type RSSFeed struct {
 }
 
 type RSSItem struct {
-	Title string `xml:"title"`
-	Link  string `xml:"link"`
+	Title       string `xml:"title"`
+	Link        string `xml:"link"`
 	Description string `xml:"description"`
-	
+
 	Content string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
 	PubDate string `xml:"pubDate"`
 }
 
-// Atom (RFC 4287). Imena elemenata se poklapaju po lokalnom delu, pa namespace
-// prefiks ne treba navoditi.
 type atomFeed struct {
 	XMLName  xml.Name    `xml:"feed"`
 	Title    string      `xml:"title"`
@@ -59,9 +57,6 @@ type atomEntry struct {
 	Updated   string     `xml:"updated"`
 }
 
-// alternate vrati vezu koja vodi na sam tekst. Atom dozvoljava vise <link>
-// elemenata, pa bi uzimanje prvog cesto dalo rel="self" — vezu na feed umesto
-// na clanak.
 func alternate(links []atomLink) string {
 	for _, l := range links {
 		if l.Rel == "" || l.Rel == "alternate" {
@@ -90,8 +85,6 @@ func (a atomFeed) toRSS() *RSSFeed {
 	return r
 }
 
-// RSS 1.0 / RDF. Stavke su braca elementa <channel>, ne njegova deca, pa se ne
-// mogu opisati istom strukturom kao RSS 2.0.
 type rdfFeed struct {
 	XMLName xml.Name `xml:"RDF"`
 	Channel struct {
@@ -104,7 +97,7 @@ type rdfFeed struct {
 		Link        string `xml:"link"`
 		Description string `xml:"description"`
 		Content     string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
-		Date        string `xml:"date"` // dc:date
+		Date        string `xml:"date"`
 	} `xml:"item"`
 }
 
@@ -136,74 +129,80 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
-// ErrNotModified znaci da je server odgovorio 304: feed se nije promenio od
-// proslog preuzimanja. Nije greska u radu nego ocekivan ishod, po ugledu na
-// io.EOF — pozivalac ga hvata sa errors.Is.
 var ErrNotModified = errors.New("feed not modified")
 
-// Validators su otisci verzije koje server salje uz feed. Cuvaju se i vracaju
-// doslovno: ETag je neprozirna niska, a Last-Modified bi se preformatiranjem
-// razisao sa onim sto server ocekuje.
-type Validators struct {
+const maxRedirects = 10
+
+type Source struct {
+	URL          string
 	ETag         string
 	LastModified string
 }
 
-// FetchFeed preuzme i isparsira feed. Ako prev nije prazan, zahtev nosi uslovna
-// zaglavlja i server sme da odgovori 304 — tada se vraca ErrNotModified, feed je
-// nil, a prev se vraca nepromenjen da pozivalac ne bi obrisao ono sto ima.
-//
-// Trecina feedova ovo ne podrzava, a neki (Ars Technica) salju ETag pa ga
-// ignorisu, zato je 304 precica a ne pretpostavka: pun put mora da radi uvek.
-func FetchFeed(ctx context.Context, feedURL string, prev Validators) (*RSSFeed, Validators, error) {
+func FetchFeed(ctx context.Context, src Source) (*RSSFeed, Source, error) {
+	movedForGood := true
 	httpClient := http.Client{
 		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= maxRedirects {
+				return fmt.Errorf("stopped after %d redirects", maxRedirects)
+			}
+			if req.Response != nil && !isPermanentRedirect(req.Response.StatusCode) {
+				movedForGood = false
+			}
+			return nil
+		},
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", feedURL, nil)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", src.URL, nil)
 	if err != nil {
-		return nil, prev, err
+		return nil, src, err
 	}
 	req.Header.Set("User-Agent", "gator")
-	if prev.ETag != "" {
-		req.Header.Set("If-None-Match", prev.ETag)
+	if src.ETag != "" {
+		req.Header.Set("If-None-Match", src.ETag)
 	}
-	if prev.LastModified != "" {
-		req.Header.Set("If-Modified-Since", prev.LastModified)
+	if src.LastModified != "" {
+		req.Header.Set("If-Modified-Since", src.LastModified)
 	}
 
 	res, err := httpClient.Do(req)
 	if err != nil {
-		return nil, prev, err
+		return nil, src, err
 	}
 	defer res.Body.Close()
 
+	landed := finalURL(res, src.URL)
+
+	next := src
+	if movedForGood {
+		next.URL = landed
+	}
+
 	if res.StatusCode == http.StatusNotModified {
-		return nil, prev, ErrNotModified
+		return nil, next, ErrNotModified
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, prev, fmt.Errorf("fetching %s: unexpected status %s", feedURL, res.Status)
+		return nil, src, fmt.Errorf("fetching %s: unexpected status %s", src.URL, res.Status)
 	}
 
 	data, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, prev, fmt.Errorf("reading %s: %w", feedURL, err)
+		return nil, src, fmt.Errorf("reading %s: %w", src.URL, err)
 	}
 
-	// Parsira se u odnosu na adresu na kojoj smo zavrsili, ne na onu koja je
-	// zatrazena: ako je bilo preusmerenja, relativne veze u stranici vaze
-	// prema krajnjoj.
-	feed, err := parseFeed(data, finalURL(res, feedURL))
+	feed, err := parseFeed(data, landed)
 	if err != nil {
-		return nil, prev, err
+		return nil, src, err
 	}
 
-	// Novi otisci vaze samo uz telo koje je upravo isparsirano; ako ih server ne
-	// salje, ostaje prazno i sledeci zahtev ide bezuslovno.
-	next := Validators{
-		ETag:         res.Header.Get("ETag"),
-		LastModified: res.Header.Get("Last-Modified"),
-	}
+	next.ETag = res.Header.Get("ETag")
+	next.LastModified = res.Header.Get("Last-Modified")
 	return feed, next, nil
+}
+
+func isPermanentRedirect(status int) bool {
+	return status == http.StatusMovedPermanently || status == http.StatusPermanentRedirect
 }
 
 func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
@@ -244,7 +243,6 @@ func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 	return feed, nil
 }
 
-
 func resolveBody(f *RSSFeed) {
 	for i := range f.Channel.Item {
 		it := &f.Channel.Item[i]
@@ -252,7 +250,6 @@ func resolveBody(f *RSSFeed) {
 	}
 }
 
-// rootElement vrati ime prvog elementa, ne citajuci ostatak dokumenta.
 func rootElement(data []byte) (string, error) {
 	d := newDecoder(data)
 	for {
@@ -275,10 +272,6 @@ func newDecoder(data []byte) *xml.Decoder {
 	return d
 }
 
-// charsetReader prima feedove koji nisu UTF-8. Bez njega encoding/xml po
-// specifikaciji odbija svaki dokument koji deklarise drugo kodiranje, pa su
-// stariji feedovi (Slashdot i dosta evropskih sajtova) padali na
-// „encoding ISO-8859-1 declared but Decoder.CharsetReader is nil".
 func charsetReader(label string, in io.Reader) (io.Reader, error) {
 	enc, err := htmlindex.Get(label)
 	if err != nil {
@@ -291,14 +284,12 @@ func unescapeString(rss *RSSFeed) *RSSFeed {
 	rss.Channel.Title = html.UnescapeString(rss.Channel.Title)
 	rss.Channel.Description = html.UnescapeString(rss.Channel.Description)
 	for i := range rss.Channel.Item {
-
 		rss.Channel.Item[i].Title = html.UnescapeString(rss.Channel.Item[i].Title)
 		rss.Channel.Item[i].Description = html.UnescapeString(rss.Channel.Item[i].Description)
 	}
 	return rss
 }
 
-// finalURL je adresa na kojoj je zahtev zavrsio, posle svih preusmerenja.
 func finalURL(res *http.Response, requested string) string {
 	if res.Request != nil && res.Request.URL != nil {
 		return res.Request.URL.String()
@@ -306,8 +297,6 @@ func finalURL(res *http.Response, requested string) string {
 	return requested
 }
 
-// notAFeed pravi gresku za odgovor koji nije feed. Ako je HTML, usput
-// pokupi feedove koje stranica oglasava — telo je vec tu, pa je to besplatno.
 func notAFeed(data []byte, pageURL, root string) error {
 	e := &NotAFeedError{URL: pageURL, Root: root}
 	if !strings.EqualFold(root, "html") {

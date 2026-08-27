@@ -1,5 +1,3 @@
-// Package opml cita i pise OPML — format kojim citaci razmenjuju liste
-// pretplata. Nosi samo feedove, ne i procitano, bookmark-e ni postove.
 package opml
 
 import (
@@ -11,8 +9,6 @@ import (
 	"time"
 )
 
-// Feed je jedan unos iz OPML-a. Category je ime foldera u kome je stajao;
-// prazno znaci da je bio u korenu.
 type Feed struct {
 	Title    string
 	XMLURL   string
@@ -20,8 +16,6 @@ type Feed struct {
 	Category string
 }
 
-// outline je i folder i feed — razlikuju se po tome da li imaju xmlUrl.
-// Citaci ih ugnjezduju proizvoljno duboko, pa outline sadrzi sam sebe.
 type outline struct {
 	Text     string    `xml:"text,attr"`
 	Title    string    `xml:"title,attr,omitempty"`
@@ -43,8 +37,6 @@ type opmlDoc struct {
 	} `xml:"body"`
 }
 
-// Parse izvuce sve feedove iz OPML-a, ma koliko duboko bili ugnjezdeni.
-// Isti xmlUrl u dva foldera se vraca jednom — prvi nalaz pobedjuje.
 func Parse(r io.Reader) ([]Feed, error) {
 	var doc opmlDoc
 	if err := xml.NewDecoder(r).Decode(&doc); err != nil {
@@ -60,9 +52,6 @@ func Parse(r io.Reader) ([]Feed, error) {
 		for _, o := range items {
 			label := firstNonEmpty(o.Title, o.Text)
 
-			// Outline bez xmlUrl je folder; njegovo ime postaje kategorija za
-			// sve ispod, ali samo na prvom nivou — dublja gnezda zadrzavaju
-			// najblizeg imenovanog pretka.
 			if url := strings.TrimSpace(o.XMLURL); url != "" {
 				if !seen[url] {
 					seen[url] = true
@@ -89,9 +78,6 @@ func Parse(r io.Reader) ([]Feed, error) {
 	return out, nil
 }
 
-// Write ispise feedove kao OPML 2.0, grupisane po kategoriji: svaka kategorija
-// je jedan folder-outline, a feedovi bez kategorije stoje u korenu iza njih.
-// Folderi idu abecedno da bi izlaz bio isti za isti ulaz.
 func Write(w io.Writer, title string, feeds []Feed) error {
 	var doc opmlDoc
 	doc.Version = "2.0"

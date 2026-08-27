@@ -43,9 +43,6 @@ const (
 	inputAddFeed
 )
 
-// screenMode je ono sto zauzima ceo ekran. Odvojeno je od toga sta je u listi
-// (postovi, bookmark-i, rezultati pretrage) — detalj se otvara preko bilo koje
-// od tih lista i esc se vraca na onu sa koje je krenuo.
 type screenMode int
 
 const (
@@ -74,15 +71,11 @@ type model struct {
 	reads     map[uuid.UUID]bool
 	unread    map[uuid.UUID]int
 	picked    map[string]bool
-	// collapsed drzi imena sklopljenih foldera. Deli se po referenci sa
-	// folderItem-ima, pa se menja u mestu.
 	collapsed map[string]bool
-	// feeds su pretplate onako kako su stigle iz baze. Cuvaju se da bi panel
-	// mogao da se prekomponuje pri sklapanju foldera bez novog upita.
-	feeds    []database.GetFeedFollowsForUserRow
-	feedID   uuid.UUID
-	feedName string
-	query    string
+	feeds     []database.GetFeedFollowsForUserRow
+	feedID    uuid.UUID
+	feedName  string
+	query     string
 
 	sortDir     string
 	since       time.Duration

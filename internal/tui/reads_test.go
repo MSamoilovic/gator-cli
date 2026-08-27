@@ -125,7 +125,7 @@ func TestMarkAllReadMarksOnlyUnreadOnes(t *testing.T) {
 		counts: []database.GetUnreadCountsForUserRow{{FeedID: feed.FeedID, Unread: 3}},
 	})
 
-	m, _ = step(t, m, press("u")) // prvi je sad procitan
+	m, _ = step(t, m, press("u"))
 
 	m, cmd := step(t, m, press("A"))
 	if cmd == nil {

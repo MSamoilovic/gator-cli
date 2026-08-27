@@ -17,7 +17,6 @@ import (
 )
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
-	// Ime je opciono: bez njega se uzima <title> iz samog feeda.
 	var name, url string
 	switch len(cmd.Args) {
 	case 1:
@@ -106,7 +105,6 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("invalid page %d: pages are 1-based", *page)
 	}
 
-	// Interaktivni terminal dobija TUI; pipe i --no-tui dobijaju plain ispis.
 	if !*noTUI && stdoutIsTerminal() {
 		return tui.Run(context.Background(), s.Db, user)
 	}
@@ -128,7 +126,6 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-// stdoutIsTerminal razlikuje interaktivni terminal od pipe-a ili fajla.
 func stdoutIsTerminal() bool { return isTerminal(os.Stdout) }
 
 func handlerSearch(s *state, cmd command, user database.User) error {
@@ -185,12 +182,8 @@ func handlerFeeds(s *state, _ command) error {
 	return nil
 }
 
-// brokenMark obelezava feed cije poslednje povlacenje nije uspelo.
 const brokenMark = "⚠"
 
-// previewLen je koliko znakova opisa ide u plain ispis. Feedovi salju ceo
-// clanak u <content:encoded>, pa bi bez ovoga jedan post umeo da bude 45 KB
-// HTML-a u terminalu. Ceo tekst se cita u TUI-ju.
 const previewLen = 400
 
 func printPost(p database.Post) {
@@ -206,8 +199,6 @@ func postPreview(p database.Post) string {
 	if !p.Description.Valid {
 		return ""
 	}
-	// Novi red u izvodu bi razbio jednoredni oblik ispisa, pa se pasusi
-	// spajaju u jedan red.
 	body := strings.Join(strings.Fields(text.StripHTML(p.Description.String)), " ")
 	return text.Truncate(body, previewLen)
 }
@@ -221,6 +212,9 @@ func scrapeFeeds(s *state) {
 			fmt.Printf("Unchanged: %s\n", r.Feed.Name)
 		default:
 			fmt.Printf("Fetched %d posts from %s (%d new)\n", r.Items, r.Feed.Name, r.Saved)
+		}
+		if r.MovedTo != "" {
+			fmt.Printf("Moved: %s now lives at %s\n", r.Feed.Name, r.MovedTo)
 		}
 	})
 	if err != nil {

@@ -8,19 +8,13 @@ import (
 	"github.com/google/uuid"
 )
 
-// rootFolder je ono sto se prikazuje umesto prazne kategorije. Namerno je isto
-// kao rootLabel u `gator following` — isti pojam ne sme da ima dva imena.
 const rootFolder = "(uncategorized)"
 
-// folder je jedna grupa feedova u panelu.
 type folder struct {
 	name  string
 	feeds []database.GetFeedFollowsForUserRow
 }
 
-// groupFeeds slaze feedove u foldere: folderi azbucno, nekategorisani na kraju,
-// feedovi po imenu unutar svakog. Isti redosled kao `gator following` i `gator
-// export`, da panel i CLI ne pricaju razlicito o istoj stvari.
 func groupFeeds(rows []database.GetFeedFollowsForUserRow) []folder {
 	grouped := make(map[string][]database.GetFeedFollowsForUserRow)
 	for _, r := range rows {
@@ -52,9 +46,6 @@ func groupFeeds(rows []database.GetFeedFollowsForUserRow) []folder {
 	return folders
 }
 
-// hasFolders kaze da li uopste ima sta da se grupise. Korisnik koji nista nije
-// kategorisao dobija ravan spisak — jedno jedino "(uncategorized)" zaglavlje
-// iznad svega je cista buka.
 func hasFolders(rows []database.GetFeedFollowsForUserRow) bool {
 	for _, r := range rows {
 		if r.Category != "" {
@@ -64,8 +55,6 @@ func hasFolders(rows []database.GetFeedFollowsForUserRow) bool {
 	return false
 }
 
-// folderOf nalazi folder u kom feed stoji, pod imenom pod kojim je prikazan.
-// Prazan rezultat znaci da se feed ne prati.
 func folderOf(rows []database.GetFeedFollowsForUserRow, feedID uuid.UUID) string {
 	for _, r := range rows {
 		if r.FeedID != feedID {

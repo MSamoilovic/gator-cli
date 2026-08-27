@@ -32,8 +32,6 @@ func handlerDiscover(s *state, cmd command, user database.User) error {
 
 	switch args := fs.Args(); len(args) {
 	case 0:
-		// Isti dogovor kao kod browse: interaktivni terminal dobija TUI,
-		// pipe i --no-tui dobijaju plain ispis.
 		if !*noTUI && stdoutIsTerminal() {
 			return tui.RunCatalog(ctx, s.Db, user)
 		}
