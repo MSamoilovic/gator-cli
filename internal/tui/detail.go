@@ -28,13 +28,12 @@ func renderDetailHeader(p database.Post, width int, scroll float64) string {
 }
 
 func renderDetailBody(p database.Post, width int) string {
-	if !p.Description.Valid {
+	body := p.FullText
+	if body == "" && p.Description.Valid {
+		body = text.StripHTML(p.Description.String)
+	}
+	if body == "" {
 		return "(no description)"
 	}
-
-	desc := text.StripHTML(p.Description.String)
-	if desc == "" {
-		return "(no description)"
-	}
-	return lipgloss.NewStyle().Width(width).Render(desc)
+	return lipgloss.NewStyle().Width(width).Render(body)
 }

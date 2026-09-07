@@ -16,7 +16,7 @@ import (
 const createPost = `-- name: CreatePost :one
 INSERT INTO posts (id, created_at, updated_at, title, url, description, published_at, feed_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, created_at, updated_at, title, url, description, published_at, feed_id
+RETURNING id, created_at, updated_at, title, url, description, published_at, feed_id, full_text
 `
 
 type CreatePostParams struct {
@@ -51,12 +51,13 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 		&i.Description,
 		&i.PublishedAt,
 		&i.FeedID,
+		&i.FullText,
 	)
 	return i, err
 }
 
 const getPostByUrl = `-- name: GetPostByUrl :one
-SELECT id, created_at, updated_at, title, url, description, published_at, feed_id FROM posts WHERE url = $1
+SELECT id, created_at, updated_at, title, url, description, published_at, feed_id, full_text FROM posts WHERE url = $1
 `
 
 func (q *Queries) GetPostByUrl(ctx context.Context, url string) (Post, error) {
@@ -71,12 +72,13 @@ func (q *Queries) GetPostByUrl(ctx context.Context, url string) (Post, error) {
 		&i.Description,
 		&i.PublishedAt,
 		&i.FeedID,
+		&i.FullText,
 	)
 	return i, err
 }
 
 const getPostsForUser = `-- name: GetPostsForUser :many
-SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id FROM posts
+SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM posts
 JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
 WHERE feed_follows.user_id = $1
 ORDER BY posts.published_at DESC
@@ -106,6 +108,7 @@ func (q *Queries) GetPostsForUser(ctx context.Context, arg GetPostsForUserParams
 			&i.Description,
 			&i.PublishedAt,
 			&i.FeedID,
+			&i.FullText,
 		); err != nil {
 			return nil, err
 		}
@@ -121,7 +124,7 @@ func (q *Queries) GetPostsForUser(ctx context.Context, arg GetPostsForUserParams
 }
 
 const getPostsForUserFiltered = `-- name: GetPostsForUserFiltered :many
-SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id FROM posts
+SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM posts
 JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
 JOIN feeds ON posts.feed_id = feeds.id
 LEFT JOIN post_reads
@@ -177,6 +180,7 @@ func (q *Queries) GetPostsForUserFiltered(ctx context.Context, arg GetPostsForUs
 			&i.Description,
 			&i.PublishedAt,
 			&i.FeedID,
+			&i.FullText,
 		); err != nil {
 			return nil, err
 		}
@@ -192,7 +196,7 @@ func (q *Queries) GetPostsForUserFiltered(ctx context.Context, arg GetPostsForUs
 }
 
 const searchPostsForUser = `-- name: SearchPostsForUser :many
-SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id FROM posts
+SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM posts
 JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
 WHERE feed_follows.user_id = $1
   AND (
@@ -227,6 +231,7 @@ func (q *Queries) SearchPostsForUser(ctx context.Context, arg SearchPostsForUser
 			&i.Description,
 			&i.PublishedAt,
 			&i.FeedID,
+			&i.FullText,
 		); err != nil {
 			return nil, err
 		}
@@ -239,4 +244,20 @@ func (q *Queries) SearchPostsForUser(ctx context.Context, arg SearchPostsForUser
 		return nil, err
 	}
 	return items, nil
+}
+
+const setPostFullText = `-- name: SetPostFullText :exec
+UPDATE posts
+SET full_text = $2, updated_at = NOW()
+WHERE id = $1
+`
+
+type SetPostFullTextParams struct {
+	ID       uuid.UUID
+	FullText string
+}
+
+func (q *Queries) SetPostFullText(ctx context.Context, arg SetPostFullTextParams) error {
+	_, err := q.db.ExecContext(ctx, setPostFullText, arg.ID, arg.FullText)
+	return err
 }

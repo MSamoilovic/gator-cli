@@ -37,6 +37,7 @@ func allCommands() []entry {
 		{group: "reading", name: "tui", summary: "Open the interactive reader", runAuth: handlerTUI},
 		{group: "reading", name: "browse", args: "[flags]", summary: "Read posts; --no-tui prints them instead", runAuth: handlerBrowse},
 		{group: "reading", name: "search", args: "<query>", summary: "Search post titles and bodies", runAuth: handlerSearch},
+		{group: "reading", name: "article", args: "<post_url>", summary: "Fetch the full text of a post the feed only teased", runAuth: handlerArticle},
 		{group: "reading", name: "bookmarks", summary: "List saved posts", runAuth: handlerBookmarks},
 		{group: "reading", name: "bookmark", args: "<url>", summary: "Save a post", runAuth: handlerBookmark},
 		{group: "reading", name: "unbookmark", args: "<url>", summary: "Remove a saved post", runAuth: handlerUnbookmark},

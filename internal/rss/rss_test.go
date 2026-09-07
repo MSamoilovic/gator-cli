@@ -511,3 +511,65 @@ func newServer(t *testing.T, h http.HandlerFunc) *httptest.Server {
 	t.Cleanup(srv.Close)
 	return srv
 }
+
+const youtubeFeed = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mrss/"
+      xmlns="http://www.w3.org/2005/Atom">
+  <title>Computerphile</title>
+  <entry>
+    <id>yt:video:kVXp6UNVPTo</id>
+    <title>How Watermarks Track AI Generated Content</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=kVXp6UNVPTo"/>
+    <published>2026-09-03T13:30:04+00:00</published>
+    <media:group>
+      <media:title>How Watermarks Track AI Generated Content</media:title>
+      <media:description>Dr Mike Pound explains the idea behind AI watermarking.</media:description>
+    </media:group>
+  </entry>
+</feed>`
+
+func TestFetchFeedReadsYouTubeDescriptions(t *testing.T) {
+	srv := serve(t, http.StatusOK, youtubeFeed)
+
+	feed, err := fetch(t, srv.URL)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if len(feed.Channel.Item) != 1 {
+		t.Fatalf("got %d items, want 1", len(feed.Channel.Item))
+	}
+
+	item := feed.Channel.Item[0]
+	if want := "Dr Mike Pound explains the idea behind AI watermarking."; item.Description != want {
+		t.Errorf("description = %q, want %q", item.Description, want)
+	}
+	if want := "https://www.youtube.com/watch?v=kVXp6UNVPTo"; item.Link != want {
+		t.Errorf("link = %q, want %q", item.Link, want)
+	}
+	if item.PubDate == "" {
+		t.Error("no publish date")
+	}
+}
+
+func TestAtomSummaryWinsOverMediaDescription(t *testing.T) {
+	feedXML := `<?xml version="1.0"?>
+<feed xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+  <title>Oba</title>
+  <entry>
+    <title>Post</title>
+    <link rel="alternate" href="https://example.test/a"/>
+    <summary>Pravi Atom sazetak</summary>
+    <media:group><media:description>Medijski opis</media:description></media:group>
+  </entry>
+</feed>`
+	srv := serve(t, http.StatusOK, feedXML)
+
+	feed, err := fetch(t, srv.URL)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if got := feed.Channel.Item[0].Description; got != "Pravi Atom sazetak" {
+		t.Errorf("description = %q, want the Atom summary to win", got)
+	}
+}

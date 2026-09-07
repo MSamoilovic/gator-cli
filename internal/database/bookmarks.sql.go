@@ -103,7 +103,7 @@ func (q *Queries) GetBookmarkedPostIDs(ctx context.Context, userID uuid.UUID) ([
 }
 
 const getBookmarksForUser = `-- name: GetBookmarksForUser :many
-SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id FROM bookmarks
+SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM bookmarks
 JOIN posts ON bookmarks.post_id = posts.id
 WHERE bookmarks.user_id = $1
 ORDER BY bookmarks.created_at DESC
@@ -127,6 +127,7 @@ func (q *Queries) GetBookmarksForUser(ctx context.Context, userID uuid.UUID) ([]
 			&i.Description,
 			&i.PublishedAt,
 			&i.FeedID,
+			&i.FullText,
 		); err != nil {
 			return nil, err
 		}

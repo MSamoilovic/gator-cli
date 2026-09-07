@@ -41,3 +41,8 @@ ORDER BY
   posts.published_at DESC NULLS LAST
 LIMIT @post_limit
 OFFSET @post_offset;
+
+-- name: SetPostFullText :exec
+UPDATE posts
+SET full_text = $2, updated_at = NOW()
+WHERE id = $1;

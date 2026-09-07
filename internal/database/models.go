@@ -50,6 +50,7 @@ type Post struct {
 	Description sql.NullString
 	PublishedAt sql.NullTime
 	FeedID      uuid.UUID
+	FullText    string
 }
 
 type PostRead struct {

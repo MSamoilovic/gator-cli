@@ -7,6 +7,7 @@ import (
 	"gator-cli/internal/database"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 )
 
@@ -259,5 +260,59 @@ func TestUnknownFeedIDDoesNotExpandAnything(t *testing.T) {
 
 	if !m.collapsed["Tech"] {
 		t.Error("a stored feed that is no longer followed expanded a folder anyway")
+	}
+}
+
+func panelLines(t *testing.T, m model) []string {
+	t.Helper()
+	lines := strings.Split(m.panelsView(), "\n")
+	return lines[:len(lines)-m.footerHeight()]
+}
+
+func TestPanelsFillTheTerminalWhateverTheNamesAre(t *testing.T) {
+	cases := []struct {
+		name  string
+		feeds []database.GetFeedFollowsForUserRow
+	}{
+		{"short names", []database.GetFeedFollowsForUserRow{testFeed("BBC"), testFeed("CBR")}},
+		{"no feeds", nil},
+		{"long names", []database.GetFeedFollowsForUserRow{
+			testFeedIn("Hacker News Front Page Feed", "Tech"),
+			testFeedIn("Ars Technica OpenForum", "Tech"),
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := withFeeds(t, ready(t, testPost("Prvi")), tc.feeds...)
+
+			for i, line := range panelLines(t, m) {
+				if got := lipgloss.Width(line); got != m.width {
+					t.Errorf("row %d is %d wide, want %d: %q", i, got, m.width, line)
+				}
+			}
+		})
+	}
+}
+
+func TestFeedNamesKeepAGapBeforeTheRule(t *testing.T) {
+	m := withFeeds(t, ready(t, testPost("Prvi")),
+		testFeedIn("Hacker News Front Page Feed", "Tech"),
+	)
+
+	for i, line := range panelLines(t, m) {
+		col := []rune(line)[m.feedWidth-1]
+		if col != ' ' {
+			t.Errorf("row %d has %q against the rule, want a gap: %q", i, col, line)
+		}
+	}
+}
+
+func TestEmptyPostsPanelKeepsTheSameWidth(t *testing.T) {
+	full := withFeeds(t, ready(t, testPost("Prvi")), testFeed("BBC"))
+	empty := withFeeds(t, ready(t), testFeed("BBC"))
+
+	if got, want := lipgloss.Width(empty.postsPanel()), lipgloss.Width(full.postsPanel()); got != want {
+		t.Errorf("empty posts panel is %d wide, want %d", got, want)
 	}
 }

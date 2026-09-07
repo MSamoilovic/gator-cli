@@ -122,6 +122,9 @@ func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch {
+	case key.Matches(msg, m.keys.FullText):
+		return m.loadFullText()
+
 	case key.Matches(msg, m.keys.Copy):
 		return m, copyToClipboard(m.selected.Url)
 
@@ -139,6 +142,19 @@ func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.viewport, cmd = m.viewport.Update(msg)
 	return m, cmd
+}
+
+func (m model) loadFullText() (tea.Model, tea.Cmd) {
+	if m.fetchingText {
+		return m, nil
+	}
+	if m.selected.FullText != "" {
+		return m.withStatus("Full text already loaded")
+	}
+
+	m.fetchingText = true
+	next, cmd := m.withStatus("Fetching the full article…")
+	return next, tea.Batch(cmd, fetchFullText(next.ctx, next.queries, next.selected))
 }
 
 func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
