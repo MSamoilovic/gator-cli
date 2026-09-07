@@ -7,8 +7,10 @@ import (
 	"runtime"
 	"time"
 
+	"gator-cli/internal/article"
 	"gator-cli/internal/database"
 	"gator-cli/internal/feeds"
+	"gator-cli/internal/text"
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
@@ -37,6 +39,10 @@ type (
 		postID uuid.UUID
 		feedID uuid.UUID
 		read   bool
+	}
+	fullTextMsg struct {
+		postID uuid.UUID
+		body   string
 	}
 	allReadMsg   struct{ count int }
 	feedAddedMsg struct {
@@ -283,6 +289,25 @@ func scrapeFeeds(ctx context.Context, q *database.Queries) tea.Cmd {
 			}
 		}
 		return msg
+	}
+}
+
+func fetchFullText(ctx context.Context, q *database.Queries, post database.Post) tea.Cmd {
+	return func() tea.Msg {
+		got, err := article.Fetch(ctx, post.Url)
+		if err != nil {
+			return errMsg{err}
+		}
+		if !article.Improves(got.Text, text.StripHTML(post.Description.String)) {
+			return errMsg{fmt.Errorf("%s has no more text than the feed gave", post.Url)}
+		}
+		if err := q.SetPostFullText(ctx, database.SetPostFullTextParams{
+			ID:       post.ID,
+			FullText: got.Text,
+		}); err != nil {
+			return errMsg{fmt.Errorf("saving article text: %w", err)}
+		}
+		return fullTextMsg{postID: post.ID, body: got.Text}
 	}
 }
 

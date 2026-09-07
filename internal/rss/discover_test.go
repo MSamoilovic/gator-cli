@@ -148,15 +148,29 @@ func TestDiscoverDropsRepeatedURLs(t *testing.T) {
 	}
 }
 
-func TestDiscoverStopsAtTheBody(t *testing.T) {
+func TestDiscoverPrefersTheLinkInTheHead(t *testing.T) {
 	page := `<html><head>
 		<link rel="alternate" type="application/rss+xml" href="/real.xml">
 	</head><body>
-		<link rel="alternate" type="application/rss+xml" href="/injected.xml">
+		<link rel="alternate" type="application/rss+xml" href="/later.xml">
 	</body></html>`
 
 	got := urls(links(t, page, "https://example.test"))
-	if want := []string{"https://example.test/real.xml"}; !equalStrings(got, want) {
+	want := []string{"https://example.test/real.xml", "https://example.test/later.xml"}
+	if !equalStrings(got, want) {
+		t.Errorf("feeds = %v, want %v", got, want)
+	}
+}
+
+func TestDiscoverFindsALinkBelowTheBody(t *testing.T) {
+	page := `<html><head><title>Kanal</title></head><body>
+		<div>gomila sadrzaja</div>
+		<link rel="alternate" type="application/rss+xml" href="/feeds/videos.xml?channel_id=UC1">
+	</body></html>`
+
+	got := urls(links(t, page, "https://www.youtube.com"))
+	want := []string{"https://www.youtube.com/feeds/videos.xml?channel_id=UC1"}
+	if !equalStrings(got, want) {
 		t.Errorf("feeds = %v, want %v", got, want)
 	}
 }
@@ -238,5 +252,25 @@ func TestDiscoveryResolvesAgainstTheURLAfterRedirects(t *testing.T) {
 	}
 	if want := final.URL + "/blog/feed.xml"; notFeed.Links[0].URL != want {
 		t.Errorf("feed = %q, want %q", notFeed.Links[0].URL, want)
+	}
+}
+
+func TestNotAFeedErrorOnHTMLThatIsNotValidXML(t *testing.T) {
+	page := `<html lang=en dark><head><meta charset=utf-8>
+		<link rel="alternate" type="application/rss+xml" href="/feed.xml">
+	</head><body><p>YouTube pise ovakav HTML</body></html>`
+	srv := serve(t, http.StatusOK, page)
+
+	_, err := fetch(t, srv.URL)
+	if err == nil {
+		t.Fatal("expected an error for a web page, got nil")
+	}
+
+	var notFeed *NotAFeedError
+	if !errors.As(err, &notFeed) {
+		t.Fatalf("error %[1]T (%[1]v) does not unwrap to *NotAFeedError", err)
+	}
+	if len(notFeed.Links) != 1 {
+		t.Fatalf("links = %v, want the advertised feed found despite the XML error", urls(notFeed.Links))
 	}
 }

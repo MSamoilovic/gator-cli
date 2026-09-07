@@ -19,14 +19,23 @@ type NotAFeedError struct {
 	URL   string
 	Root  string
 	Links []Link
+	Cause error
 }
 
 func (e *NotAFeedError) Error() string {
-	if len(e.Links) > 0 {
+	switch {
+	case len(e.Links) > 0:
 		return fmt.Sprintf("%s is a web page, not a feed; it advertises %s", e.URL, e.Links[0].URL)
+	case e.Root != "":
+		return fmt.Sprintf("parsing %s: unsupported feed format, root element is <%s>", e.URL, e.Root)
+	case e.Cause != nil:
+		return fmt.Sprintf("parsing %s: %v", e.URL, e.Cause)
+	default:
+		return fmt.Sprintf("parsing %s: not a feed", e.URL)
 	}
-	return fmt.Sprintf("parsing %s: unsupported feed format, root element is <%s>", e.URL, e.Root)
 }
+
+func (e *NotAFeedError) Unwrap() error { return e.Cause }
 
 var feedTypes = map[string]bool{
 	"application/rss+xml":  true,
@@ -50,17 +59,12 @@ func discoverLinks(data []byte, base *url.URL) []Link {
 
 		case html.StartTagToken, html.SelfClosingTagToken:
 			name, hasAttr := z.TagName()
-			switch string(name) {
-			case "link":
-				if !hasAttr {
-					continue
-				}
-				if l, ok := feedLink(z, base); ok && !seen[l.URL] {
-					seen[l.URL] = true
-					links = append(links, l)
-				}
-			case "body":
-				return links
+			if string(name) != "link" || !hasAttr {
+				continue
+			}
+			if l, ok := feedLink(z, base); ok && !seen[l.URL] {
+				seen[l.URL] = true
+				links = append(links, l)
 			}
 		}
 	}

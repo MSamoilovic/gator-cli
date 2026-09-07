@@ -55,6 +55,11 @@ type atomEntry struct {
 	Content   string     `xml:"content"`
 	Published string     `xml:"published"`
 	Updated   string     `xml:"updated"`
+	Media     mediaGroup `xml:"http://search.yahoo.com/mrss/ group"`
+}
+
+type mediaGroup struct {
+	Description string `xml:"http://search.yahoo.com/mrss/ description"`
 }
 
 func alternate(links []atomLink) string {
@@ -77,7 +82,7 @@ func (a atomFeed) toRSS() *RSSFeed {
 		r.Channel.Item[i] = RSSItem{
 			Title:       e.Title,
 			Link:        alternate(e.Link),
-			Description: e.Summary,
+			Description: firstNonEmpty(e.Summary, e.Media.Description),
 			Content:     e.Content,
 			PubDate:     firstNonEmpty(e.Published, e.Updated),
 		}
@@ -208,7 +213,7 @@ func isPermanentRedirect(status int) bool {
 func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 	root, err := rootElement(data)
 	if err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", feedURL, err)
+		return nil, notAFeed(data, feedURL, "", err)
 	}
 
 	var feed *RSSFeed
@@ -235,7 +240,7 @@ func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 		feed = r.toRSS()
 
 	default:
-		return nil, notAFeed(data, feedURL, root)
+		return nil, notAFeed(data, feedURL, root, nil)
 	}
 
 	resolveBody(feed)
@@ -297,11 +302,8 @@ func finalURL(res *http.Response, requested string) string {
 	return requested
 }
 
-func notAFeed(data []byte, pageURL, root string) error {
-	e := &NotAFeedError{URL: pageURL, Root: root}
-	if !strings.EqualFold(root, "html") {
-		return e
-	}
+func notAFeed(data []byte, pageURL, root string, cause error) error {
+	e := &NotAFeedError{URL: pageURL, Root: root, Cause: cause}
 	if base, err := url.Parse(pageURL); err == nil {
 		e.Links = discoverLinks(data, base)
 	}

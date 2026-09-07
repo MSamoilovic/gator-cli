@@ -17,6 +17,7 @@ import (
 
 const (
 	feedPanelWidth   = 26
+	panelGutter      = 1
 	minWidthForFeeds = 60
 	allFeedsLabel    = "All feeds"
 	postsTitle       = "Posts"
@@ -91,6 +92,7 @@ type model struct {
 	width       int
 	height      int
 	feedWidth   int
+	postsWidth  int
 	status      string
 	statusToken int
 
@@ -98,6 +100,7 @@ type model struct {
 	openOnLoad    bool
 	confirming    bool
 	fetching      bool
+	fetchingText  bool
 	unreadOnly    bool
 	showBookmarks bool
 	loading       bool

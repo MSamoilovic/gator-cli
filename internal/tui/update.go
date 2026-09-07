@@ -43,6 +43,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.selectStoredFeed(cmd)
 
+	case fullTextMsg:
+		return m.fullTextLoaded(msg)
+
 	case readsLoadedMsg:
 		for _, id := range msg.postIDs {
 			m.reads[id] = true
@@ -134,6 +137,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.loadingMore = false
 		m.fetching = false
+		m.fetchingText = false
 		if m.loading {
 			m.loading = false
 			m.err = msg.err
@@ -184,6 +188,27 @@ func (m model) postsLoaded(msg postsLoadedMsg) (tea.Model, tea.Cmd) {
 	m.offset = 0
 	m.list.ResetSelected()
 	return m, m.list.SetItems(items)
+}
+
+func (m model) fullTextLoaded(msg fullTextMsg) (tea.Model, tea.Cmd) {
+	m.fetchingText = false
+
+	for i, it := range m.list.Items() {
+		item, ok := it.(postItem)
+		if !ok || item.post.ID != msg.postID {
+			continue
+		}
+		item.post.FullText = msg.body
+		m.list.SetItem(i, item)
+		break
+	}
+
+	if m.selected.ID == msg.postID {
+		m.selected.FullText = msg.body
+		m.viewport.SetContent(renderDetailBody(m.selected, m.viewport.Width))
+		m.viewport.GotoTop()
+	}
+	return m.withStatus("Full text loaded")
 }
 
 func (m model) selectStoredFeed(cmd tea.Cmd) (tea.Model, tea.Cmd) {

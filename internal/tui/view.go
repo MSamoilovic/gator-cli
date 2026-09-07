@@ -30,26 +30,48 @@ func (m model) panelsView() string {
 
 	panels := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		m.feedList.View(),
-		verticalRule(max(m.height-m.footerHeight(), 1)),
+		m.feedPanel(),
+		verticalRule(m.panelHeight()),
 		m.postsPanel(),
 	)
 	return panels + "\n" + m.footer()
 }
 
-func (m model) postsPanel() string {
-	if len(m.list.Items()) > 0 {
-		return m.list.View()
+func (m model) panelHeight() int {
+	return max(m.height-m.footerHeight(), 1)
+}
+
+func (m model) postsGutter() int {
+	if m.feedWidth == 0 {
+		return 0
 	}
+	return panelGutter
+}
 
-	body := emptyStateStyle.Render(m.emptyStateText())
-	panel := m.list.Styles.Title.Render(m.list.Title) + "\n\n" + body
+func (m model) feedPanel() string {
+	return panelBox(m.feedList.View(), m.feedWidth, m.panelHeight(), 0)
+}
 
+func (m model) postsPanel() string {
+	body := m.list.View()
+	if len(m.list.Items()) == 0 {
+		body = lipgloss.JoinVertical(
+			lipgloss.Left,
+			m.list.Styles.TitleBar.Render(m.list.Styles.Title.Render(m.list.Title)),
+			emptyStateStyle.Render(m.emptyStateText()),
+		)
+	}
+	return panelBox(body, m.postsWidth, m.panelHeight(), m.postsGutter())
+}
+
+func panelBox(content string, width, height, padLeft int) string {
 	return lipgloss.NewStyle().
-		Width(m.list.Width()).
-		Height(max(m.height-m.footerHeight(), 1)).
-		MaxWidth(m.list.Width()).
-		Render(panel)
+		PaddingLeft(padLeft).
+		Width(width).
+		MaxWidth(width).
+		Height(height).
+		MaxHeight(height).
+		Render(content)
 }
 
 func (m model) emptyStateText() string {
@@ -142,15 +164,21 @@ func (m *model) resize(w, h int) {
 		m.focus = focusPosts
 	}
 
-	postsWidth := w - m.feedWidth
+	m.postsWidth = w - m.feedWidth
 	if m.feedWidth > 0 {
-		postsWidth--
+		m.postsWidth--
 	}
 
-	panelHeight := max(h-m.footerHeight(), 1)
-	m.feedList.SetSize(m.feedWidth, panelHeight)
+	feedListWidth, postsListWidth := m.feedWidth, m.postsWidth
+	if m.feedWidth > 0 {
+		feedListWidth -= panelGutter
+		postsListWidth -= panelGutter
+	}
+
+	panelHeight := m.panelHeight()
+	m.feedList.SetSize(max(feedListWidth, 1), panelHeight)
 	m.catalogList.SetSize(w, panelHeight)
-	m.list.SetSize(max(postsWidth, 1), panelHeight)
+	m.list.SetSize(max(postsListWidth, 1), panelHeight)
 	m.prompt.Width = max(w-len(m.prompt.Prompt)-1, 1)
 
 	m.viewport.Width = w

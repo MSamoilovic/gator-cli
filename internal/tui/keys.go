@@ -23,6 +23,7 @@ type keyMap struct {
 	OnlyNew  key.Binding
 	Since    key.Binding
 	Copy     key.Binding
+	FullText key.Binding
 	Next     key.Binding
 	Prev     key.Binding
 	Search   key.Binding
@@ -115,6 +116,10 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("y"),
 			key.WithHelp("y", "copy url"),
 		),
+		FullText: key.NewBinding(
+			key.WithKeys("f"),
+			key.WithHelp("f", "full text"),
+		),
 		Next: key.NewBinding(
 			key.WithKeys("n"),
 			key.WithHelp("n", "next"),
@@ -155,7 +160,7 @@ func (k keyMap) fullHelp() [][]key.Binding {
 		{k.Up, k.Down, k.Read, k.Back},
 		{k.Open, k.Bookmark, k.Saved, k.Sort},
 		{k.Unread, k.AllRead, k.OnlyNew, k.Since},
-		{k.Search, k.Filter, k.Copy, k.Tab},
+		{k.Search, k.Filter, k.Copy, k.FullText, k.Tab},
 		{k.Reload, k.Fetch, k.AddFeed, k.Unfollow, k.Catalog},
 		{k.Next, k.Prev, k.Help, k.Quit},
 	}
@@ -181,5 +186,5 @@ func (k keyMap) catalogHelp() []key.Binding {
 }
 
 func (k keyMap) detailHelp() []key.Binding {
-	return []key.Binding{k.Scroll, k.Next, k.Prev, k.Open, k.Copy, k.Back, k.Quit}
+	return []key.Binding{k.FullText, k.Next, k.Prev, k.Open, k.Copy, k.Back, k.Quit}
 }

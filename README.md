@@ -124,6 +124,26 @@ the one sites put first. The stored address is the feed's, not the page's, so
 `gator export` and later fetches use the right URL. The same applies to `a` in
 the TUI feed pane.
 
+### YouTube channels, and other things that are quietly feeds
+
+A YouTube channel publishes an Atom feed, which gator already knows how to
+read, so a channel page is just another address to paste:
+
+```bash
+gator addfeed https://www.youtube.com/@Computerphile
+gator addfeed https://www.youtube.com/c/3blue1brown
+gator addfeed https://www.youtube.com/user/standupmaths
+```
+
+Each becomes a normal feed — `agg` collects the last 15 videos, titles and
+descriptions land in the reader, and `o` opens the video. The same trick works
+for anything else that publishes a feed without advertising it as one:
+
+```bash
+gator addfeed https://github.com/charmbracelet/bubbletea/releases.atom
+gator addfeed https://www.reddit.com/r/golang/.rss
+```
+
 ### Managing feeds
 
 ```bash
