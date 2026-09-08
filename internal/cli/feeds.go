@@ -220,6 +220,13 @@ func scrapeFeeds(s *state) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 	}
+
+	switch n, err := feeds.Prune(context.Background(), s.Db, feeds.DefaultRetention); {
+	case err != nil:
+		fmt.Fprintln(os.Stderr, "error:", err)
+	case n > 0:
+		fmt.Printf("Deleted %d posts older than %s\n", n, feeds.DefaultRetention)
+	}
 }
 
 func handlerAgg(s *state, cmd command) error {

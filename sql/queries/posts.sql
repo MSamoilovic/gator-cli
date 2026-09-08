@@ -46,3 +46,10 @@ OFFSET @post_offset;
 UPDATE posts
 SET full_text = $2, updated_at = NOW()
 WHERE id = $1;
+
+-- name: PrunePosts :execrows
+DELETE FROM posts
+WHERE COALESCE(published_at, created_at) < @before::timestamp
+  AND NOT EXISTS (
+    SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id
+  );
