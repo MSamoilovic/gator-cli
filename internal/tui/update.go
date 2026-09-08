@@ -32,7 +32,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.feedsLoaded = true
 		m.feedCount = len(msg.feeds)
 		m.feeds = msg.feeds
-		m.expandFolderOf(m.feedID)
 		cmd := m.feedList.SetItems(m.feedItems())
 
 		if m.openOnLoad {
@@ -225,6 +224,11 @@ func (m model) selectStoredFeed(cmd tea.Cmd) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	if name := folderOf(m.feeds, m.feedID); name != "" {
+		m.selectFolder(name)
+		return m, cmd
+	}
+
 	m.feedID = uuid.Nil
 	m.feedName = ""
 	m.setPostsTitle()
@@ -244,7 +248,7 @@ func (m model) feedItems() []list.Item {
 
 	for _, fol := range groupFeeds(m.feeds) {
 		items = append(items, m.newFolderItem(fol))
-		if m.collapsed[fol.name] {
+		if !m.expanded[fol.name] {
 			continue
 		}
 		for _, f := range fol.feeds {
@@ -267,10 +271,10 @@ func (m model) newFeedItem(f database.GetFeedFollowsForUserRow, indent bool) fee
 
 func (m model) newFolderItem(fol folder) folderItem {
 	item := folderItem{
-		name:      fol.name,
-		feedIDs:   make([]uuid.UUID, len(fol.feeds)),
-		collapsed: m.collapsed,
-		unread:    m.unread,
+		name:     fol.name,
+		feedIDs:  make([]uuid.UUID, len(fol.feeds)),
+		expanded: m.expanded,
+		unread:   m.unread,
 	}
 	for i, f := range fol.feeds {
 		item.feedIDs[i] = f.FeedID
@@ -282,10 +286,10 @@ func (m model) newFolderItem(fol folder) folderItem {
 }
 
 func (m model) toggleFolder(name string) (model, tea.Cmd) {
-	if m.collapsed[name] {
-		delete(m.collapsed, name)
+	if m.expanded[name] {
+		delete(m.expanded, name)
 	} else {
-		m.collapsed[name] = true
+		m.expanded[name] = true
 	}
 
 	cmd := m.feedList.SetItems(m.feedItems())
@@ -299,12 +303,6 @@ func (m *model) selectFolder(name string) {
 			m.feedList.Select(i)
 			return
 		}
-	}
-}
-
-func (m *model) expandFolderOf(feedID uuid.UUID) {
-	if name := folderOf(m.feeds, feedID); name != "" {
-		delete(m.collapsed, name)
 	}
 }
 

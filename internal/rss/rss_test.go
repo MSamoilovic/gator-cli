@@ -573,3 +573,19 @@ func TestAtomSummaryWinsOverMediaDescription(t *testing.T) {
 		t.Errorf("description = %q, want the Atom summary to win", got)
 	}
 }
+
+func TestTitlesLoseTheirLineBreaks(t *testing.T) {
+	feedXML := "<?xml version=\"1.0\"?>\n<rss version=\"2.0\"><channel>\n  <title>\n   freeCodeCamp\n  </title>\n  <item>\n    <title>\n                      Learn Data Structures and Algorithms Visually\n    </title>\n    <link>https://example.test/a</link>\n  </item>\n</channel></rss>"
+	srv := serve(t, http.StatusOK, feedXML)
+
+	feed, err := fetch(t, srv.URL)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if got, want := feed.Channel.Title, "freeCodeCamp"; got != want {
+		t.Errorf("channel title = %q, want %q", got, want)
+	}
+	if got, want := feed.Channel.Item[0].Title, "Learn Data Structures and Algorithms Visually"; got != want {
+		t.Errorf("item title = %q, want %q", got, want)
+	}
+}

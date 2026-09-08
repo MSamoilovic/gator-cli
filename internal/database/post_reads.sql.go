@@ -41,6 +41,46 @@ func (q *Queries) GetReadPostIDs(ctx context.Context, userID uuid.UUID) ([]uuid.
 	return items, nil
 }
 
+const getReadPostsForUser = `-- name: GetReadPostsForUser :many
+SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM post_reads
+JOIN posts ON post_reads.post_id = posts.id
+WHERE post_reads.user_id = $1
+ORDER BY post_reads.read_at DESC
+`
+
+func (q *Queries) GetReadPostsForUser(ctx context.Context, userID uuid.UUID) ([]Post, error) {
+	rows, err := q.db.QueryContext(ctx, getReadPostsForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Post
+	for rows.Next() {
+		var i Post
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Title,
+			&i.Url,
+			&i.Description,
+			&i.PublishedAt,
+			&i.FeedID,
+			&i.FullText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUnreadCountsForUser = `-- name: GetUnreadCountsForUser :many
 SELECT posts.feed_id, count(*) AS unread
 FROM posts

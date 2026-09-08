@@ -21,6 +21,10 @@ func StripHTML(s string) string {
 	return strings.TrimSpace(s)
 }
 
+func OneLine(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
 func Truncate(s string, max int) string {
 	if max <= 0 {
 		return ""

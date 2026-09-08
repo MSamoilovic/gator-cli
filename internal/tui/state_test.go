@@ -22,7 +22,7 @@ func TestStateRoundTrip(t *testing.T) {
 		SortDir:    sortAsc,
 		UnreadOnly: true,
 		SinceHours: 168,
-		Collapsed:  []string{"Sport", "Tech"},
+		Expanded:   []string{"Sport", "Tech"},
 	}
 	if err := want.save(); err != nil {
 		t.Fatalf("save: %v", err)

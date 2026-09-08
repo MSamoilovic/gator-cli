@@ -26,3 +26,9 @@ LEFT JOIN post_reads
 WHERE feed_follows.user_id = $1
   AND post_reads.post_id IS NULL
 GROUP BY posts.feed_id;
+
+-- name: GetReadPostsForUser :many
+SELECT posts.* FROM post_reads
+JOIN posts ON post_reads.post_id = posts.id
+WHERE post_reads.user_id = $1
+ORDER BY post_reads.read_at DESC;

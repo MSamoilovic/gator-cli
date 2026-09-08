@@ -73,17 +73,17 @@ const (
 )
 
 type folderItem struct {
-	name      string
-	feedIDs   []uuid.UUID
-	broken    int
-	collapsed map[string]bool
-	unread    map[uuid.UUID]int
+	name     string
+	feedIDs  []uuid.UUID
+	broken   int
+	expanded map[string]bool
+	unread   map[uuid.UUID]int
 }
 
 func (i folderItem) Title() string {
-	label := folderOpen
-	if i.collapsed[i.name] {
-		label = folderClosed
+	label := folderClosed
+	if i.expanded[i.name] {
+		label = folderOpen
 	}
 	label += " " + i.name
 

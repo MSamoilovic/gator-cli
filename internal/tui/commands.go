@@ -143,6 +143,16 @@ func loadBookmarks(ctx context.Context, q *database.Queries, userID uuid.UUID) t
 	}
 }
 
+func loadReadPosts(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		posts, err := q.GetReadPostsForUser(ctx, userID)
+		if err != nil {
+			return errMsg{err}
+		}
+		return postsLoadedMsg{posts: posts}
+	}
+}
+
 func loadReads(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
 		ids, err := q.GetReadPostIDs(ctx, userID)

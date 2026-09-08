@@ -44,7 +44,7 @@ func TestPanelStaysFlatWithoutCategories(t *testing.T) {
 	}
 }
 
-func TestPanelGroupsUnderHeaders(t *testing.T) {
+func TestPanelStartsWithEveryFolderClosed(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")),
 		testFeedIn("BBC", ""),
 		testFeedIn("XKCD", "Comics"),
@@ -54,12 +54,9 @@ func TestPanelGroupsUnderHeaders(t *testing.T) {
 	got := panelTitles(m)
 	want := []string{
 		allFeedsLabel,
-		folderOpen + " Comics",
-		feedIndent + "XKCD",
-		folderOpen + " Tech",
-		feedIndent + "Ars",
-		folderOpen + " " + rootFolder,
-		feedIndent + "BBC",
+		folderClosed + " Comics",
+		folderClosed + " Tech",
+		folderClosed + " " + rootFolder,
 	}
 
 	if len(got) != len(want) {
@@ -72,7 +69,7 @@ func TestPanelGroupsUnderHeaders(t *testing.T) {
 	}
 }
 
-func TestEnterOnHeaderCollapsesTheFolder(t *testing.T) {
+func TestEnterOnHeaderTogglesTheFolder(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")),
 		testFeedIn("XKCD", "Comics"),
 		testFeedIn("Ars", "Tech"),
@@ -82,16 +79,14 @@ func TestEnterOnHeaderCollapsesTheFolder(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
-	if !m.collapsed["Comics"] {
-		t.Fatal("enter on a header did not collapse the folder")
+	if !m.expanded["Comics"] {
+		t.Fatal("enter on a header did not open the folder")
 	}
-	for _, title := range panelTitles(m) {
-		if strings.Contains(title, "XKCD") {
-			t.Error("a collapsed folder still shows its feeds")
-		}
+	if !strings.Contains(strings.Join(panelTitles(m), "\n"), "XKCD") {
+		t.Error("opening did not bring the feeds in")
 	}
-	if !strings.HasPrefix(panelTitles(m)[1], folderClosed) {
-		t.Errorf("header did not switch to the closed arrow: %q", panelTitles(m)[1])
+	if !strings.HasPrefix(panelTitles(m)[1], folderOpen) {
+		t.Errorf("header did not switch to the open arrow: %q", panelTitles(m)[1])
 	}
 
 	if fol, ok := m.feedList.SelectedItem().(folderItem); !ok || fol.name != "Comics" {
@@ -99,15 +94,17 @@ func TestEnterOnHeaderCollapsesTheFolder(t *testing.T) {
 	}
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
-	if m.collapsed["Comics"] {
-		t.Error("enter did not expand the folder again")
+	if m.expanded["Comics"] {
+		t.Error("enter did not close the folder again")
 	}
-	if !strings.Contains(strings.Join(panelTitles(m), "\n"), "XKCD") {
-		t.Error("expanding did not bring the feeds back")
+	for _, title := range panelTitles(m) {
+		if strings.Contains(title, "XKCD") {
+			t.Error("a closed folder still shows its feeds")
+		}
 	}
 }
 
-func TestCollapsingOneFolderLeavesTheOthers(t *testing.T) {
+func TestOpeningOneFolderLeavesTheOthersClosed(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")),
 		testFeedIn("XKCD", "Comics"),
 		testFeedIn("Ars", "Tech"),
@@ -115,11 +112,11 @@ func TestCollapsingOneFolderLeavesTheOthers(t *testing.T) {
 	m, _ = m.toggleFolder("Comics")
 
 	joined := strings.Join(panelTitles(m), "\n")
-	if strings.Contains(joined, "XKCD") {
-		t.Error("Comics is collapsed but still shows XKCD")
+	if !strings.Contains(joined, "XKCD") {
+		t.Error("Comics is open but does not show XKCD")
 	}
-	if !strings.Contains(joined, "Ars") {
-		t.Error("collapsing Comics also hid Tech")
+	if strings.Contains(joined, "Ars") {
+		t.Error("opening Comics also opened Tech")
 	}
 }
 
@@ -179,26 +176,22 @@ func TestUnfollowOnHeaderIsRefused(t *testing.T) {
 	}
 }
 
-func TestStoredFeedIsRevealedInsideACollapsedFolder(t *testing.T) {
+func TestStoredFeedSelectsItsFolderWithoutOpeningIt(t *testing.T) {
 	feed := testFeedIn("Ars", "Tech")
 
 	m := ready(t, testPost("Prvi"))
 	m.feedID = feed.FeedID
-	m.collapsed["Tech"] = true
+	m.feedName = feed.FeedName
 	m = withFeeds(t, m, feed)
 
-	if m.collapsed["Tech"] {
-		t.Error("the folder holding the stored feed stayed collapsed")
+	if m.expanded["Tech"] {
+		t.Error("the remembered feed opened its folder")
 	}
-
-	found := false
-	for _, it := range m.feedList.Items() {
-		if fi, ok := it.(feedItem); ok && fi.id == feed.FeedID {
-			found = true
-		}
+	if fol, ok := m.feedList.SelectedItem().(folderItem); !ok || fol.name != "Tech" {
+		t.Errorf("selection = %v, want the Tech header", m.feedList.SelectedItem())
 	}
-	if !found {
-		t.Error("the stored feed is not in the panel")
+	if m.feedID != feed.FeedID || m.feedName != "Ars" {
+		t.Errorf("remembered feed = %v/%q, want it kept as the filter", m.feedID, m.feedName)
 	}
 }
 
@@ -207,14 +200,13 @@ func TestCatalogSeesFeedsInCollapsedFolders(t *testing.T) {
 	feed.FeedUrl = "https://arstechnica.test/rss"
 
 	m := withFeeds(t, ready(t, testPost("Prvi")), feed)
-	m, _ = m.toggleFolder("Tech")
 
 	if !m.followedURLs()[feed.FeedUrl] {
 		t.Error("a feed inside a collapsed folder is reported as not followed")
 	}
 }
 
-func TestCollapsedFoldersSurviveARestart(t *testing.T) {
+func TestOpenFoldersSurviveARestart(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")),
 		testFeedIn("XKCD", "Comics"),
 		testFeedIn("Ars", "Tech"),
@@ -222,13 +214,13 @@ func TestCollapsedFoldersSurviveARestart(t *testing.T) {
 	m, _ = m.toggleFolder("Tech")
 
 	saved := m.snapshot()
-	if len(saved.Collapsed) != 1 || saved.Collapsed[0] != "Tech" {
-		t.Fatalf("snapshot collapsed = %v, want [Tech]", saved.Collapsed)
+	if len(saved.Expanded) != 1 || saved.Expanded[0] != "Tech" {
+		t.Fatalf("snapshot expanded = %v, want [Tech]", saved.Expanded)
 	}
 
-	restored := collapsedSet(saved.Collapsed)
+	restored := expandedSet(saved.Expanded)
 	if !restored["Tech"] || restored["Comics"] {
-		t.Errorf("restored collapsed = %v", restored)
+		t.Errorf("restored expanded = %v", restored)
 	}
 }
 
@@ -238,6 +230,7 @@ func TestSelectingAFeedInsideAFolderStillFilters(t *testing.T) {
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
@@ -252,14 +245,16 @@ func TestSelectingAFeedInsideAFolderStillFilters(t *testing.T) {
 	}
 }
 
-func TestUnknownFeedIDDoesNotExpandAnything(t *testing.T) {
+func TestUnknownStoredFeedIsForgotten(t *testing.T) {
 	m := ready(t, testPost("Prvi"))
 	m.feedID = uuid.New()
-	m.collapsed["Tech"] = true
 	m = withFeeds(t, m, testFeedIn("Ars", "Tech"))
 
-	if !m.collapsed["Tech"] {
-		t.Error("a stored feed that is no longer followed expanded a folder anyway")
+	if m.expanded["Tech"] {
+		t.Error("a stored feed that is no longer followed opened a folder anyway")
+	}
+	if m.feedID != uuid.Nil {
+		t.Errorf("feedID = %v, want it cleared", m.feedID)
 	}
 }
 

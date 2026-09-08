@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"gator-cli/internal/text"
+
 	"golang.org/x/text/encoding/htmlindex"
 )
 
@@ -249,8 +251,10 @@ func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 }
 
 func resolveBody(f *RSSFeed) {
+	f.Channel.Title = text.OneLine(f.Channel.Title)
 	for i := range f.Channel.Item {
 		it := &f.Channel.Item[i]
+		it.Title = text.OneLine(it.Title)
 		it.Description = firstNonEmpty(it.Content, it.Description)
 	}
 }
