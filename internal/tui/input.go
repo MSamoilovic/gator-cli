@@ -234,6 +234,8 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.fetchAll()
 		case key.Matches(msg, m.keys.Saved):
 			return m.toggleBookmarksView()
+		case key.Matches(msg, m.keys.History):
+			return m.toggleReadView()
 		case key.Matches(msg, m.keys.Sort):
 			return m.toggleSort()
 		case key.Matches(msg, m.keys.Since):

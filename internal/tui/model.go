@@ -22,6 +22,7 @@ const (
 	allFeedsLabel    = "All feeds"
 	postsTitle       = "Posts"
 	bookmarksTitle   = "Bookmarks"
+	readTitle        = "Read"
 
 	sortDesc = "desc"
 	sortAsc  = "asc"
@@ -72,7 +73,7 @@ type model struct {
 	reads     map[uuid.UUID]bool
 	unread    map[uuid.UUID]int
 	picked    map[string]bool
-	collapsed map[string]bool
+	expanded  map[string]bool
 	feeds     []database.GetFeedFollowsForUserRow
 	feedID    uuid.UUID
 	feedName  string
@@ -103,6 +104,7 @@ type model struct {
 	fetchingText  bool
 	unreadOnly    bool
 	showBookmarks bool
+	showRead      bool
 	loading       bool
 	err           error
 }
@@ -157,7 +159,7 @@ func newModel(ctx context.Context, q *database.Queries, user database.User, save
 		reads:       make(map[uuid.UUID]bool),
 		unread:      make(map[uuid.UUID]int),
 		picked:      make(map[string]bool),
-		collapsed:   collapsedSet(saved.Collapsed),
+		expanded:    expandedSet(saved.Expanded),
 		sortDir:     saved.SortDir,
 		since:       saved.since(),
 		unreadOnly:  saved.UnreadOnly,
@@ -183,7 +185,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) inDerivedView() bool {
-	return m.query != "" || m.showBookmarks
+	return m.query != "" || m.showBookmarks || m.showRead
 }
 
 func (m model) withStatus(text string) (model, tea.Cmd) {

@@ -107,3 +107,17 @@ func TestTruncate(t *testing.T) {
 		})
 	}
 }
+
+func TestOneLineCollapsesWhitespace(t *testing.T) {
+	cases := map[string]string{
+		"\n   Learn Data Structures\n   Visually  \n": "Learn Data Structures Visually",
+		"  already clean  ":                           "already clean",
+		"":                                            "",
+		"\t\n ":                                       "",
+	}
+	for in, want := range cases {
+		if got := OneLine(in); got != want {
+			t.Errorf("OneLine(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

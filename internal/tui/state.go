@@ -18,10 +18,10 @@ type uiState struct {
 	SortDir    string   `json:"sort_dir,omitempty"`
 	UnreadOnly bool     `json:"unread_only,omitempty"`
 	SinceHours int      `json:"since_hours,omitempty"`
-	Collapsed  []string `json:"collapsed,omitempty"`
+	Expanded   []string `json:"expanded,omitempty"`
 }
 
-func collapsedSet(names []string) map[string]bool {
+func expandedSet(names []string) map[string]bool {
 	set := make(map[string]bool, len(names))
 	for _, name := range names {
 		set[name] = true
@@ -104,9 +104,9 @@ func (m model) snapshot() uiState {
 		s.FeedID, s.FeedName = m.feedID.String(), m.feedName
 	}
 
-	for name := range m.collapsed {
-		s.Collapsed = append(s.Collapsed, name)
+	for name := range m.expanded {
+		s.Expanded = append(s.Expanded, name)
 	}
-	sort.Strings(s.Collapsed)
+	sort.Strings(s.Expanded)
 	return s
 }

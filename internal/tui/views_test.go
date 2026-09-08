@@ -236,3 +236,79 @@ func TestUserNameYieldsToHelpWhenNarrow(t *testing.T) {
 		t.Errorf("user tag rendered over the full help: %q", got)
 	}
 }
+
+func TestHistoryOpensTheReadView(t *testing.T) {
+	m := loaded(t, fullPage("a"))
+
+	m, cmd := step(t, m, press("H"))
+	if !m.showRead {
+		t.Fatal("H did not open the read view")
+	}
+	if cmd == nil {
+		t.Error("H did not load the read posts")
+	}
+	if got, want := m.list.Title, readTitle; got != want {
+		t.Errorf("title = %q, want %q", got, want)
+	}
+
+	m, cmd = step(t, m, press("H"))
+	if m.showRead {
+		t.Error("H did not close the read view")
+	}
+	if cmd == nil {
+		t.Error("leaving the read view did not reload posts")
+	}
+	if got, want := m.list.Title, postsTitle; got != want {
+		t.Errorf("title = %q, want %q", got, want)
+	}
+}
+
+func TestReadAndBookmarkViewsAreExclusive(t *testing.T) {
+	m := loaded(t, fullPage("a"))
+
+	m, _ = step(t, m, press("B"))
+	m, _ = step(t, m, press("H"))
+	if m.showBookmarks {
+		t.Error("opening the read view left the bookmarks view on")
+	}
+	if !m.showRead {
+		t.Fatal("H did not open the read view")
+	}
+
+	m, _ = step(t, m, press("B"))
+	if m.showRead {
+		t.Error("opening the bookmarks view left the read view on")
+	}
+}
+
+func TestEscapeLeavesTheReadView(t *testing.T) {
+	m := loaded(t, fullPage("a"))
+
+	m, _ = step(t, m, press("H"))
+	m, cmd := step(t, m, tea.KeyMsg{Type: tea.KeyEsc})
+
+	if m.showRead {
+		t.Error("esc did not leave the read view")
+	}
+	if cmd == nil {
+		t.Error("esc did not reload posts")
+	}
+	if got, want := m.list.Title, postsTitle; got != want {
+		t.Errorf("title = %q, want %q", got, want)
+	}
+}
+
+func TestReadViewRefusesFeedOnlyFilters(t *testing.T) {
+	m := loaded(t, fullPage("a"))
+	m, _ = step(t, m, press("H"))
+
+	for _, key := range []string{"S", "t", "U"} {
+		next, _ := step(t, m, press(key))
+		if !next.showRead {
+			t.Errorf("%s dropped out of the read view", key)
+		}
+		if next.status == "" {
+			t.Errorf("%s in the read view said nothing", key)
+		}
+	}
+}

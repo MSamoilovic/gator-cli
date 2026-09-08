@@ -28,6 +28,7 @@ func (m model) leaveDerivedView() (tea.Model, tea.Cmd) {
 	}
 	m.query = ""
 	m.showBookmarks = false
+	m.showRead = false
 	m.setPostsTitle()
 	return m, m.startLoad()
 }
@@ -47,6 +48,15 @@ func (m model) fetchAll() (tea.Model, tea.Cmd) {
 
 func (m model) toggleBookmarksView() (tea.Model, tea.Cmd) {
 	m.showBookmarks = !m.showBookmarks
+	m.showRead = false
+	m.query = ""
+	m.setPostsTitle()
+	return m, m.startLoad()
+}
+
+func (m model) toggleReadView() (tea.Model, tea.Cmd) {
+	m.showRead = !m.showRead
+	m.showBookmarks = false
 	m.query = ""
 	m.setPostsTitle()
 	return m, m.startLoad()

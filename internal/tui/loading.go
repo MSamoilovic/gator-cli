@@ -30,15 +30,18 @@ func (m *model) startLoad() tea.Cmd {
 	m.offset = 0
 	m.hasMore = true
 	m.loadingMore = false
-	if m.showBookmarks {
+	switch {
+	case m.showBookmarks:
 		return loadBookmarkedPosts(m.ctx, m.queries, m.userID)
+	case m.showRead:
+		return loadReadPosts(m.ctx, m.queries, m.userID)
 	}
 	return loadPosts(m.ctx, m.queries, m.userID, m.filter(), 0)
 }
 
 func (m *model) maybeLoadMore() tea.Cmd {
 	switch {
-	case !m.hasMore, m.loadingMore, m.query != "", m.showBookmarks:
+	case !m.hasMore, m.loadingMore, m.query != "", m.showBookmarks, m.showRead:
 		return nil
 	case m.list.FilterState() == list.Filtering:
 		return nil
@@ -55,6 +58,9 @@ func (m *model) setPostsTitle() {
 	switch {
 	case m.showBookmarks:
 		m.list.Title = bookmarksTitle
+		return
+	case m.showRead:
+		m.list.Title = readTitle
 		return
 	case m.query != "":
 		m.list.Title = "Search: " + m.query
