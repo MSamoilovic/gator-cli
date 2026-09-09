@@ -29,7 +29,9 @@ func (m model) openCatalog() (model, tea.Cmd) {
 
 	m.screen = screenCatalog
 	m.catalogList.ResetSelected()
-	return m, m.catalogList.SetItems(items)
+	cmd := m.catalogList.SetItems(items)
+	m.catalogList.SetSize(m.width, m.panelHeight())
+	return m, cmd
 }
 
 func (m model) updateCatalog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

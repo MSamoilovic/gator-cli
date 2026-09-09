@@ -31,7 +31,6 @@
       "id": "programming",
       "label": "Programming",
       "feeds": [
-        { "name": "The Go Blog", "url": "https://go.dev/blog/feed.atom" },
         { "name": "Rust Blog", "url": "https://blog.rust-lang.org/feed.xml" },
         { "name": "Julia Evans", "url": "https://jvns.ca/atom.xml" },
         { "name": "Martin Fowler", "url": "https://martinfowler.com/feed.atom" },
@@ -41,9 +40,96 @@
         { "name": "Netflix Tech Blog", "url": "https://netflixtechblog.com/feed" },
         { "name": "InfoQ", "url": "https://feed.infoq.com/" },
         { "name": "DEV Community", "url": "https://dev.to/feed" },
-        { "name": "freeCodeCamp", "url": "https://www.freecodecamp.org/news/rss/" },
+        { "name": "freeCodeCamp", "url": "https://www.freecodecamp.org/news/rss/" }
+      ]
+    },
+    {
+      "id": "golang",
+      "label": "Go",
+      "feeds": [
+        { "name": "The Go Blog", "url": "https://go.dev/blog/feed.atom" },
+        { "name": "Dave Cheney", "url": "https://dave.cheney.net/feed" },
+        { "name": "Ardan Labs", "url": "https://www.ardanlabs.com/blog/index.xml" },
+        { "name": "Eli Bendersky", "url": "https://eli.thegreenplace.net/feeds/all.atom.xml" },
+        { "name": "research!rsc", "url": "https://research.swtch.com/feed.atom" },
+        { "name": "Golang Weekly", "url": "https://golangweekly.com/rss" },
+        { "name": "Bitfield Consulting", "url": "https://bitfieldconsulting.com/posts?format=rss" }
+      ]
+    },
+    {
+      "id": "python",
+      "label": "Python",
+      "feeds": [
+        { "name": "Real Python", "url": "https://realpython.com/atom.xml" },
+        { "name": "Planet Python", "url": "https://planetpython.org/rss20.xml" },
+        { "name": "PyCoder's Weekly", "url": "https://pycoders.com/feed" },
+        { "name": "Python Insider", "url": "https://blog.python.org/feeds/posts/default" },
+        { "name": "Ned Batchelder", "url": "https://nedbatchelder.com/blog/rss.xml" },
+        { "name": "Armin Ronacher", "url": "https://lucumr.pocoo.org/feed.atom" },
+        { "name": "Trey Hunner", "url": "https://treyhunner.com/python.xml" },
+        { "name": "PyPy Status Blog", "url": "https://pypy.org/rss.xml" },
+        { "name": "Talk Python To Me", "url": "https://talkpython.fm/episodes/rss" }
+      ]
+    },
+    {
+      "id": "csharp",
+      "label": "C# & .NET",
+      "feeds": [
+        { "name": ".NET Blog", "url": "https://devblogs.microsoft.com/dotnet/feed/" },
+        { "name": "Andrew Lock", "url": "https://andrewlock.net/rss.xml" },
+        { "name": "Steve Gordon", "url": "https://www.stevejgordon.co.uk/feed" },
+        { "name": "Jon Skeet", "url": "https://codeblog.jonskeet.uk/feed/" },
+        { "name": "Scott Hanselman", "url": "https://feeds.hanselman.com/ScottHanselman" },
+        { "name": "Khalid Abuhakmeh", "url": "https://khalidabuhakmeh.com/rss.xml" },
+        { "name": "JetBrains .NET Blog", "url": "https://blog.jetbrains.com/dotnet/feed/" },
+        { "name": "Code Maze", "url": "https://code-maze.com/feed/" },
+        { "name": "Nick Chapsas", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCrkPsvLGln62OMZRO6K-llg" }
+      ]
+    },
+    {
+      "id": "typescript",
+      "label": "TypeScript & JavaScript",
+      "feeds": [
+        { "name": "TypeScript Blog", "url": "https://devblogs.microsoft.com/typescript/feed/" },
+        { "name": "Total TypeScript", "url": "https://www.totaltypescript.com/rss.xml" },
+        { "name": "Effective TypeScript", "url": "https://effectivetypescript.com/atom.xml" },
+        { "name": "Marius Schulz", "url": "https://feeds.feedburner.com/mariusschulz" },
+        { "name": "Node.js Blog", "url": "https://nodejs.org/en/feed/blog.xml" },
+        { "name": "Deno Blog", "url": "https://deno.com/feed" }
+      ]
+    },
+    {
+      "id": "webdev",
+      "label": "Web development",
+      "feeds": [
+        { "name": "A List Apart", "url": "https://alistapart.com/main/feed/" },
         { "name": "Smashing Magazine", "url": "https://www.smashingmagazine.com/feed/" },
-        { "name": "CSS-Tricks", "url": "https://css-tricks.com/feed/" }
+        { "name": "CSS-Tricks", "url": "https://css-tricks.com/feed/" },
+        { "name": "MDN Blog", "url": "https://developer.mozilla.org/en-US/blog/rss.xml" },
+        { "name": "Chrome for Developers", "url": "https://developer.chrome.com/static/blog/feed.xml" },
+        { "name": "web.dev", "url": "https://web.dev/static/blog/feed.xml" },
+        { "name": "React Blog", "url": "https://react.dev/rss.xml" },
+        { "name": "Vue.js Blog", "url": "https://blog.vuejs.org/feed.rss" },
+        { "name": "Angular Blog", "url": "https://blog.angular.dev/feed" },
+        { "name": "Vercel Blog", "url": "https://vercel.com/atom" },
+        { "name": "Josh W. Comeau", "url": "https://www.joshwcomeau.com/rss.xml" },
+        { "name": "Kent C. Dodds", "url": "https://kentcdodds.com/blog/rss.xml" }
+      ]
+    },
+    {
+      "id": "machine-learning",
+      "label": "Machine learning & AI",
+      "feeds": [
+        { "name": "Google Research", "url": "https://research.google/blog/rss/" },
+        { "name": "Google DeepMind", "url": "https://deepmind.google/blog/rss.xml" },
+        { "name": "OpenAI News", "url": "https://openai.com/news/rss.xml" },
+        { "name": "Hugging Face", "url": "https://huggingface.co/blog/feed.xml" },
+        { "name": "Lil'Log", "url": "https://lilianweng.github.io/index.xml" },
+        { "name": "Sebastian Raschka", "url": "https://magazine.sebastianraschka.com/feed" },
+        { "name": "Import AI", "url": "https://importai.substack.com/feed" },
+        { "name": "The Gradient", "url": "https://thegradient.pub/rss/" },
+        { "name": "Machine Learning Mastery", "url": "https://machinelearningmastery.com/feed/" },
+        { "name": "MarkTechPost", "url": "https://www.marktechpost.com/feed/" }
       ]
     },
     {
@@ -114,6 +200,46 @@
       ]
     },
     {
+      "id": "basketball",
+      "label": "Basketball",
+      "feeds": [
+        { "name": "ESPN NBA", "url": "https://www.espn.com/espn/rss/nba/news" },
+        { "name": "CBS Sports NBA", "url": "https://www.cbssports.com/rss/headlines/nba/" },
+        { "name": "Guardian NBA", "url": "https://www.theguardian.com/sport/nba/rss" },
+        { "name": "SB Nation NBA", "url": "https://www.sbnation.com/rss/nba/index.xml" },
+        { "name": "Yahoo Sports NBA", "url": "https://sports.yahoo.com/nba/rss/" },
+        { "name": "Eurohoops", "url": "https://www.eurohoops.net/en/feed/" },
+        { "name": "Basketball Insiders", "url": "https://www.basketballinsiders.com/feed/" }
+      ]
+    },
+    {
+      "id": "motorsport",
+      "label": "Motorsport",
+      "feeds": [
+        { "name": "Motorsport.com", "url": "https://www.motorsport.com/rss/all/news/" },
+        { "name": "Autosport", "url": "https://www.autosport.com/rss/all/news/" },
+        { "name": "Formula 1", "url": "https://www.formula1.com/en/latest/all.xml" },
+        { "name": "BBC Formula 1", "url": "https://feeds.bbci.co.uk/sport/formula1/rss.xml" },
+        { "name": "Guardian Formula One", "url": "https://www.theguardian.com/sport/formulaone/rss" },
+        { "name": "The Race", "url": "https://www.the-race.com/rss/" },
+        { "name": "RACER", "url": "https://racer.com/feed" },
+        { "name": "MotoGP", "url": "https://www.motorsport.com/rss/motogp/news/" },
+        { "name": "WRC", "url": "https://www.motorsport.com/rss/wrc/news/" }
+      ]
+    },
+    {
+      "id": "fitness",
+      "label": "Fitness & training",
+      "feeds": [
+        { "name": "Stronger by Science", "url": "https://www.strongerbyscience.com/feed/" },
+        { "name": "Nerd Fitness", "url": "https://www.nerdfitness.com/blog/feed/" },
+        { "name": "Breaking Muscle", "url": "https://breakingmuscle.com/feed/" },
+        { "name": "Precision Nutrition", "url": "https://www.precisionnutrition.com/feed" },
+        { "name": "Runner's World", "url": "https://www.runnersworld.com/rss/all.xml/" },
+        { "name": "Men's Health", "url": "https://www.menshealth.com/rss/all.xml/" }
+      ]
+    },
+    {
       "id": "gaming",
       "label": "Gaming",
       "feeds": [
@@ -162,6 +288,20 @@
       ]
     },
     {
+      "id": "scifi-books",
+      "label": "Sci-fi & fantasy books",
+      "feeds": [
+        { "name": "Locus Magazine", "url": "https://locusmag.com/feed/" },
+        { "name": "The Fantasy Hive", "url": "https://fantasy-hive.co.uk/feed/" },
+        { "name": "Grimdark Magazine", "url": "https://www.grimdarkmagazine.com/feed/" },
+        { "name": "Fantasy Book Critic", "url": "https://fantasybookcritic.blogspot.com/feeds/posts/default" },
+        { "name": "SFFWorld", "url": "https://www.sffworld.com/feed/" },
+        { "name": "Bookworm Blues", "url": "https://www.bookwormblues.net/feed/" },
+        { "name": "The Book Smugglers", "url": "https://www.thebooksmugglers.com/feed" },
+        { "name": "Book Riot", "url": "https://bookriot.com/feed/" }
+      ]
+    },
+    {
       "id": "music",
       "label": "Music",
       "feeds": [
@@ -170,6 +310,18 @@
         { "name": "Consequence", "url": "https://consequence.net/feed/" },
         { "name": "NME", "url": "https://www.nme.com/feed" },
         { "name": "Rolling Stone", "url": "https://www.rollingstone.com/music/feed/" }
+      ]
+    },
+    {
+      "id": "guitar",
+      "label": "Guitar",
+      "feeds": [
+        { "name": "Guitar World", "url": "https://www.guitarworld.com/feeds.xml" },
+        { "name": "Guitar Player", "url": "https://www.guitarplayer.com/feeds.xml" },
+        { "name": "Premier Guitar", "url": "https://www.premierguitar.com/feeds/feed.rss" },
+        { "name": "Guitar.com", "url": "https://guitar.com/feed/" },
+        { "name": "MusicRadar Guitars", "url": "https://www.musicradar.com/feeds/tag/guitars" },
+        { "name": "Guitar Girl Magazine", "url": "https://guitargirlmag.com/feed/" }
       ]
     },
     {
