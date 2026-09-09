@@ -195,6 +195,22 @@ func (q *Queries) GetPostsForUserFiltered(ctx context.Context, arg GetPostsForUs
 	return items, nil
 }
 
+const prunePosts = `-- name: PrunePosts :execrows
+DELETE FROM posts
+WHERE COALESCE(published_at, created_at) < $1::timestamp
+  AND NOT EXISTS (
+    SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id
+  )
+`
+
+func (q *Queries) PrunePosts(ctx context.Context, before time.Time) (int64, error) {
+	result, err := q.db.ExecContext(ctx, prunePosts, before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const searchPostsForUser = `-- name: SearchPostsForUser :many
 SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM posts
 JOIN feed_follows ON posts.feed_id = feed_follows.feed_id

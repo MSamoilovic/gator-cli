@@ -55,6 +55,7 @@ func allCommands() []entry {
 
 		{group: "aggregation", name: "agg", args: "<duration>", summary: "Fetch every feed in a loop, e.g. 15m", run: handlerAgg},
 		{group: "aggregation", name: "supervise", args: "<duration>", summary: "Keep agg running, restart it on crash", run: handlerSupervise},
+		{group: "aggregation", name: "prune", args: "[flags]", summary: "Delete posts older than the retention window", run: handlerPrune},
 
 		{group: "account", name: "register", args: "<username>", summary: "Create a new user and log in", run: handlerRegister, guest: true},
 		{group: "account", name: "login", args: "<username>", summary: "Log in as an existing user", run: handlerLogin, guest: true},
