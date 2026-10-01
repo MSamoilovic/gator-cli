@@ -13,18 +13,25 @@ import (
 	"gator-cli/internal/menu"
 )
 
-func runMenu(s *state, cmds commands) error {
+func runMenu(cmds commands) error {
 	if !interactive() {
 		printUsage(os.Stderr)
 		return errors.New("no command given")
+	}
+
+	s, closeDB, dbErr := open()
+	if dbErr != nil {
+		s = &state{}
+	} else {
+		defer closeDB()
 	}
 
 	user, loggedIn := currentUser(s)
 
 	choice, ok, err := menu.Select(menu.Config{
 		Title:    "gator",
-		Greeting: greeting(user, loggedIn),
-		Items:    offered(loggedIn),
+		Greeting: greeting(user, loggedIn, dbErr == nil),
+		Items:    offered(loggedIn, dbErr == nil),
 	})
 	if err != nil {
 		return fmt.Errorf("opening the command menu: %w", err)
@@ -36,7 +43,7 @@ func runMenu(s *state, cmds commands) error {
 }
 
 func currentUser(s *state) (database.User, bool) {
-	if s.Cfg.CurrentUserName == "" {
+	if s.Cfg == nil || s.Cfg.CurrentUserName == "" {
 		return database.User{}, false
 	}
 	user, err := s.Db.GetUser(context.Background(), s.Cfg.CurrentUserName)
@@ -46,18 +53,27 @@ func currentUser(s *state) (database.User, bool) {
 	return user, true
 }
 
-func greeting(user database.User, loggedIn bool) string {
-	if loggedIn {
+func greeting(user database.User, loggedIn, configured bool) string {
+	switch {
+	case !configured:
+		return "No working database — see the README for ~/.gatorconfig.json"
+	case loggedIn:
 		return "Hello, " + user.Name + " — what would you like to do?"
+	default:
+		return "Not logged in — register or log in to get started"
 	}
-	return "Not logged in — register or log in to get started"
 }
 
-func offered(loggedIn bool) []menu.Item {
+func offered(loggedIn, configured bool) []menu.Item {
 	cmds := allCommands()
 	items := make([]menu.Item, 0, len(cmds))
 	for _, e := range cmds {
-		if e.hidden || (!loggedIn && !e.guest) {
+		switch {
+		case e.hidden:
+			continue
+		case !configured && !e.noDB:
+			continue
+		case !loggedIn && !e.guest:
 			continue
 		}
 		items = append(items, menu.Item{

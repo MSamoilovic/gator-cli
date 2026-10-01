@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"gator-cli/internal/database"
@@ -239,7 +238,7 @@ func handlerAgg(s *state, cmd command) error {
 		return fmt.Errorf("invalid duration: %v", err)
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), shutdownSignals()...)
 	defer stop()
 
 	fmt.Printf("Collecting feeds every %s\n", timeBetweenReqs)

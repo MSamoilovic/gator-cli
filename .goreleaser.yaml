@@ -25,7 +25,7 @@ builds:
     ldflags:
       # -s -w izbacuju tabele simbola; -X upisuje tag izdanja u cli.version,
       # odakle ga `gator version` cita.
-      - -s -w -X github.com/MSamoilovic/gator-cli/internal/cli.version={{.Version}}
+      - -s -w -X gator-cli/internal/cli.version={{.Version}}
 
 archives:
   - formats: [tar.gz]
@@ -53,9 +53,13 @@ release:
   footer: |
     ## Getting started
 
-    Unpack the archive, put `gator` on your PATH, then:
+    Unpack the archive and put `gator` on your PATH, then:
 
     ```
-    gator init      # writes the config and creates the database schema
-    gator           # pick a command
+    gator version   # check the build
+    gator help      # list the commands
     ```
+
+    Everything else needs PostgreSQL and a `~/.gatorconfig.json` holding its
+    connection string. Applying the schema still needs `goose` and a clone of this
+    repository — see the README for the exact steps.

@@ -1,9 +1,16 @@
 package cli
 
 import (
+	"database/sql"
+	"fmt"
+
 	"gator-cli/internal/config"
 	"gator-cli/internal/database"
+
+	_ "github.com/lib/pq"
 )
+
+var version = "dev"
 
 type state struct {
 	Db  *database.Queries
@@ -21,6 +28,7 @@ type entry struct {
 
 	guest  bool
 	hidden bool
+	noDB   bool
 }
 
 func (e entry) needsLogin() bool { return e.runAuth != nil }
@@ -62,18 +70,62 @@ func allCommands() []entry {
 		{group: "account", name: "users", summary: "List all users", run: handlerUsers, guest: true},
 		{group: "account", name: "reset", summary: "Delete all users", run: handlerReset, hidden: true},
 
-		{group: "other", name: "help", summary: "Print the list of commands", run: handlerHelp, guest: true},
+		{group: "other", name: "help", summary: "Print the list of commands", run: handlerHelp, guest: true, noDB: true},
+		{group: "other", name: "version", summary: "Print the version of gator", run: handlerVersion, guest: true, noDB: true},
 	}
 }
 
-func Run(cfg *config.Config, db *database.Queries, args []string) error {
-	s := state{Cfg: cfg, Db: db}
+func Run(args []string) error {
 	cmds := defaultCommands()
 
 	if len(args) == 0 {
-		return runMenu(&s, cmds)
+		return runMenu(cmds)
 	}
-	return cmds.run(&s, command{Name: args[0], Args: args[1:]})
+
+	e, ok := lookup(args[0])
+	if !ok {
+		return fmt.Errorf("command %s doesn't exist (try: gator help)", args[0])
+	}
+
+	cmd := command{Name: args[0], Args: args[1:]}
+	if e.noDB {
+		return cmds.run(&state{}, cmd)
+	}
+
+	s, closeDB, err := open()
+	if err != nil {
+		return err
+	}
+	defer closeDB()
+
+	return cmds.run(s, cmd)
+}
+
+func lookup(name string) (entry, bool) {
+	for _, e := range allCommands() {
+		if e.name == name {
+			return e, true
+		}
+	}
+	return entry{}, false
+}
+
+func open() (*state, func() error, error) {
+	cfg, err := config.Read()
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading config: %w", err)
+	}
+
+	db, err := sql.Open("postgres", cfg.DBURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("opening database: %w", err)
+	}
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, nil, fmt.Errorf("connecting to database: %w", err)
+	}
+
+	return &state{Cfg: &cfg, Db: database.New(db)}, db.Close, nil
 }
 
 func defaultCommands() commands {
