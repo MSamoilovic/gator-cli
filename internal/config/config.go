@@ -56,11 +56,23 @@ func write(cfg Config) error {
 		return err
 	}
 
-	file, err := os.Create(path)
+	tmp, err := os.CreateTemp(filepath.Dir(path), configFileName+".*")
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer os.Remove(tmp.Name())
 
-	return json.NewEncoder(file).Encode(cfg)
+	if err := json.NewEncoder(tmp).Encode(cfg); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(0600); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmp.Name(), path)
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"gator-cli/internal/database"
+	"gator-cli/internal/menu"
 )
 
 func TestEveryCommandHasExactlyOneHandler(t *testing.T) {
@@ -118,7 +119,7 @@ func TestHiddenCommandsAreNeverOffered(t *testing.T) {
 }
 
 func TestReadingComesFirstForALoggedInUser(t *testing.T) {
-	items := offered(true)
+	items := offered(true, true)
 	if len(items) == 0 {
 		t.Fatal("nothing offered")
 	}
@@ -127,13 +128,49 @@ func TestReadingComesFirstForALoggedInUser(t *testing.T) {
 	}
 }
 
+func TestWithoutAConfigOnlyDatabaseFreeCommandsAreOffered(t *testing.T) {
+	names := namesOf(offered(false, false))
+
+	for _, want := range []string{"help", "version"} {
+		if !names[want] {
+			t.Errorf("without a config, %q is not offered", want)
+		}
+	}
+	for _, e := range allCommands() {
+		if e.noDB {
+			continue
+		}
+		if names[e.name] {
+			t.Errorf("without a config, %q is offered but needs a database", e.name)
+		}
+	}
+}
+
+func TestDatabaseFreeCommandsNeverRequireLogin(t *testing.T) {
+	for _, e := range allCommands() {
+		if e.noDB && e.needsLogin() {
+			t.Errorf("command %q runs without a database but requires a logged-in user", e.name)
+		}
+	}
+}
+
+func TestGreetingSaysWhenThereIsNoDatabase(t *testing.T) {
+	got := greeting(database.User{}, false, false)
+	if strings.Contains(got, "Hello") {
+		t.Errorf("greeting = %q, want it not to greet a user", got)
+	}
+	if !strings.Contains(got, "gatorconfig") {
+		t.Errorf("greeting = %q, want it to point at the config file", got)
+	}
+}
+
 func TestGreeting(t *testing.T) {
-	got := greeting(database.User{Name: "Tsunami"}, true)
+	got := greeting(database.User{Name: "Tsunami"}, true, true)
 	if !strings.Contains(got, "Tsunami") {
 		t.Errorf("greeting = %q, want it to name the user", got)
 	}
 
-	got = greeting(database.User{}, false)
+	got = greeting(database.User{}, false, true)
 	if strings.Contains(got, "Hello") {
 		t.Errorf("greeting = %q, want it not to greet a user who is not logged in", got)
 	}
@@ -175,8 +212,12 @@ func TestPrintUsageIsPlainText(t *testing.T) {
 }
 
 func offeredNames(loggedIn bool) map[string]bool {
+	return namesOf(offered(loggedIn, true))
+}
+
+func namesOf(items []menu.Item) map[string]bool {
 	names := make(map[string]bool)
-	for _, it := range offered(loggedIn) {
+	for _, it := range items {
 		names[it.Name] = true
 	}
 	return names

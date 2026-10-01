@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"syscall"
 	"time"
 )
 
@@ -40,7 +39,7 @@ func handlerSupervise(_ *state, cmd command) error {
 
 	out := io.MultiWriter(os.Stdout, logFile)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), shutdownSignals()...)
 	defer stop()
 
 	backoff := superviseMinBackff
@@ -56,7 +55,7 @@ func handlerSupervise(_ *state, cmd command) error {
 		proc.Stdout = out
 		proc.Stderr = out
 
-		proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		isolateProcessGroup(proc)
 
 		if err := proc.Start(); err != nil {
 			fmt.Fprintf(out, "[supervisor] failed to start: %v\n", err)
@@ -67,7 +66,7 @@ func handlerSupervise(_ *state, cmd command) error {
 			select {
 			case <-ctx.Done():
 				fmt.Fprintln(out, "[supervisor] signal received, stopping child...")
-				proc.Process.Signal(syscall.SIGTERM)
+				_ = terminate(proc.Process)
 				<-done
 				fmt.Fprintln(out, "[supervisor] shut down cleanly")
 				return nil
