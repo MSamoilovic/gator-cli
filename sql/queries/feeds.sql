@@ -11,10 +11,10 @@ VALUES (
 RETURNING *;
 
 -- name: GetFeeds :many
-SELECT feeds.name, feeds.url, users.name AS user_name,
+SELECT feeds.name, feeds.url, COALESCE(users.name, '') AS user_name,
        feeds.last_error, feeds.failure_count
 FROM feeds
-JOIN users ON feeds.user_id = users.id;
+LEFT JOIN users ON feeds.user_id = users.id;
 
 -- name: GetFeedByUrl :one
 SELECT * FROM feeds WHERE url = $1;
