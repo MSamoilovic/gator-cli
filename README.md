@@ -277,8 +277,19 @@ gator unbookmark <post_url>   # remove a saved post
 ### Admin
 
 ```bash
-gator reset     # delete all users (use with caution)
+gator reset --dry-run   # report what would be deleted, delete nothing
+gator reset             # delete every row, after typing the database name
+gator reset --yes       # delete every row without asking (for scripts)
 ```
+
+`reset` empties all six tables — users, feeds, posts, feed_follows, bookmarks
+and post_reads. The schema and goose's migration history are left alone, so the
+database is immediately usable again.
+
+Three things stand between it and an accident: it refuses to run unless
+`db_url` points at a loopback address, it prints the row counts first, and it
+asks you to type the database name (not `y`) to go ahead. `--yes` skips only
+the last of those.
 
 `reset` is deliberately left out of the interactive menu — it is still there
 when you type it, just not something to land on by accident.
