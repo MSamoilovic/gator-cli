@@ -73,7 +73,7 @@ func Add(ctx context.Context, q *database.Queries, userID uuid.UUID, name, url s
 		UpdatedAt: time.Now(),
 		Name:      name,
 		Url:       url,
-		UserID:    userID,
+		UserID:    uuid.NullUUID{UUID: userID, Valid: true},
 	})
 	switch {
 	case err == nil:

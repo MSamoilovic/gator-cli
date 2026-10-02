@@ -167,7 +167,10 @@ func handlerFeeds(s *state, _ command) error {
 
 	broken := 0
 	for _, f := range feeds {
-		fmt.Printf("Name: %s\nURL: %s\nUser: %s\n", f.Name, f.Url, f.UserName)
+		fmt.Printf("Name: %s\nURL: %s\n", f.Name, f.Url)
+		if f.UserName != "" {
+			fmt.Printf("Added by: %s\n", f.UserName)
+		}
 		if f.FailureCount > 0 {
 			broken++
 			fmt.Printf("%s failing since %d attempt(s): %s\n", brokenMark, f.FailureCount, f.LastError)

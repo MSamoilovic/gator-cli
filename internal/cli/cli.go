@@ -68,7 +68,7 @@ func allCommands() []entry {
 		{group: "account", name: "register", args: "<username>", summary: "Create a new user and log in", run: handlerRegister, guest: true},
 		{group: "account", name: "login", args: "<username>", summary: "Log in as an existing user", run: handlerLogin, guest: true},
 		{group: "account", name: "users", summary: "List all users", run: handlerUsers, guest: true},
-		{group: "account", name: "reset", summary: "Delete all users", run: handlerReset, hidden: true},
+		{group: "account", name: "reset", args: "[flags]", summary: "Delete every row in the database", run: handlerReset, hidden: true},
 
 		{group: "other", name: "help", summary: "Print the list of commands", run: handlerHelp, guest: true, noDB: true},
 		{group: "other", name: "version", summary: "Print the version of gator", run: handlerVersion, guest: true, noDB: true},

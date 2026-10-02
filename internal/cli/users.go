@@ -60,14 +60,6 @@ func handlerUsers(s *state, _ command) error {
 	return nil
 }
 
-func handlerReset(s *state, cmd command) error {
-	if err := s.Db.DeleteAllUsers(context.Background()); err != nil {
-		return fmt.Errorf("error resetting database: %v", err)
-	}
-	fmt.Println("Database reset successfully")
-	return nil
-}
-
 func handlerRegister(s *state, cmd command) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("username required to register")

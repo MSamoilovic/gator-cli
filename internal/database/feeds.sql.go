@@ -32,7 +32,7 @@ type CreateFeedParams struct {
 	UpdatedAt time.Time
 	Name      string
 	Url       string
-	UserID    uuid.UUID
+	UserID    uuid.NullUUID
 }
 
 func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, error) {
@@ -131,10 +131,10 @@ func (q *Queries) GetFeedByUrl(ctx context.Context, url string) (Feed, error) {
 }
 
 const getFeeds = `-- name: GetFeeds :many
-SELECT feeds.name, feeds.url, users.name AS user_name,
+SELECT feeds.name, feeds.url, COALESCE(users.name, '') AS user_name,
        feeds.last_error, feeds.failure_count
 FROM feeds
-JOIN users ON feeds.user_id = users.id
+LEFT JOIN users ON feeds.user_id = users.id
 `
 
 type GetFeedsRow struct {

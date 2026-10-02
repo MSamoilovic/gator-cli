@@ -24,7 +24,7 @@ type Feed struct {
 	UpdatedAt     time.Time
 	Name          string
 	Url           string
-	UserID        uuid.UUID
+	UserID        uuid.NullUUID
 	LastFetchedAt sql.NullTime
 	Etag          string
 	LastModified  string
