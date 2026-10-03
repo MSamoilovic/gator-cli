@@ -2,6 +2,7 @@ package article
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,25 @@ const (
 	maxBody      = 8 << 20
 	userAgent    = "gator"
 )
+
+var ErrBodyTooLarge = errors.New("response body too large")
+
+type boundedReader struct {
+	r     io.Reader
+	limit int64
+	read  int64
+}
+
+func (b *boundedReader) Read(p []byte) (int, error) {
+	n, err := b.r.Read(p)
+	b.read += int64(n)
+	if b.exceeded() {
+		return n, fmt.Errorf("%w: over %d bytes", ErrBodyTooLarge, b.limit)
+	}
+	return n, err
+}
+
+func (b *boundedReader) exceeded() bool { return b.read > b.limit }
 
 type Article struct {
 	Title  string
@@ -46,7 +66,13 @@ func Fetch(ctx context.Context, pageURL string) (Article, error) {
 		return Article{}, fmt.Errorf("fetching %s: unexpected status %s", pageURL, res.Status)
 	}
 
-	return Extract(io.LimitReader(res.Body, maxBody), pageURL)
+	body := &boundedReader{r: res.Body, limit: maxBody}
+
+	got, err := Extract(body, pageURL)
+	if body.exceeded() {
+		return Article{}, fmt.Errorf("fetching %s: %w: over %d bytes", pageURL, ErrBodyTooLarge, maxBody)
+	}
+	return got, err
 }
 
 func Extract(r io.Reader, pageURL string) (Article, error) {
