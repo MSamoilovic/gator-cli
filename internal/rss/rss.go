@@ -136,9 +136,15 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
-var ErrNotModified = errors.New("feed not modified")
+var (
+	ErrNotModified  = errors.New("feed not modified")
+	ErrBodyTooLarge = errors.New("response body too large")
+)
 
-const maxRedirects = 10
+const (
+	maxRedirects = 10
+	maxBody      = 8 << 20
+)
 
 type Source struct {
 	URL          string
@@ -193,7 +199,7 @@ func FetchFeed(ctx context.Context, src Source) (*RSSFeed, Source, error) {
 		return nil, src, fmt.Errorf("fetching %s: unexpected status %s", src.URL, res.Status)
 	}
 
-	data, err := io.ReadAll(res.Body)
+	data, err := readBody(res.Body)
 	if err != nil {
 		return nil, src, fmt.Errorf("reading %s: %w", src.URL, err)
 	}
@@ -210,6 +216,17 @@ func FetchFeed(ctx context.Context, src Source) (*RSSFeed, Source, error) {
 
 func isPermanentRedirect(status int) bool {
 	return status == http.StatusMovedPermanently || status == http.StatusPermanentRedirect
+}
+
+func readBody(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxBody+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxBody {
+		return nil, fmt.Errorf("%w: over %d bytes", ErrBodyTooLarge, maxBody)
+	}
+	return data, nil
 }
 
 func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
