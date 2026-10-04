@@ -13,9 +13,27 @@ go build ./...            # build
 go vet ./...              # vet
 gofmt -l .                # list unformatted files (should be empty)
 gofmt -w .                # format
-go test ./...             # all tests
+go test ./...             # all tests; database-backed ones skip unless GATOR_TEST_DB_URL is set
 go test -run TestParsePubDate ./...   # single test
 ```
+
+### Database-backed tests
+
+`internal/testdb` gives tests a real Postgres. They **skip** unless `GATOR_TEST_DB_URL` is set:
+
+```bash
+createdb gator_test                     # once; any name containing "test"
+export GATOR_TEST_DB_URL="postgres://postgres:pw@localhost:5433/gator_test?sslmode=disable"
+go test ./...
+```
+
+`testdb.Open(t)` returns a `*DB` embedding `*database.Queries`, plus fixture helpers (`User`, `Feed`, `Follow`, `Post`, `Bookmark`, `MarkRead`) and raw escapes (`Count`, `Exec`, `QueryRow`). Three properties matter:
+
+- **It applies `sql/schema` itself**, executing each file's `-- +goose Up` half, so the tests need no `goose` run and always match the migrations on disk. That works only because no migration uses `+goose StatementBegin` or `NO TRANSACTION`; one that did would need the real goose.
+- **Each test binary gets its own schema**, named after the binary (`gator_test_database`, `gator_test_feeds`), dropped and recreated at first use. That is what makes `go test ./...` safe while Go runs packages in parallel — an earlier design used one shared schema and the packages wiped each other mid-migration. `public` is never touched.
+- **Tests run on a plain connection, not in a rolled-back transaction**, with `TRUNCATE` between them. A transaction would be faster and better isolated, but `feeds.Add` and `feeds.Scrape` deliberately provoke a `23505` and carry on, and in Postgres a failed statement aborts the whole transaction — so the paths most worth testing are exactly the ones a transaction cannot cover.
+
+`checkSafe` refuses a `GATOR_TEST_DB_URL` that is not loopback, or whose database name does not contain `test`, because setup drops a schema there. CI runs these against a `postgres:16` service and then asserts that none of them skipped — a silent skip would leave the suite green while testing nothing.
 
 ### Database
 

@@ -11,6 +11,24 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gator_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      GATOR_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/gator_test?sslmode=disable
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -32,6 +50,14 @@ jobs:
 
       - name: go test
         run: go test ./...
+
+      - name: confirm the database tests actually ran
+        run: |
+          skipped=$(go test ./internal/database/ ./internal/feeds/ ./internal/testdb/ -run . -v 2>&1 | grep -c "is not set" || true)
+          if [ "$skipped" -ne 0 ]; then
+            echo "$skipped database tests skipped — GATOR_TEST_DB_URL is not reaching them"
+            exit 1
+          fi
 
   cross-compile:
     runs-on: ubuntu-latest
