@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -13,15 +14,15 @@ import (
 	"gator-cli/internal/menu"
 )
 
-func runMenu(cmds commands) error {
+func runMenu(schema fs.FS, cmds commands) error {
 	if !interactive() {
 		printUsage(os.Stderr)
 		return errors.New("no command given")
 	}
 
-	s, closeDB, dbErr := open()
+	s, closeDB, dbErr := open(schema)
 	if dbErr != nil {
-		s = &state{}
+		s = &state{Schema: schema}
 	} else {
 		defer closeDB()
 	}

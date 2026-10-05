@@ -104,10 +104,16 @@ func localDatabaseName(dbURL string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("parsing db_url: %w", err)
 	}
-
-	host := u.Hostname()
-	if !isLoopback(host) {
+	if host := u.Hostname(); !isLoopback(host) {
 		return "", fmt.Errorf("refusing to delete: db_url points at %s, not a local database", host)
+	}
+	return databaseName(dbURL)
+}
+
+func databaseName(dbURL string) (string, error) {
+	u, err := url.Parse(dbURL)
+	if err != nil {
+		return "", fmt.Errorf("parsing db_url: %w", err)
 	}
 
 	name := strings.TrimPrefix(u.Path, "/")
