@@ -3,6 +3,7 @@ package cli
 import (
 	"database/sql"
 	"fmt"
+	"io/fs"
 
 	"gator-cli/internal/config"
 	"gator-cli/internal/database"
@@ -13,8 +14,10 @@ import (
 var version = "dev"
 
 type state struct {
-	Db  *database.Queries
-	Cfg *config.Config
+	Db     *database.Queries
+	DB     *sql.DB
+	Cfg    *config.Config
+	Schema fs.FS
 }
 
 type entry struct {
@@ -70,16 +73,19 @@ func allCommands() []entry {
 		{group: "account", name: "users", summary: "List all users", run: handlerUsers, guest: true},
 		{group: "account", name: "reset", args: "[flags]", summary: "Delete every row in the database", run: handlerReset, hidden: true},
 
+		{group: "setup", name: "init", args: "[flags]", summary: "Create the config and the database schema", run: handlerInit, guest: true, noDB: true},
+		{group: "setup", name: "migrate", args: "[flags]", summary: "Apply any database migrations this build carries", run: handlerMigrate},
+
 		{group: "other", name: "help", summary: "Print the list of commands", run: handlerHelp, guest: true, noDB: true},
 		{group: "other", name: "version", summary: "Print the version of gator", run: handlerVersion, guest: true, noDB: true},
 	}
 }
 
-func Run(args []string) error {
+func Run(schema fs.FS, args []string) error {
 	cmds := defaultCommands()
 
 	if len(args) == 0 {
-		return runMenu(cmds)
+		return runMenu(schema, cmds)
 	}
 
 	e, ok := lookup(args[0])
@@ -89,10 +95,10 @@ func Run(args []string) error {
 
 	cmd := command{Name: args[0], Args: args[1:]}
 	if e.noDB {
-		return cmds.run(&state{}, cmd)
+		return cmds.run(&state{Schema: schema}, cmd)
 	}
 
-	s, closeDB, err := open()
+	s, closeDB, err := open(schema)
 	if err != nil {
 		return err
 	}
@@ -110,22 +116,30 @@ func lookup(name string) (entry, bool) {
 	return entry{}, false
 }
 
-func open() (*state, func() error, error) {
+func open(schema fs.FS) (*state, func() error, error) {
 	cfg, err := config.Read()
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading config: %w", err)
 	}
 
-	db, err := sql.Open("postgres", cfg.DBURL)
+	db, err := connect(cfg.DBURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("opening database: %w", err)
+		return nil, nil, err
+	}
+
+	return &state{Cfg: &cfg, DB: db, Db: database.New(db), Schema: schema}, db.Close, nil
+}
+
+func connect(dbURL string) (*sql.DB, error) {
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		return nil, fmt.Errorf("opening database: %w", err)
 	}
 	if err := db.Ping(); err != nil {
 		db.Close()
-		return nil, nil, fmt.Errorf("connecting to database: %w", err)
+		return nil, fmt.Errorf("connecting to database: %w", err)
 	}
-
-	return &state{Cfg: &cfg, Db: database.New(db)}, db.Close, nil
+	return db, nil
 }
 
 func defaultCommands() commands {

@@ -44,15 +44,17 @@ goose -dir sql/schema postgres "$DB_URL" up   # apply migrations
 sqlc generate                                  # regenerate internal/database/
 ```
 
-Migrations are applied only by the external `goose` CLI against a clone of this repository;
-there is no in-binary migrate path yet, so a released archive cannot create its own schema.
-A **new migration must be added under `sql/schema`**, never anywhere else.
+`sql/schema` is also embedded into the binary (`//go:embed` in `main.go`, threaded through
+`state.Schema`) and applied by `gator init` / `gator migrate` through `internal/migrate`, which drives
+goose as a library. Both paths read the same files and share one `goose_db_version`, so they never
+disagree — but a **new migration must be added under `sql/schema`**, never anywhere else, or only one
+of the two will see it.
 
 Never edit `internal/database/*.sql.go` by hand; it is sqlc output (`sqlc.yaml` → `out: internal/database`).
 
 ### Running
 
-Requires `~/.gatorconfig.json` with `db_url` (and `current_user_name`, written by `login`/`register`). It has to be created by hand — there is no `gator init`. `internal/config` rewrites it atomically at `0600` (temp file in the same directory, then `os.Rename`), so a crash mid-write cannot truncate it. Local dev Postgres runs on a non-default port; the connection string lives in that config file, not in the repo.
+Requires `~/.gatorconfig.json` with `db_url` (and `current_user_name`, written by `login`/`register`). `gator init` creates it — atomically, at `0600`, and **only after the connection is proven and the schema applied**, so a wrong `--db-url` leaves no config behind. It refuses to overwrite an existing config without `--force`. `internal/config` rewrites the file atomically (temp file in the same directory, then `os.Rename`), so a crash mid-write cannot truncate it. Local dev Postgres runs on a non-default port; the connection string lives in that config file, not in the repo.
 
 ### Releasing
 
@@ -67,13 +69,13 @@ goreleaser build --snapshot --clean
 
 ## Architecture
 
-**Command dispatch.** One table, `allCommands()` in `internal/cli/cli.go`, is the single source of truth: it carries each command's name, args, summary, group and handler, and from it are derived the registry (`command.go`), the interactive picker and `gator help`. A command sets exactly one of `run` (needs config + DB) or `runAuth` (also needs a logged-in user) — `needsLogin()` reads `runAuth != nil`, so the middleware wrapping and what the menu claims can never drift apart. `noDB: true` marks the commands that run before a config exists (`version`, `help`); `cli.Run` only opens config and Postgres when the chosen command actually needs them, so a fresh install can still run those two. `main.go` is now just `cli.Run`. A handler is just `func(*state, command) error` — errors bubble up to `main` which prints and exits 1. Handlers never call `os.Exit` themselves.
+**Command dispatch.** One table, `allCommands()` in `internal/cli/cli.go`, is the single source of truth: it carries each command's name, args, summary, group and handler, and from it are derived the registry (`command.go`), the interactive picker and `gator help`. A command sets exactly one of `run` (needs config + DB) or `runAuth` (also needs a logged-in user) — `needsLogin()` reads `runAuth != nil`, so the middleware wrapping and what the menu claims can never drift apart. `noDB: true` marks the commands that run before a config exists (`init`, `version`, `help`); `cli.Run` only opens config and Postgres when the chosen command actually needs them, so a fresh install can still run those three. `migrate` is **not** `noDB` — it needs the connection the config names, just not a migrated schema, and it reaches the raw handle through `state.DB` (the only command that does). `main.go` is now just the embed plus `cli.Run`. A handler is just `func(*state, command) error` — errors bubble up to `main` which prints and exits 1. Handlers never call `os.Exit` themselves.
 
 **Auth middleware.** Commands needing a logged-in user are wrapped in `middlewareLoggedIn` (`middleware.go`), which converts the signature to `func(*state, command, database.User) error` by looking up `s.Cfg.CurrentUserName`. "Logged in" is purely a username in the config file — there are no passwords or sessions.
 
 **Bare `gator`** opens a command picker (`internal/menu`, Bubble Tea) instead of erroring. It offers only what can actually work: with no reachable database just `version`/`help`, logged out only the guest commands, logged in everything visible (`reset` is `hidden`). The chosen command runs **after** the picker exits, or `tui` and `discover` would nest one Bubble Tea program inside another. A pipe gets the usage text on stderr and exit 1.
 
-**Handlers are split by domain**, all in `package cli`: `users.go`, `feeds.go`, `bookmarks.go`, `categories.go`, `discover.go`, `opml.go`, `stats.go`, `article.go`, `prune.go`, `reset.go`, `service.go`, `tui.go`, `version.go`. Logic shared with the TUI lives in `internal/feeds` (`Add`, `AddMany`, `Follow`, `Scrape`, `ScrapeAll`, `Prune`, `ParsePubDate`) — handlers keep only argument parsing and printing. `feeds.Add` validates a URL by actually fetching it, derives the name from `<title>` when none is given, and treats an already-known URL as "follow it" rather than an error.
+**Handlers are split by domain**, all in `package cli`: `users.go`, `feeds.go`, `bookmarks.go`, `categories.go`, `discover.go`, `opml.go`, `stats.go`, `article.go`, `prune.go`, `reset.go`, `service.go`, `setup.go`, `tui.go`, `version.go`. Logic shared with the TUI lives in `internal/feeds` (`Add`, `AddMany`, `Follow`, `Scrape`, `ScrapeAll`, `Prune`, `ParsePubDate`) — handlers keep only argument parsing and printing. `feeds.Add` validates a URL by actually fetching it, derives the name from `<title>` when none is given, and treats an already-known URL as "follow it" rather than an error.
 
 **Aggregation loop.** `agg <duration>` ticks on a `time.Ticker`; each tick calls `feeds.ScrapeAll`, which picks up feeds via `GetFeedsToFetch` and fans out one goroutine per feed under a `sync.WaitGroup`. It returns a `[]feeds.Result` and optionally calls an `onResult` callback per finished feed (serialized under a mutex) so the CLI can print progress live while the TUI takes the summary. Duplicate posts are expected — `errors.As` on `*pq.Error` code `23505` skips them. Shutdown is via `signal.NotifyContext`.
 

@@ -39,21 +39,29 @@ CREATE DATABASE gator;
 ALTER USER postgres PASSWORD 'postgres';
 ```
 
-### 3. Run database migrations
+### 3. Initialise gator
 
 ```bash
-goose -dir sql/schema postgres "postgres://<user>:<password>@localhost:<port>/gator" up
+gator init --user <your-name>
 ```
 
-### 4. Create the config file
+`init` asks for the connection string (or pass `--db-url`), proves it works,
+creates the schema from migrations carried inside the binary, and only then
+writes `~/.gatorconfig.json` at `0600`. Nothing is written if the connection
+fails, so a typo costs you nothing.
 
-Create `~/.gatorconfig.json` with your database connection string:
+It refuses to run twice — pass `--force` to start over.
 
-```json
-{
-  "db_url": "postgres://postgres:postgres@localhost:5432/gator?sslmode=disable"
-}
+### 4. After upgrading gator
+
+```bash
+gator migrate            # apply any new migrations this build carries
+gator migrate --status   # or just see what is pending
 ```
+
+`gator` and the `goose` CLI share one `goose_db_version` table, so if you
+develop against a clone of this repository you can keep using
+`goose -dir sql/schema postgres "$DB_URL" up` and the two never disagree.
 
 ## Usage
 

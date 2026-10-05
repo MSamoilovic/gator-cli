@@ -53,13 +53,17 @@ release:
   footer: |
     ## Getting started
 
-    Unpack the archive and put `gator` on your PATH, then:
+    Unpack the archive and put `gator` on your PATH. You need a PostgreSQL
+    database; everything else `gator` does itself:
 
     ```
-    gator version   # check the build
-    gator help      # list the commands
+    createdb gator
+    gator init --user <your-name>    # writes the config, creates the schema
+    gator discover                   # pick some feeds
+    gator tui                        # read
     ```
 
-    Everything else needs PostgreSQL and a `~/.gatorconfig.json` holding its
-    connection string. Applying the schema still needs `goose` and a clone of this
-    repository — see the README for the exact steps.
+    `gator init` asks for the connection string (or take `--db-url`), proves it
+    works, applies the schema from inside the binary, and only then writes
+    `~/.gatorconfig.json` at 0600. After upgrading, `gator migrate` applies any
+    new migrations the build carries.

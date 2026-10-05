@@ -18,6 +18,16 @@ func (cfg *Config) SetUsername(username string) error {
 	return write(*cfg)
 }
 
+func (cfg Config) Write() error { return write(cfg) }
+
+func Path() string {
+	path, err := getConfigFilePath()
+	if err != nil {
+		return configFileName
+	}
+	return path
+}
+
 func Read() (Config, error) {
 	path, err := getConfigFilePath()
 	if err != nil {
