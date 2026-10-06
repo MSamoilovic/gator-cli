@@ -160,7 +160,7 @@ func TestUnreadOnlyFilterToggles(t *testing.T) {
 	m := loaded(t, fullPage("a"))
 
 	m, cmd := step(t, m, press("U"))
-	if !m.unreadOnly {
+	if !m.filter.unreadOnly {
 		t.Fatal("U did not turn the unread filter on")
 	}
 	if cmd == nil {
@@ -174,7 +174,7 @@ func TestUnreadOnlyFilterToggles(t *testing.T) {
 	}
 
 	m, _ = step(t, m, press("U"))
-	if m.unreadOnly {
+	if m.filter.unreadOnly {
 		t.Error("U did not turn the unread filter off")
 	}
 	if !strings.Contains(m.status, "all posts") {
@@ -187,7 +187,7 @@ func TestUnreadFilterRefusedInDerivedViews(t *testing.T) {
 
 	m, _ = step(t, m, press("U"))
 
-	if m.unreadOnly {
+	if m.filter.unreadOnly {
 		t.Error("unread filter turned on inside the bookmarks view")
 	}
 	if !strings.Contains(m.status, "feed posts only") {
@@ -204,7 +204,7 @@ func TestMarkAllReadReloadsUnderUnreadFilter(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("marking all read did not refresh the unread-only list")
 	}
-	if !m.unreadOnly {
+	if !m.filter.unreadOnly {
 		t.Error("unread filter was lost")
 	}
 }

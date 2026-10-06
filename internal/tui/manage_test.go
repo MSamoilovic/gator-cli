@@ -182,13 +182,13 @@ func TestUnfollowingTheActiveFeedFallsBackToAll(t *testing.T) {
 	m := feedsFocused(t, withFeeds(t, loaded(t, fullPage("a")), feed))
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
-	if m.feedID != feed.FeedID {
+	if m.filter.feedID != feed.FeedID {
 		t.Fatal("feed filter was not applied")
 	}
 
 	m, cmd := step(t, m, feedUnfollowMsg{name: "BBC Sport"})
 
-	if m.feedID != uuid.Nil {
+	if m.filter.feedID != uuid.Nil {
 		t.Error("unfollowing the active feed left it as the filter")
 	}
 	if got, want := m.list.Title, postsTitle; got != want {
@@ -206,7 +206,7 @@ func TestUnfollowingAnotherFeedKeepsTheFilter(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 	m, _ = step(t, m, feedUnfollowMsg{name: "CBR"})
 
-	if m.feedID != feed.FeedID {
+	if m.filter.feedID != feed.FeedID {
 		t.Error("unfollowing another feed cleared the active filter")
 	}
 	if got, want := m.list.Title, "BBC Sport"; got != want {

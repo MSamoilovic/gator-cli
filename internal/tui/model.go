@@ -53,6 +53,38 @@ const (
 	screenCatalog
 )
 
+type listSource int
+
+const (
+	sourceFeeds listSource = iota
+	sourceBookmarks
+	sourceRead
+	sourceSearch
+)
+
+func (s listSource) derived() bool { return s != sourceFeeds }
+
+type listFilter struct {
+	feedID     uuid.UUID
+	feedName   string
+	query      string
+	sortDir    string
+	since      time.Duration
+	unreadOnly bool
+}
+
+func (f listFilter) params() postFilter {
+	p := postFilter{
+		feedID:     f.feedID,
+		sortDir:    f.sortDir,
+		unreadOnly: f.unreadOnly,
+	}
+	if f.since > 0 {
+		p.since = time.Now().Add(-f.since)
+	}
+	return p
+}
+
 type model struct {
 	ctx      context.Context
 	queries  *database.Queries
@@ -75,12 +107,10 @@ type model struct {
 	picked    map[string]bool
 	expanded  map[string]bool
 	feeds     []database.GetFeedFollowsForUserRow
-	feedID    uuid.UUID
-	feedName  string
-	query     string
 
-	sortDir     string
-	since       time.Duration
+	source listSource
+	filter listFilter
+
 	offset      int32
 	hasMore     bool
 	loadingMore bool
@@ -97,16 +127,13 @@ type model struct {
 	status      string
 	statusToken int
 
-	input         inputMode
-	openOnLoad    bool
-	confirming    bool
-	fetching      bool
-	fetchingText  bool
-	unreadOnly    bool
-	showBookmarks bool
-	showRead      bool
-	loading       bool
-	err           error
+	input        inputMode
+	openOnLoad   bool
+	confirming   bool
+	fetching     bool
+	fetchingText bool
+	loading      bool
+	err          error
 }
 
 func newModel(ctx context.Context, q *database.Queries, user database.User, saved uiState) model {
@@ -160,13 +187,15 @@ func newModel(ctx context.Context, q *database.Queries, user database.User, save
 		unread:      make(map[uuid.UUID]int),
 		picked:      make(map[string]bool),
 		expanded:    expandedSet(saved.Expanded),
-		sortDir:     saved.SortDir,
-		since:       saved.since(),
-		unreadOnly:  saved.UnreadOnly,
-		feedID:      saved.feedUUID(),
-		feedName:    saved.FeedName,
-		loading:     true,
-		hasMore:     true,
+		filter: listFilter{
+			feedID:     saved.feedUUID(),
+			feedName:   saved.FeedName,
+			sortDir:    saved.SortDir,
+			since:      saved.since(),
+			unreadOnly: saved.UnreadOnly,
+		},
+		loading: true,
+		hasMore: true,
 	}
 	m.setPostsTitle()
 	m.applyFocus()
@@ -176,7 +205,7 @@ func newModel(ctx context.Context, q *database.Queries, user database.User, save
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		loadPosts(m.ctx, m.queries, m.userID, m.filter(), 0),
+		loadPosts(m.ctx, m.queries, m.userID, m.filter.params(), 0),
 		loadBookmarks(m.ctx, m.queries, m.userID),
 		loadReads(m.ctx, m.queries, m.userID),
 		loadFeeds(m.ctx, m.queries, m.userID),
@@ -184,9 +213,7 @@ func (m model) Init() tea.Cmd {
 	)
 }
 
-func (m model) inDerivedView() bool {
-	return m.query != "" || m.showBookmarks || m.showRead
-}
+func (m model) inDerivedView() bool { return m.source.derived() }
 
 func (m model) withStatus(text string) (model, tea.Cmd) {
 	m.statusToken++

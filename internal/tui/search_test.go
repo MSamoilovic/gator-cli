@@ -37,8 +37,8 @@ func TestSearchOpensAndCancels(t *testing.T) {
 	if m.input == inputSearch {
 		t.Error("esc did not close the search input")
 	}
-	if m.query != "" {
-		t.Errorf("cancelled search still set a query: %q", m.query)
+	if m.filter.query != "" {
+		t.Errorf("cancelled search still set a query: %q", m.filter.query)
 	}
 }
 
@@ -55,7 +55,7 @@ func TestSearchRunsQueryAndSetsTitle(t *testing.T) {
 	if m.input == inputSearch {
 		t.Error("search input still open after enter")
 	}
-	if got, want := m.query, "golang"; got != want {
+	if got, want := m.filter.query, "golang"; got != want {
 		t.Errorf("query = %q, want %q", got, want)
 	}
 	if got, want := m.list.Title, "Search: golang"; got != want {
@@ -73,8 +73,8 @@ func TestSearchIgnoresBlankQuery(t *testing.T) {
 	if cmd != nil {
 		t.Error("blank query triggered a search")
 	}
-	if m.query != "" {
-		t.Errorf("blank query was stored: %q", m.query)
+	if m.filter.query != "" {
+		t.Errorf("blank query was stored: %q", m.filter.query)
 	}
 	if got, want := m.list.Title, postsTitle; got != want {
 		t.Errorf("list title = %q, want %q", got, want)
@@ -100,13 +100,13 @@ func TestEscapeLeavesSearchResults(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("esc did not reload the feed")
 	}
-	if m.query != "" {
-		t.Errorf("query still set after esc: %q", m.query)
+	if m.filter.query != "" {
+		t.Errorf("query still set after esc: %q", m.filter.query)
 	}
 	if got, want := m.list.Title, "BBC Sport"; got != want {
 		t.Errorf("list title = %q, want the feed name %q", got, want)
 	}
-	if m.feedID != feed.FeedID {
+	if m.filter.feedID != feed.FeedID {
 		t.Error("esc from search lost the feed filter")
 	}
 }
@@ -131,8 +131,8 @@ func TestSelectingFeedClearsSearch(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
-	if m.query != "" {
-		t.Errorf("query survived a feed switch: %q", m.query)
+	if m.filter.query != "" {
+		t.Errorf("query survived a feed switch: %q", m.filter.query)
 	}
 	if got, want := m.list.Title, "BBC Sport"; got != want {
 		t.Errorf("list title = %q, want %q", got, want)

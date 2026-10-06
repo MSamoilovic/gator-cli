@@ -14,7 +14,7 @@ func TestSavedTogglesBookmarksView(t *testing.T) {
 	m := loaded(t, fullPage("a"))
 
 	m, cmd := step(t, m, press("B"))
-	if !m.showBookmarks {
+	if m.source != sourceBookmarks {
 		t.Fatal("B did not open the bookmarks view")
 	}
 	if cmd == nil {
@@ -25,7 +25,7 @@ func TestSavedTogglesBookmarksView(t *testing.T) {
 	}
 
 	m, cmd = step(t, m, press("B"))
-	if m.showBookmarks {
+	if m.source == sourceBookmarks {
 		t.Error("B did not close the bookmarks view")
 	}
 	if cmd == nil {
@@ -50,7 +50,7 @@ func TestEscapeLeavesBookmarksView(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("esc did not reload after leaving bookmarks")
 	}
-	if m.showBookmarks {
+	if m.source == sourceBookmarks {
 		t.Error("esc did not leave the bookmarks view")
 	}
 	if got, want := m.list.Title, "BBC Sport"; got != want {
@@ -96,7 +96,7 @@ func TestUnbookmarkingElsewhereDoesNotReload(t *testing.T) {
 	m, _ = step(t, m, bookmarksLoadedMsg{postIDs: []uuid.UUID{post.ID}})
 	next, cmd := step(t, m, bookmarkToggledMsg{postID: post.ID, bookmarked: false})
 
-	if next.showBookmarks {
+	if next.source == sourceBookmarks {
 		t.Fatal("unexpected bookmarks view")
 	}
 	if cmd == nil {
@@ -110,12 +110,12 @@ func TestUnbookmarkingElsewhereDoesNotReload(t *testing.T) {
 func TestSortToggles(t *testing.T) {
 	m := loaded(t, fullPage("a"))
 
-	if got, want := m.sortDir, sortDesc; got != want {
+	if got, want := m.filter.sortDir, sortDesc; got != want {
 		t.Fatalf("initial sort = %q, want %q", got, want)
 	}
 
 	m, cmd := step(t, m, press("S"))
-	if got, want := m.sortDir, sortAsc; got != want {
+	if got, want := m.filter.sortDir, sortAsc; got != want {
 		t.Errorf("sort = %q, want %q", got, want)
 	}
 	if cmd == nil {
@@ -129,7 +129,7 @@ func TestSortToggles(t *testing.T) {
 	}
 
 	m, _ = step(t, m, press("S"))
-	if got, want := m.sortDir, sortDesc; got != want {
+	if got, want := m.filter.sortDir, sortDesc; got != want {
 		t.Errorf("sort = %q, want %q", got, want)
 	}
 	if !strings.Contains(m.status, "newest first") {
@@ -163,12 +163,12 @@ func TestSortRefusedInDerivedViews(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			m := tc.setup(t)
-			before := m.sortDir
+			before := m.filter.sortDir
 
 			m, _ = step(t, m, press("S"))
 
-			if m.sortDir != before {
-				t.Errorf("sort changed in %s view: %q", tc.name, m.sortDir)
+			if m.filter.sortDir != before {
+				t.Errorf("sort changed in %s view: %q", tc.name, m.filter.sortDir)
 			}
 			if !strings.Contains(m.status, "feed posts only") {
 				t.Errorf("status = %q, want an explanation", m.status)
@@ -186,7 +186,7 @@ func TestFeedSwitchLeavesBookmarksView(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
-	if m.showBookmarks {
+	if m.source == sourceBookmarks {
 		t.Error("selecting a feed left the bookmarks view on")
 	}
 	if got, want := m.list.Title, "BBC Sport"; got != want {
@@ -241,7 +241,7 @@ func TestHistoryOpensTheReadView(t *testing.T) {
 	m := loaded(t, fullPage("a"))
 
 	m, cmd := step(t, m, press("H"))
-	if !m.showRead {
+	if m.source != sourceRead {
 		t.Fatal("H did not open the read view")
 	}
 	if cmd == nil {
@@ -252,7 +252,7 @@ func TestHistoryOpensTheReadView(t *testing.T) {
 	}
 
 	m, cmd = step(t, m, press("H"))
-	if m.showRead {
+	if m.source == sourceRead {
 		t.Error("H did not close the read view")
 	}
 	if cmd == nil {
@@ -268,15 +268,15 @@ func TestReadAndBookmarkViewsAreExclusive(t *testing.T) {
 
 	m, _ = step(t, m, press("B"))
 	m, _ = step(t, m, press("H"))
-	if m.showBookmarks {
+	if m.source == sourceBookmarks {
 		t.Error("opening the read view left the bookmarks view on")
 	}
-	if !m.showRead {
+	if m.source != sourceRead {
 		t.Fatal("H did not open the read view")
 	}
 
 	m, _ = step(t, m, press("B"))
-	if m.showRead {
+	if m.source == sourceRead {
 		t.Error("opening the bookmarks view left the read view on")
 	}
 }
@@ -287,7 +287,7 @@ func TestEscapeLeavesTheReadView(t *testing.T) {
 	m, _ = step(t, m, press("H"))
 	m, cmd := step(t, m, tea.KeyMsg{Type: tea.KeyEsc})
 
-	if m.showRead {
+	if m.source == sourceRead {
 		t.Error("esc did not leave the read view")
 	}
 	if cmd == nil {
@@ -304,7 +304,7 @@ func TestReadViewRefusesFeedOnlyFilters(t *testing.T) {
 
 	for _, key := range []string{"S", "t", "U"} {
 		next, _ := step(t, m, press(key))
-		if !next.showRead {
+		if next.source != sourceRead {
 			t.Errorf("%s dropped out of the read view", key)
 		}
 		if next.status == "" {

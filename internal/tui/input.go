@@ -71,8 +71,8 @@ func (m model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		switch mode {
 		case inputSearch:
-			m.query = value
-			m.showBookmarks = false
+			m.source = sourceSearch
+			m.filter.query = value
 			m.setPostsTitle()
 			return m, searchPosts(m.ctx, m.queries, m.userID, value)
 
@@ -197,13 +197,13 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		m.feedID = item.id
-		m.feedName = ""
+		m.filter.feedID = item.id
+		m.filter.feedName = ""
 		if item.id != uuid.Nil {
-			m.feedName = item.name
+			m.filter.feedName = item.name
 		}
-		m.query = ""
-		m.showBookmarks = false
+		m.source = sourceFeeds
+		m.filter.query = ""
 		m.setPostsTitle()
 		m.focus = focusPosts
 		m.applyFocus()

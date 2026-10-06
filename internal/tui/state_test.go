@@ -130,7 +130,7 @@ func TestSavedStateIsApplied(t *testing.T) {
 
 	m, _ := step(t, newModel(t.Context(), nil, testUser(), saved), tea.WindowSizeMsg{Width: 80, Height: 24})
 
-	f := m.filter()
+	f := m.filter.params()
 	if f.feedID != feed.FeedID {
 		t.Error("saved feed was not applied")
 	}
@@ -212,13 +212,13 @@ func TestUnfollowedFeedFallsBackToAll(t *testing.T) {
 	saved := uiState{FeedID: gone.String(), FeedName: "Obrisan", SortDir: sortDesc}
 
 	m, _ := step(t, newModel(t.Context(), nil, testUser(), saved), tea.WindowSizeMsg{Width: 80, Height: 24})
-	if m.feedID != gone {
+	if m.filter.feedID != gone {
 		t.Fatal("saved feed was not applied")
 	}
 
 	m, cmd := step(t, m, feedsLoadedMsg{feeds: nil})
 
-	if m.feedID != uuid.Nil {
+	if m.filter.feedID != uuid.Nil {
 		t.Error("model kept a feed that is no longer followed")
 	}
 	if got, want := m.list.Title, postsTitle; got != want {
@@ -240,7 +240,7 @@ func TestStoredFeedIsSelectedInThePanel(t *testing.T) {
 	if got, want := m.feedList.Index(), 2; got != want {
 		t.Errorf("feed cursor = %d, want %d (All feeds, BBC Sport, CBR)", got, want)
 	}
-	if m.feedID != second.FeedID {
+	if m.filter.feedID != second.FeedID {
 		t.Error("stored feed was dropped")
 	}
 }
