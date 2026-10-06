@@ -67,7 +67,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.withStatus("Nothing to mark")
 		}
 		next, cmd := m.withStatus(fmt.Sprintf("Marked %d posts read", msg.count))
-		if next.unreadOnly {
+		if next.filter.unreadOnly {
 			return next, tea.Batch(cmd, next.startLoad())
 		}
 		return next, cmd
@@ -86,7 +86,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		delete(m.bookmarks, msg.postID)
 		next, cmd := m.withStatus("Bookmark removed")
 
-		if next.showBookmarks {
+		if next.source == sourceBookmarks {
 			return next, tea.Batch(cmd, loadBookmarkedPosts(next.ctx, next.queries, next.userID))
 		}
 		return next, cmd
@@ -100,9 +100,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad())
 
 	case feedUnfollowMsg:
-		if m.feedName == msg.name {
-			m.feedID = uuid.Nil
-			m.feedName = ""
+		if m.filter.feedName == msg.name {
+			m.filter.feedID = uuid.Nil
+			m.filter.feedName = ""
 			m.setPostsTitle()
 			m.feedList.ResetSelected()
 		}
@@ -211,26 +211,26 @@ func (m model) fullTextLoaded(msg fullTextMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) selectStoredFeed(cmd tea.Cmd) (tea.Model, tea.Cmd) {
-	if m.feedID == uuid.Nil {
+	if m.filter.feedID == uuid.Nil {
 		return m, cmd
 	}
 
 	for i, it := range m.feedList.Items() {
-		if fi, ok := it.(feedItem); ok && fi.id == m.feedID {
+		if fi, ok := it.(feedItem); ok && fi.id == m.filter.feedID {
 			m.feedList.Select(i)
-			m.feedName = fi.name
+			m.filter.feedName = fi.name
 			m.setPostsTitle()
 			return m, cmd
 		}
 	}
 
-	if name := folderOf(m.feeds, m.feedID); name != "" {
+	if name := folderOf(m.feeds, m.filter.feedID); name != "" {
 		m.selectFolder(name)
 		return m, cmd
 	}
 
-	m.feedID = uuid.Nil
-	m.feedName = ""
+	m.filter.feedID = uuid.Nil
+	m.filter.feedName = ""
 	m.setPostsTitle()
 	return m, tea.Batch(cmd, m.startLoad())
 }

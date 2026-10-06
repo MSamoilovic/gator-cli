@@ -68,8 +68,8 @@ func TestSelectingFeedFiltersPosts(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("selecting a feed did not trigger a reload")
 	}
-	if m.feedID != feed.FeedID {
-		t.Errorf("feedID = %v, want %v", m.feedID, feed.FeedID)
+	if m.filter.feedID != feed.FeedID {
+		t.Errorf("feedID = %v, want %v", m.filter.feedID, feed.FeedID)
 	}
 	if m.focus != focusPosts {
 		t.Error("focus should return to posts after selecting a feed")
@@ -94,8 +94,8 @@ func TestSelectingAllFeedsClearsFilter(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("selecting All feeds did not trigger a reload")
 	}
-	if m.feedID != uuid.Nil {
-		t.Errorf("feedID = %v, want nil UUID", m.feedID)
+	if m.filter.feedID != uuid.Nil {
+		t.Errorf("feedID = %v, want nil UUID", m.filter.feedID)
 	}
 	if got, want := m.list.Title, "Posts"; got != want {
 		t.Errorf("posts title = %q, want %q", got, want)

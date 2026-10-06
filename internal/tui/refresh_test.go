@@ -108,14 +108,14 @@ func TestReloadKeepsFeedAndSort(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 	m, _ = step(t, m, press("S"))
 
-	before := m.sortDir
+	before := m.filter.sortDir
 	m, _ = step(t, m, press("r"))
 
-	if m.feedID != feed.FeedID {
+	if m.filter.feedID != feed.FeedID {
 		t.Error("reload lost the feed filter")
 	}
-	if m.sortDir != before {
-		t.Errorf("reload changed sort: %q, want %q", m.sortDir, before)
+	if m.filter.sortDir != before {
+		t.Errorf("reload changed sort: %q, want %q", m.filter.sortDir, before)
 	}
 }
 

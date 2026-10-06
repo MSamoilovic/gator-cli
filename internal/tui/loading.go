@@ -7,18 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func (m model) filter() postFilter {
-	f := postFilter{
-		feedID:     m.feedID,
-		sortDir:    m.sortDir,
-		unreadOnly: m.unreadOnly,
-	}
-	if m.since > 0 {
-		f.since = time.Now().Add(-m.since)
-	}
-	return f
-}
-
 func (m model) reloadFeeds() tea.Cmd {
 	return tea.Batch(
 		loadFeeds(m.ctx, m.queries, m.userID),
@@ -30,18 +18,20 @@ func (m *model) startLoad() tea.Cmd {
 	m.offset = 0
 	m.hasMore = true
 	m.loadingMore = false
-	switch {
-	case m.showBookmarks:
+	switch m.source {
+	case sourceBookmarks:
 		return loadBookmarkedPosts(m.ctx, m.queries, m.userID)
-	case m.showRead:
+	case sourceRead:
 		return loadReadPosts(m.ctx, m.queries, m.userID)
+	case sourceSearch:
+		return searchPosts(m.ctx, m.queries, m.userID, m.filter.query)
 	}
-	return loadPosts(m.ctx, m.queries, m.userID, m.filter(), 0)
+	return loadPosts(m.ctx, m.queries, m.userID, m.filter.params(), 0)
 }
 
 func (m *model) maybeLoadMore() tea.Cmd {
 	switch {
-	case !m.hasMore, m.loadingMore, m.query != "", m.showBookmarks, m.showRead:
+	case !m.hasMore, m.loadingMore, m.source.derived():
 		return nil
 	case m.list.FilterState() == list.Filtering:
 		return nil
@@ -51,26 +41,28 @@ func (m *model) maybeLoadMore() tea.Cmd {
 
 	m.loadingMore = true
 	m.offset += pageSize
-	return loadPosts(m.ctx, m.queries, m.userID, m.filter(), m.offset)
+	return loadPosts(m.ctx, m.queries, m.userID, m.filter.params(), m.offset)
 }
 
 func (m *model) setPostsTitle() {
-	switch {
-	case m.showBookmarks:
+	switch m.source {
+	case sourceBookmarks:
 		m.list.Title = bookmarksTitle
 		return
-	case m.showRead:
+	case sourceRead:
 		m.list.Title = readTitle
 		return
-	case m.query != "":
-		m.list.Title = "Search: " + m.query
+	case sourceSearch:
+		m.list.Title = "Search: " + m.filter.query
 		return
-	case m.feedName != "":
-		m.list.Title = m.feedName
-	default:
+	}
+
+	if m.filter.feedName != "" {
+		m.list.Title = m.filter.feedName
+	} else {
 		m.list.Title = postsTitle
 	}
-	if label := sinceLabel(m.since); label != "" {
+	if label := sinceLabel(m.filter.since); label != "" {
 		m.list.Title += " · " + label
 	}
 }

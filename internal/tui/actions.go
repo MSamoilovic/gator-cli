@@ -26,9 +26,8 @@ func (m model) leaveDerivedView() (tea.Model, tea.Cmd) {
 	if !m.inDerivedView() {
 		return m, nil
 	}
-	m.query = ""
-	m.showBookmarks = false
-	m.showRead = false
+	m.source = sourceFeeds
+	m.filter.query = ""
 	m.setPostsTitle()
 	return m, m.startLoad()
 }
@@ -47,17 +46,20 @@ func (m model) fetchAll() (tea.Model, tea.Cmd) {
 }
 
 func (m model) toggleBookmarksView() (tea.Model, tea.Cmd) {
-	m.showBookmarks = !m.showBookmarks
-	m.showRead = false
-	m.query = ""
-	m.setPostsTitle()
-	return m, m.startLoad()
+	return m.switchSource(sourceBookmarks)
 }
 
 func (m model) toggleReadView() (tea.Model, tea.Cmd) {
-	m.showRead = !m.showRead
-	m.showBookmarks = false
-	m.query = ""
+	return m.switchSource(sourceRead)
+}
+
+func (m model) switchSource(want listSource) (tea.Model, tea.Cmd) {
+	if m.source == want {
+		m.source = sourceFeeds
+	} else {
+		m.source = want
+	}
+	m.filter.query = ""
 	m.setPostsTitle()
 	return m, m.startLoad()
 }
@@ -68,10 +70,10 @@ func (m model) toggleSort() (tea.Model, tea.Cmd) {
 	}
 
 	label := "oldest first"
-	if m.sortDir == sortAsc {
-		m.sortDir, label = sortDesc, "newest first"
+	if m.filter.sortDir == sortAsc {
+		m.filter.sortDir, label = sortDesc, "newest first"
 	} else {
-		m.sortDir = sortAsc
+		m.filter.sortDir = sortAsc
 	}
 	return m.statusAndReload("Sorted " + label)
 }
@@ -81,11 +83,11 @@ func (m model) cycleTimeRange() (tea.Model, tea.Cmd) {
 		return m.refuseDerived("Time range")
 	}
 
-	m.since = nextSince(m.since)
+	m.filter.since = nextSince(m.filter.since)
 	m.setPostsTitle()
 
 	label := "Showing all time"
-	if l := sinceLabel(m.since); l != "" {
+	if l := sinceLabel(m.filter.since); l != "" {
 		label = "Showing the last " + l
 	}
 	return m.statusAndReload(label)
@@ -96,9 +98,9 @@ func (m model) toggleUnreadOnly() (tea.Model, tea.Cmd) {
 		return m.refuseDerived("Unread filter")
 	}
 
-	m.unreadOnly = !m.unreadOnly
+	m.filter.unreadOnly = !m.filter.unreadOnly
 	label := "Showing all posts"
-	if m.unreadOnly {
+	if m.filter.unreadOnly {
 		label = "Showing unread only"
 	}
 	return m.statusAndReload(label)

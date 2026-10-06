@@ -96,12 +96,12 @@ func (s uiState) since() time.Duration {
 
 func (m model) snapshot() uiState {
 	s := uiState{
-		SortDir:    m.sortDir,
-		UnreadOnly: m.unreadOnly,
-		SinceHours: int(m.since / time.Hour),
+		SortDir:    m.filter.sortDir,
+		UnreadOnly: m.filter.unreadOnly,
+		SinceHours: int(m.filter.since / time.Hour),
 	}
-	if m.feedID != uuid.Nil {
-		s.FeedID, s.FeedName = m.feedID.String(), m.feedName
+	if m.filter.feedID != uuid.Nil {
+		s.FeedID, s.FeedName = m.filter.feedID.String(), m.filter.feedName
 	}
 
 	for name := range m.expanded {

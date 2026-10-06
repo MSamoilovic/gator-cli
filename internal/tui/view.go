@@ -76,14 +76,14 @@ func panelBox(content string, width, height, padLeft int) string {
 
 func (m model) emptyStateText() string {
 	switch {
-	case m.showBookmarks:
+	case m.source == sourceBookmarks:
 		return "No bookmarks yet.\nPress b on a post to save it."
-	case m.query != "":
-		return "No posts match " + strconv.Quote(m.query) + ".\nPress esc to go back."
+	case m.source == sourceSearch:
+		return "No posts match " + strconv.Quote(m.filter.query) + ".\nPress esc to go back."
 	case m.feedsLoaded && m.feedCount == 0:
 		return "You are not following any feeds.\nPress tab, then c to pick from the catalog."
-	case m.feedName != "":
-		return "No posts stored for " + m.feedName + " yet.\nFetch some with: gator agg 15m"
+	case m.filter.feedName != "":
+		return "No posts stored for " + m.filter.feedName + " yet.\nFetch some with: gator agg 15m"
 	default:
 		return "No posts yet.\nFetch some with: gator agg 15m"
 	}

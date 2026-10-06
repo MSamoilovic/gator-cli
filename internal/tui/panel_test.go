@@ -180,8 +180,8 @@ func TestStoredFeedSelectsItsFolderWithoutOpeningIt(t *testing.T) {
 	feed := testFeedIn("Ars", "Tech")
 
 	m := ready(t, testPost("Prvi"))
-	m.feedID = feed.FeedID
-	m.feedName = feed.FeedName
+	m.filter.feedID = feed.FeedID
+	m.filter.feedName = feed.FeedName
 	m = withFeeds(t, m, feed)
 
 	if m.expanded["Tech"] {
@@ -190,8 +190,8 @@ func TestStoredFeedSelectsItsFolderWithoutOpeningIt(t *testing.T) {
 	if fol, ok := m.feedList.SelectedItem().(folderItem); !ok || fol.name != "Tech" {
 		t.Errorf("selection = %v, want the Tech header", m.feedList.SelectedItem())
 	}
-	if m.feedID != feed.FeedID || m.feedName != "Ars" {
-		t.Errorf("remembered feed = %v/%q, want it kept as the filter", m.feedID, m.feedName)
+	if m.filter.feedID != feed.FeedID || m.filter.feedName != "Ars" {
+		t.Errorf("remembered feed = %v/%q, want it kept as the filter", m.filter.feedID, m.filter.feedName)
 	}
 }
 
@@ -234,11 +234,11 @@ func TestSelectingAFeedInsideAFolderStillFilters(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
-	if m.feedID != feed.FeedID {
-		t.Errorf("selected feed = %v, want %v", m.feedID, feed.FeedID)
+	if m.filter.feedID != feed.FeedID {
+		t.Errorf("selected feed = %v, want %v", m.filter.feedID, feed.FeedID)
 	}
-	if m.feedName != "Ars" {
-		t.Errorf("feed name = %q, want Ars", m.feedName)
+	if m.filter.feedName != "Ars" {
+		t.Errorf("feed name = %q, want Ars", m.filter.feedName)
 	}
 	if m.focus != focusPosts {
 		t.Error("selecting a feed did not move focus back to the posts")
@@ -247,14 +247,14 @@ func TestSelectingAFeedInsideAFolderStillFilters(t *testing.T) {
 
 func TestUnknownStoredFeedIsForgotten(t *testing.T) {
 	m := ready(t, testPost("Prvi"))
-	m.feedID = uuid.New()
+	m.filter.feedID = uuid.New()
 	m = withFeeds(t, m, testFeedIn("Ars", "Tech"))
 
 	if m.expanded["Tech"] {
 		t.Error("a stored feed that is no longer followed opened a folder anyway")
 	}
-	if m.feedID != uuid.Nil {
-		t.Errorf("feedID = %v, want it cleared", m.feedID)
+	if m.filter.feedID != uuid.Nil {
+		t.Errorf("feedID = %v, want it cleared", m.filter.feedID)
 	}
 }
 
