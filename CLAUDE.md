@@ -65,7 +65,11 @@ goreleaser check
 goreleaser build --snapshot --clean
 ```
 
-`.github/workflows/ci.yml` gates every push on gofmt, vet, tests and a cross-compile matrix — **keep `gofmt -l .` empty or CI goes red.** There is no release workflow yet; a tagged release means running `goreleaser` by hand.
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which hands the whole thing to goreleaser: six binaries, archives, checksums, a GitHub release, and a Homebrew cask pushed to `MSamoilovic/homebrew-tap` (needs the `HOMEBREW_TAP_TOKEN` secret). It brings up a `postgres:16` service too, because goreleaser's `before` hook runs `go test ./...` and the database tests would otherwise skip.
+
+`.github/workflows/ci.yml` gates every push on gofmt, vet, tests and a cross-compile matrix — **keep `gofmt -l .` empty or CI goes red.**
+
+The module path is `github.com/MSamoilovic/gator-cli` and must stay matched to the repository: `go install github.com/MSamoilovic/gator-cli@latest` is an advertised install route, and the `-X .../internal/cli.version` ldflag silently sets nothing if the path drifts — which is exactly what happened while the module was called plain `gator-cli`.
 
 ## Architecture
 

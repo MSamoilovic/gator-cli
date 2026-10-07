@@ -1,4 +1,4 @@
-module gator-cli
+module github.com/MSamoilovic/gator-cli
 
 go 1.26.2
 
