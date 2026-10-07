@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/database"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"

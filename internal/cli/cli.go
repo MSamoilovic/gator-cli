@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/fs"
 
-	"gator-cli/internal/config"
-	"gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/config"
+	"github.com/MSamoilovic/gator-cli/internal/database"
 
 	_ "github.com/lib/pq"
 )

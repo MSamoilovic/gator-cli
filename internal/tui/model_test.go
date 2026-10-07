@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/database"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"

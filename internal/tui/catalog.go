@@ -3,8 +3,8 @@ package tui
 import (
 	"strconv"
 
-	"gator-cli/internal/catalog"
-	"gator-cli/internal/feeds"
+	"github.com/MSamoilovic/gator-cli/internal/catalog"
+	"github.com/MSamoilovic/gator-cli/internal/feeds"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"

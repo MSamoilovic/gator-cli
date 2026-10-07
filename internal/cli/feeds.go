@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"gator-cli/internal/database"
-	"gator-cli/internal/feeds"
-	"gator-cli/internal/text"
-	"gator-cli/internal/tui"
+	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/feeds"
+	"github.com/MSamoilovic/gator-cli/internal/text"
+	"github.com/MSamoilovic/gator-cli/internal/tui"
 )
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {

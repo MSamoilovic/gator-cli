@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"gator-cli/internal/database"
-	"gator-cli/internal/rss"
+	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/rss"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"

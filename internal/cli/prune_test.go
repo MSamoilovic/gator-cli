@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"gator-cli/internal/feeds"
+	"github.com/MSamoilovic/gator-cli/internal/feeds"
 )
 
 func TestPruneRejectsExtraArguments(t *testing.T) {

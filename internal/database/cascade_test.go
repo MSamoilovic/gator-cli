@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"gator-cli/internal/testdb"
+	"github.com/MSamoilovic/gator-cli/internal/testdb"
 )
 
 func TestDeletingAUserKeepsTheFeedsTheyAdded(t *testing.T) {

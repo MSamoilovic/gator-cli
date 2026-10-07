@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	"gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/database"
 )
 
 var errResetAborted = errors.New("reset aborted")

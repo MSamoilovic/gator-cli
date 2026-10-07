@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"gator-cli/internal/article"
-	"gator-cli/internal/database"
-	"gator-cli/internal/text"
+	"github.com/MSamoilovic/gator-cli/internal/article"
+	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 )
 
 func handlerArticle(s *state, cmd command, user database.User) error {

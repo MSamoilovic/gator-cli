@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"gator-cli/internal/migrate"
+	"github.com/MSamoilovic/gator-cli/internal/migrate"
 )
 
 func TestResolveDBURLPrefersTheFlag(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"gator-cli/internal/catalog"
-	"gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/catalog"
+	"github.com/MSamoilovic/gator-cli/internal/database"
 
 	"github.com/google/uuid"
 )

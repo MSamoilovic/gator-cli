@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"gator-cli/internal/database"
-	"gator-cli/internal/feeds"
-	"gator-cli/internal/opml"
+	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/feeds"
+	"github.com/MSamoilovic/gator-cli/internal/opml"
 )
 
 const stdioName = "-"

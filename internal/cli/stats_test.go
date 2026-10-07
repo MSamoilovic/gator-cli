@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/database"
 )
 
 func statRow(name string, posts, recent, read int64, published time.Time) database.GetFeedStatsForUserRow {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/database"
 )
 
 func TestLocalDatabaseNameAcceptsLoopback(t *testing.T) {

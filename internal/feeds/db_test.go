@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"gator-cli/internal/testdb"
+	"github.com/MSamoilovic/gator-cli/internal/testdb"
 )
 
 const liveFeed = `<?xml version="1.0" encoding="UTF-8"?>
