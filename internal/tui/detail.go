@@ -3,8 +3,8 @@ package tui
 import (
 	"fmt"
 
-	"gator-cli/internal/database"
-	"gator-cli/internal/text"
+	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 
 	"github.com/charmbracelet/lipgloss"
 )

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"gator-cli/internal/catalog"
-	"gator-cli/internal/database"
-	"gator-cli/internal/feeds"
-	"gator-cli/internal/tui"
+	"github.com/MSamoilovic/gator-cli/internal/catalog"
+	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/feeds"
+	"github.com/MSamoilovic/gator-cli/internal/tui"
 
 	"github.com/google/uuid"
 )

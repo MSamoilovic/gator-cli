@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"gator-cli/internal/cli"
+	"github.com/MSamoilovic/gator-cli/internal/cli"
 )
 
 //go:embed sql/schema

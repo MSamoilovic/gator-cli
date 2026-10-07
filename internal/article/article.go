@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"gator-cli/internal/text"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 
 	readability "github.com/go-shiori/go-readability"
 )

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"gator-cli/internal/text"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 
 	"golang.org/x/text/encoding/htmlindex"
 )

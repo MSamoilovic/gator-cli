@@ -11,7 +11,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/database"
 )
 
 const statsWindow = 7 * 24 * time.Hour

@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 
-	"gator-cli/internal/feeds"
+	"github.com/MSamoilovic/gator-cli/internal/feeds"
 )
 
 func handlerPrune(s *state, cmd command) error {

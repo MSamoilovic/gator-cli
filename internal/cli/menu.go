@@ -10,8 +10,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"gator-cli/internal/database"
-	"gator-cli/internal/menu"
+	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/menu"
 )
 
 func runMenu(schema fs.FS, cmds commands) error {

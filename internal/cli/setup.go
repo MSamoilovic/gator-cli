@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"gator-cli/internal/config"
-	"gator-cli/internal/database"
-	"gator-cli/internal/migrate"
+	"github.com/MSamoilovic/gator-cli/internal/config"
+	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/migrate"
 
 	"github.com/google/uuid"
 )

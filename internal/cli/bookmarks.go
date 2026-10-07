@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/database"
 
 	"github.com/google/uuid"
 )

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"gator-cli/internal/database"
-	"gator-cli/internal/testdb"
+	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/testdb"
 
 	"github.com/google/uuid"
 )

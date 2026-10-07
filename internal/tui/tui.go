@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/database"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

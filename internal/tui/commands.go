@@ -7,10 +7,10 @@ import (
 	"runtime"
 	"time"
 
-	"gator-cli/internal/article"
-	"gator-cli/internal/database"
-	"gator-cli/internal/feeds"
-	"gator-cli/internal/text"
+	"github.com/MSamoilovic/gator-cli/internal/article"
+	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/feeds"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"

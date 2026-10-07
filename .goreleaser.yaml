@@ -3,7 +3,6 @@
 # Provera bez izdavanja: goreleaser check && goreleaser build --snapshot --clean
 version: 2
 
-# Ime modula je gator-cli, ali se komanda svuda zove gator.
 project_name: gator
 
 before:
@@ -25,7 +24,7 @@ builds:
     ldflags:
       # -s -w izbacuju tabele simbola; -X upisuje tag izdanja u cli.version,
       # odakle ga `gator version` cita.
-      - -s -w -X gator-cli/internal/cli.version={{.Version}}
+      - -s -w -X github.com/MSamoilovic/gator-cli/internal/cli.version={{.Version}}
 
 archives:
   - formats: [tar.gz]
@@ -36,6 +35,26 @@ archives:
     files:
       - README.md
       - LICENSE*
+
+homebrew_casks:
+  - name: gator
+    repository:
+      owner: MSamoilovic
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/MSamoilovic/gator-cli
+    description: A terminal RSS reader backed by PostgreSQL
+    caveats: |
+      gator needs a PostgreSQL database. Once one is running:
+
+        createdb gator
+        gator init --user <your-name>
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/gator"]
+          end
 
 checksum:
   name_template: checksums.txt
