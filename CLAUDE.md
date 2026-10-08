@@ -23,7 +23,7 @@ go test -run TestParsePubDate ./...   # single test
 
 ```bash
 createdb gator_test                     # once; any name containing "test"
-export GATOR_TEST_DB_URL="postgres://postgres:pw@localhost:5433/gator_test?sslmode=disable"
+export GATOR_TEST_DB_URL="postgres://postgres@localhost:5433/gator_test?sslmode=disable"
 go test ./...
 ```
 
@@ -128,3 +128,5 @@ Existing code does not fully follow these yet — improving it as you go is welc
 - `internal/opml` reads and writes subscription lists. `Parse` walks arbitrarily nested outlines, treats any outline without an `xmlUrl` as a folder, and keeps the first occurrence of a duplicate URL. `import`/`export` accept `-` for stdin/stdout, and export's summary goes to stderr so the OPML can be piped.
 - Folders survive the OPML round trip. They live on `feed_follows.category` (per user — the same feed can sit in different folders for different people): `import` keeps them, `export` groups by them (folders alphabetical, uncategorized last), `discover --add` writes the catalog label, and `gator categorize <url> <folder>` moves one by hand. The TUI feed pane is still a flat list.
 - `printPost` prints a bounded preview: `internal/text` strips the HTML and `Truncate` cuts on a word boundary at 400 runes. The full body is only shown in the TUI. `internal/text` is the shared home for both — the TUI detail pane uses `StripHTML` too.
+- **State keyed on `post_id` evaporates unless `PrunePosts` protects it**, and nothing fails when it does. `PrunePosts` deletes any post past the 72h retention that is not bookmarked, `prune` runs on every `agg` tick, and `posts.url` is UNIQUE — so the post comes back from the feed with a fresh UUID and the state is simply gone. Measured on real feeds, 29% of what the busiest feed serves is already past retention, so this bites hardest on exactly the feeds such a feature would be for. Any new table keyed on `post_id` needs a matching `NOT EXISTS` clause in `PrunePosts`, which changes retention semantics and belongs in its own commit.
+- `MarkFeedHealthy` ends with `AND (last_error <> '' OR failure_count <> 0)` so it skips the write for feeds that were already healthy — the majority every round. Adding a column to that query inherits the narrowing silently. If a `last_synced_at` is ever wanted, write it **on the failing → healthy transition** and keep the guard: that gives "last worked" for the feeds that need it without a write per feed per round, which is what the guard exists to avoid.
