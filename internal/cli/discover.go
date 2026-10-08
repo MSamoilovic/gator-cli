@@ -16,15 +16,13 @@ import (
 	"github.com/google/uuid"
 )
 
-func handlerDiscover(s *state, cmd command, user database.User) error {
+func handlerDiscover(ctx context.Context, s *state, cmd command, user database.User) error {
 	fs := flag.NewFlagSet("discover", flag.ContinueOnError)
 	add := fs.String("add", "", "comma-separated categories to add and follow")
 	noTUI := fs.Bool("no-tui", false, "print the catalog instead of opening the picker")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
 	}
-
-	ctx := context.Background()
 
 	if *add != "" {
 		return addCategories(ctx, s, user, splitCategories(*add))

@@ -14,7 +14,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/menu"
 )
 
-func runMenu(schema fs.FS, cmds commands) error {
+func runMenu(ctx context.Context, schema fs.FS, cmds commands) error {
 	if !interactive() {
 		printUsage(os.Stderr)
 		return errors.New("no command given")
@@ -27,7 +27,7 @@ func runMenu(schema fs.FS, cmds commands) error {
 		defer closeDB()
 	}
 
-	user, loggedIn := currentUser(s)
+	user, loggedIn := currentUser(ctx, s)
 
 	choice, ok, err := menu.Select(menu.Config{
 		Title:    "gator",
@@ -40,14 +40,14 @@ func runMenu(schema fs.FS, cmds commands) error {
 	if !ok {
 		return nil
 	}
-	return cmds.run(s, command{Name: choice.Name, Args: choice.Args})
+	return cmds.run(ctx, s, command{Name: choice.Name, Args: choice.Args})
 }
 
-func currentUser(s *state) (database.User, bool) {
+func currentUser(ctx context.Context, s *state) (database.User, bool) {
 	if s.Cfg == nil || s.Cfg.CurrentUserName == "" {
 		return database.User{}, false
 	}
-	user, err := s.Db.GetUser(context.Background(), s.Cfg.CurrentUserName)
+	user, err := s.Db.GetUser(ctx, s.Cfg.CurrentUserName)
 	if err != nil {
 		return database.User{}, false
 	}
@@ -87,7 +87,7 @@ func offered(loggedIn, configured bool) []menu.Item {
 	return items
 }
 
-func handlerHelp(*state, command) error {
+func handlerHelp(context.Context, *state, command) error {
 	printUsage(os.Stdout)
 	return nil
 }

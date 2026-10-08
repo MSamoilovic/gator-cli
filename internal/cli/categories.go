@@ -15,13 +15,12 @@ import (
 
 const rootLabel = "(uncategorized)"
 
-func handlerCategorize(s *state, cmd command, user database.User) error {
+func handlerCategorize(ctx context.Context, s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 2 {
 		return fmt.Errorf(`usage: categorize <feed_url> <category>   (empty category moves it back to the root)`)
 	}
 	url, category := cmd.Args[0], strings.TrimSpace(cmd.Args[1])
 
-	ctx := context.Background()
 	feed, err := s.Db.GetFeedByUrl(ctx, url)
 	if err != nil {
 		return fmt.Errorf("feed not found: %w", err)
@@ -60,8 +59,8 @@ func followsFeed(follows []database.GetFeedFollowsForUserRow, feedID uuid.UUID) 
 	return false
 }
 
-func handlerFollowing(s *state, _ command, user database.User) error {
-	follows, err := s.Db.GetFeedFollowsForUser(context.Background(), user.ID)
+func handlerFollowing(ctx context.Context, s *state, _ command, user database.User) error {
+	follows, err := s.Db.GetFeedFollowsForUser(ctx, user.ID)
 	if err != nil {
 		return fmt.Errorf("error fetching follows: %w", err)
 	}

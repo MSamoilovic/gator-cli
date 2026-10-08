@@ -10,17 +10,17 @@ import (
 	"github.com/google/uuid"
 )
 
-func handlerBookmark(s *state, cmd command, user database.User) error {
+func handlerBookmark(ctx context.Context, s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: bookmark <post_url>")
 	}
 
-	post, err := s.Db.GetPostByUrl(context.Background(), cmd.Args[0])
+	post, err := s.Db.GetPostByUrl(ctx, cmd.Args[0])
 	if err != nil {
 		return fmt.Errorf("post not found: %v", err)
 	}
 
-	created, err := s.Db.CreateBookmark(context.Background(), database.CreateBookmarkParams{
+	created, err := s.Db.CreateBookmark(ctx, database.CreateBookmarkParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
 		UserID:    user.ID,
@@ -38,17 +38,17 @@ func handlerBookmark(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func handlerUnbookmark(s *state, cmd command, user database.User) error {
+func handlerUnbookmark(ctx context.Context, s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: unbookmark <post_url>")
 	}
 
-	post, err := s.Db.GetPostByUrl(context.Background(), cmd.Args[0])
+	post, err := s.Db.GetPostByUrl(ctx, cmd.Args[0])
 	if err != nil {
 		return fmt.Errorf("post not found: %v", err)
 	}
 
-	if err := s.Db.DeleteBookmark(context.Background(), database.DeleteBookmarkParams{
+	if err := s.Db.DeleteBookmark(ctx, database.DeleteBookmarkParams{
 		UserID: user.ID,
 		PostID: post.ID,
 	}); err != nil {
@@ -59,8 +59,8 @@ func handlerUnbookmark(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func handlerBookmarks(s *state, _ command, user database.User) error {
-	posts, err := s.Db.GetBookmarksForUser(context.Background(), user.ID)
+func handlerBookmarks(ctx context.Context, s *state, _ command, user database.User) error {
+	posts, err := s.Db.GetBookmarksForUser(ctx, user.ID)
 	if err != nil {
 		return fmt.Errorf("error fetching bookmarks: %v", err)
 	}

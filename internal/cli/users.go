@@ -10,12 +10,12 @@ import (
 	"github.com/google/uuid"
 )
 
-func handlerLogin(s *state, cmd command) error {
+func handlerLogin(ctx context.Context, s *state, cmd command) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("username required to log in")
 	}
 
-	dbUser, err := s.Db.GetUser(context.Background(), cmd.Args[0])
+	dbUser, err := s.Db.GetUser(ctx, cmd.Args[0])
 	if err != nil {
 		return fmt.Errorf("user doesn't exist: %v", err)
 	}
@@ -26,13 +26,13 @@ func handlerLogin(s *state, cmd command) error {
 	}
 
 	fmt.Printf("User %s logged on\n", s.Cfg.CurrentUserName)
-	printNextStep(s, dbUser)
+	printNextStep(ctx, s, dbUser)
 
 	return nil
 }
 
-func printNextStep(s *state, user database.User) {
-	follows, err := s.Db.GetFeedFollowsForUser(context.Background(), user.ID)
+func printNextStep(ctx context.Context, s *state, user database.User) {
+	follows, err := s.Db.GetFeedFollowsForUser(ctx, user.ID)
 	if err != nil {
 		return
 	}
@@ -44,8 +44,8 @@ func printNextStep(s *state, user database.User) {
 	fmt.Printf("Following %d feeds — open the reader with: gator tui\n", len(follows))
 }
 
-func handlerUsers(s *state, _ command) error {
-	users, err := s.Db.GetUsers(context.Background())
+func handlerUsers(ctx context.Context, s *state, _ command) error {
+	users, err := s.Db.GetUsers(ctx)
 	if err != nil {
 		return fmt.Errorf("error fetching users: %v", err)
 	}
@@ -60,7 +60,7 @@ func handlerUsers(s *state, _ command) error {
 	return nil
 }
 
-func handlerRegister(s *state, cmd command) error {
+func handlerRegister(ctx context.Context, s *state, cmd command) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("username required to register")
 	}
@@ -71,7 +71,7 @@ func handlerRegister(s *state, cmd command) error {
 		UpdatedAt: time.Now(),
 		Name:      cmd.Args[0],
 	}
-	dbUser, err := s.Db.CreateUser(context.Background(), params)
+	dbUser, err := s.Db.CreateUser(ctx, params)
 	if err != nil {
 		return fmt.Errorf("error creating user: %v", err)
 	}
@@ -80,7 +80,7 @@ func handlerRegister(s *state, cmd command) error {
 		return fmt.Errorf("error setting username: %v", err)
 	}
 	fmt.Printf("User %s created\n", s.Cfg.CurrentUserName)
-	printNextStep(s, dbUser)
+	printNextStep(ctx, s, dbUser)
 
 	return nil
 }

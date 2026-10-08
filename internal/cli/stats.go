@@ -18,7 +18,7 @@ const statsWindow = 7 * 24 * time.Hour
 
 const neverLabel = "never"
 
-func handlerStats(s *state, cmd command, user database.User) error {
+func handlerStats(ctx context.Context, s *state, cmd command, user database.User) error {
 	fs := flag.NewFlagSet("stats", flag.ContinueOnError)
 	sortBy := fs.String("sort", "posts", "order rows by: posts, week, read, unread, stale or name")
 	limit := fs.Int("limit", 0, "show only the first N feeds (0 = all)")
@@ -35,7 +35,7 @@ func handlerStats(s *state, cmd command, user database.User) error {
 	}
 
 	now := time.Now()
-	rows, err := s.Db.GetFeedStatsForUser(context.Background(), database.GetFeedStatsForUserParams{
+	rows, err := s.Db.GetFeedStatsForUser(ctx, database.GetFeedStatsForUserParams{
 		UserID: user.ID,
 		Since:  now.Add(-statsWindow),
 	})

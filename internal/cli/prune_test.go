@@ -9,7 +9,7 @@ import (
 )
 
 func TestPruneRejectsExtraArguments(t *testing.T) {
-	err := handlerPrune(&state{}, command{Name: "prune", Args: []string{"72h"}})
+	err := handlerPrune(t.Context(), &state{}, command{Name: "prune", Args: []string{"72h"}})
 	if err == nil {
 		t.Fatal("a positional argument was accepted, want the usage error")
 	}
@@ -19,7 +19,7 @@ func TestPruneRejectsExtraArguments(t *testing.T) {
 }
 
 func TestPruneRejectsAnUnparsableDuration(t *testing.T) {
-	if err := handlerPrune(&state{}, command{Name: "prune", Args: []string{"--older-than", "banana"}}); err == nil {
+	if err := handlerPrune(t.Context(), &state{}, command{Name: "prune", Args: []string{"--older-than", "banana"}}); err == nil {
 		t.Fatal("an invalid duration was accepted")
 	}
 }

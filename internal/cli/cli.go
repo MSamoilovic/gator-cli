@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"io/fs"
@@ -26,8 +27,8 @@ type entry struct {
 	summary string
 	group   string
 
-	run     func(*state, command) error
-	runAuth func(*state, command, database.User) error
+	run     handlerFunc
+	runAuth func(context.Context, *state, command, database.User) error
 
 	guest  bool
 	hidden bool
@@ -36,7 +37,7 @@ type entry struct {
 
 func (e entry) needsLogin() bool { return e.runAuth != nil }
 
-func (e entry) handler() func(*state, command) error {
+func (e entry) handler() handlerFunc {
 	if e.runAuth != nil {
 		return middlewareLoggedIn(e.runAuth)
 	}
@@ -82,10 +83,11 @@ func allCommands() []entry {
 }
 
 func Run(schema fs.FS, args []string) error {
+	ctx := context.Background()
 	cmds := defaultCommands()
 
 	if len(args) == 0 {
-		return runMenu(schema, cmds)
+		return runMenu(ctx, schema, cmds)
 	}
 
 	e, ok := lookup(args[0])
@@ -95,7 +97,7 @@ func Run(schema fs.FS, args []string) error {
 
 	cmd := command{Name: args[0], Args: args[1:]}
 	if e.noDB {
-		return cmds.run(&state{Schema: schema}, cmd)
+		return cmds.run(ctx, &state{Schema: schema}, cmd)
 	}
 
 	s, closeDB, err := open(schema)
@@ -104,7 +106,7 @@ func Run(schema fs.FS, args []string) error {
 	}
 	defer closeDB()
 
-	return cmds.run(s, cmd)
+	return cmds.run(ctx, s, cmd)
 }
 
 func lookup(name string) (entry, bool) {
@@ -143,7 +145,7 @@ func connect(dbURL string) (*sql.DB, error) {
 }
 
 func defaultCommands() commands {
-	cmds := commands{registeredCommands: make(map[string]func(*state, command) error)}
+	cmds := commands{registeredCommands: make(map[string]handlerFunc)}
 	for _, e := range allCommands() {
 		cmds.register(e.name, e.handler())
 	}

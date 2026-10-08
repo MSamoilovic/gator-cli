@@ -15,7 +15,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/tui"
 )
 
-func handlerAddFeed(s *state, cmd command, user database.User) error {
+func handlerAddFeed(ctx context.Context, s *state, cmd command, user database.User) error {
 	var name, url string
 	switch len(cmd.Args) {
 	case 1:
@@ -26,7 +26,7 @@ func handlerAddFeed(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("usage: addfeed [name] <url>")
 	}
 
-	feed, created, err := feeds.Add(context.Background(), s.Db, user.ID, name, url)
+	feed, created, err := feeds.Add(ctx, s.Db, user.ID, name, url)
 	if err != nil {
 		return fmt.Errorf("error adding feed: %w", err)
 	}
@@ -39,17 +39,17 @@ func handlerAddFeed(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func handlerFollow(s *state, cmd command, user database.User) error {
+func handlerFollow(ctx context.Context, s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: follow <url>")
 	}
 
-	feed, err := s.Db.GetFeedByUrl(context.Background(), cmd.Args[0])
+	feed, err := s.Db.GetFeedByUrl(ctx, cmd.Args[0])
 	if err != nil {
 		return fmt.Errorf("feed not found: %v", err)
 	}
 
-	follow, created, err := feeds.Follow(context.Background(), s.Db, user.ID, feed.ID)
+	follow, created, err := feeds.Follow(ctx, s.Db, user.ID, feed.ID)
 	if err != nil {
 		return fmt.Errorf("error following feed: %w", err)
 	}
@@ -62,17 +62,17 @@ func handlerFollow(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func handlerUnfollow(s *state, cmd command, user database.User) error {
+func handlerUnfollow(ctx context.Context, s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: unfollow <url>")
 	}
 
-	feed, err := s.Db.GetFeedByUrl(context.Background(), cmd.Args[0])
+	feed, err := s.Db.GetFeedByUrl(ctx, cmd.Args[0])
 	if err != nil {
 		return fmt.Errorf("feed not found: %v", err)
 	}
 
-	if err := s.Db.DeleteFeedFollow(context.Background(), database.DeleteFeedFollowParams{
+	if err := s.Db.DeleteFeedFollow(ctx, database.DeleteFeedFollowParams{
 		UserID: user.ID,
 		FeedID: feed.ID,
 	}); err != nil {
@@ -83,7 +83,7 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func handlerBrowse(s *state, cmd command, user database.User) error {
+func handlerBrowse(ctx context.Context, s *state, cmd command, user database.User) error {
 	fs := flag.NewFlagSet("browse", flag.ContinueOnError)
 	limit := fs.Int("limit", 2, "number of posts to show")
 	page := fs.Int("page", 1, "page of results, 1-based")
@@ -105,10 +105,10 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 	}
 
 	if !*noTUI && stdoutIsTerminal() {
-		return tui.Run(context.Background(), s.Db, user)
+		return tui.Run(ctx, s.Db, user)
 	}
 
-	posts, err := s.Db.GetPostsForUserFiltered(context.Background(), database.GetPostsForUserFilteredParams{
+	posts, err := s.Db.GetPostsForUserFiltered(ctx, database.GetPostsForUserFilteredParams{
 		UserID:     user.ID,
 		FeedName:   *feed,
 		SortDir:    *sortDir,
@@ -127,7 +127,7 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 
 func stdoutIsTerminal() bool { return isTerminal(os.Stdout) }
 
-func handlerSearch(s *state, cmd command, user database.User) error {
+func handlerSearch(ctx context.Context, s *state, cmd command, user database.User) error {
 	fs := flag.NewFlagSet("search", flag.ContinueOnError)
 	limit := fs.Int("limit", 10, "number of results to show")
 	if err := fs.Parse(cmd.Args); err != nil {
@@ -139,7 +139,7 @@ func handlerSearch(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("usage: search <query> [--limit N]")
 	}
 
-	posts, err := s.Db.SearchPostsForUser(context.Background(), database.SearchPostsForUserParams{
+	posts, err := s.Db.SearchPostsForUser(ctx, database.SearchPostsForUserParams{
 		UserID:    user.ID,
 		Query:     query,
 		PostLimit: int32(*limit),
@@ -159,8 +159,8 @@ func handlerSearch(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func handlerFeeds(s *state, _ command) error {
-	feeds, err := s.Db.GetFeeds(context.Background())
+func handlerFeeds(ctx context.Context, s *state, _ command) error {
+	feeds, err := s.Db.GetFeeds(ctx)
 	if err != nil {
 		return fmt.Errorf("error fetching feeds: %v", err)
 	}
@@ -205,8 +205,8 @@ func postPreview(p database.Post) string {
 	return text.Truncate(body, previewLen)
 }
 
-func scrapeFeeds(s *state) {
-	_, err := feeds.ScrapeAll(context.Background(), s.Db, func(r feeds.Result) {
+func scrapeFeeds(ctx context.Context, s *state) {
+	_, err := feeds.ScrapeAll(ctx, s.Db, func(r feeds.Result) {
 		switch {
 		case r.Err != nil:
 			fmt.Fprintln(os.Stderr, "error:", r.Err)
@@ -223,7 +223,7 @@ func scrapeFeeds(s *state) {
 		fmt.Fprintln(os.Stderr, "error:", err)
 	}
 
-	switch n, err := feeds.Prune(context.Background(), s.Db, feeds.DefaultRetention); {
+	switch n, err := feeds.Prune(ctx, s.Db, feeds.DefaultRetention); {
 	case err != nil:
 		fmt.Fprintln(os.Stderr, "error:", err)
 	case n > 0:
@@ -231,7 +231,7 @@ func scrapeFeeds(s *state) {
 	}
 }
 
-func handlerAgg(s *state, cmd command) error {
+func handlerAgg(ctx context.Context, s *state, cmd command) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: agg <time_between_reqs>")
 	}
@@ -241,7 +241,7 @@ func handlerAgg(s *state, cmd command) error {
 		return fmt.Errorf("invalid duration: %v", err)
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), shutdownSignals()...)
+	ctx, stop := signal.NotifyContext(ctx, shutdownSignals()...)
 	defer stop()
 
 	fmt.Printf("Collecting feeds every %s\n", timeBetweenReqs)
@@ -250,7 +250,7 @@ func handlerAgg(s *state, cmd command) error {
 	ticker := time.NewTicker(timeBetweenReqs)
 	defer ticker.Stop()
 	for {
-		scrapeFeeds(s)
+		scrapeFeeds(ctx, s)
 		select {
 		case <-ctx.Done():
 			fmt.Println("\nShutting down...")

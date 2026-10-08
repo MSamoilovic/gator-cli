@@ -12,12 +12,12 @@ import (
 
 const stdioName = "-"
 
-func handlerExport(s *state, cmd command, user database.User) error {
+func handlerExport(ctx context.Context, s *state, cmd command, user database.User) error {
 	if len(cmd.Args) > 1 {
 		return fmt.Errorf("usage: export [file|-]")
 	}
 
-	follows, err := s.Db.GetFeedFollowsForUser(context.Background(), user.ID)
+	follows, err := s.Db.GetFeedFollowsForUser(ctx, user.ID)
 	if err != nil {
 		return fmt.Errorf("error fetching follows: %w", err)
 	}
@@ -49,7 +49,7 @@ func handlerExport(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func handlerImport(s *state, cmd command, user database.User) error {
+func handlerImport(ctx context.Context, s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: import <file|->")
 	}
@@ -79,7 +79,7 @@ func handlerImport(s *state, cmd command, user database.User) error {
 
 	fmt.Printf("Importing %d feeds…\n", len(entries))
 
-	results := feeds.AddMany(context.Background(), s.Db, user.ID, entries, func(r feeds.AddResult) {
+	results := feeds.AddMany(ctx, s.Db, user.ID, entries, func(r feeds.AddResult) {
 		switch {
 		case r.Err != nil:
 			fmt.Fprintf(os.Stderr, "  x %s: %v\n", r.Entry.Name, r.Err)

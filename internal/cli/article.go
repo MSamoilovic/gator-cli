@@ -11,7 +11,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/text"
 )
 
-func handlerArticle(s *state, cmd command, user database.User) error {
+func handlerArticle(ctx context.Context, s *state, cmd command, user database.User) error {
 	fs := flag.NewFlagSet("article", flag.ContinueOnError)
 	refetch := fs.Bool("refetch", false, "fetch again even if the text is already stored")
 	if err := fs.Parse(cmd.Args); err != nil {
@@ -21,7 +21,6 @@ func handlerArticle(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("usage: article <post_url> [--refetch]")
 	}
 
-	ctx := context.Background()
 	post, err := s.Db.GetPostByUrl(ctx, fs.Args()[0])
 	if err != nil {
 		return fmt.Errorf("post not found: %w", err)

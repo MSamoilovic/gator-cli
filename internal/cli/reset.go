@@ -17,7 +17,7 @@ import (
 
 var errResetAborted = errors.New("reset aborted")
 
-func handlerReset(s *state, cmd command) error {
+func handlerReset(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("reset", flag.ContinueOnError)
 	dryRun := fs.Bool("dry-run", false, "report what would be deleted and exit")
 	assumeYes := fs.Bool("yes", false, "skip the confirmation prompt")
@@ -27,8 +27,6 @@ func handlerReset(s *state, cmd command) error {
 	if fs.NArg() != 0 {
 		return errors.New("usage: reset [--dry-run] [--yes]")
 	}
-
-	ctx := context.Background()
 
 	dbName, err := localDatabaseName(s.Cfg.DBURL)
 	if err != nil {

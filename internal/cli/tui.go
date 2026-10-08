@@ -7,6 +7,6 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/tui"
 )
 
-func handlerTUI(s *state, _ command, user database.User) error {
-	return tui.Run(context.Background(), s.Db, user)
+func handlerTUI(ctx context.Context, s *state, _ command, user database.User) error {
+	return tui.Run(ctx, s.Db, user)
 }
