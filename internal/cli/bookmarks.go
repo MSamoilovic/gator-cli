@@ -3,33 +3,25 @@ package cli
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/MSamoilovic/gator-cli/internal/database"
-
-	"github.com/google/uuid"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 )
 
-func handlerBookmark(s *state, cmd command, user database.User) error {
+func handlerBookmark(ctx context.Context, s *state, cmd command, _ store.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: bookmark <post_url>")
 	}
 
-	post, err := s.Db.GetPostByUrl(context.Background(), cmd.Args[0])
+	post, err := s.Store.PostByURL(ctx, cmd.Args[0])
 	if err != nil {
-		return fmt.Errorf("post not found: %v", err)
+		return fmt.Errorf("post not found: %w", err)
 	}
 
-	created, err := s.Db.CreateBookmark(context.Background(), database.CreateBookmarkParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now(),
-		UserID:    user.ID,
-		PostID:    post.ID,
-	})
+	created, err := s.Store.Bookmark(ctx, post.ID)
 	if err != nil {
 		return fmt.Errorf("error bookmarking post: %w", err)
 	}
-	if len(created) == 0 {
+	if !created {
 		fmt.Printf("Already bookmarked %q\n", post.Title)
 		return nil
 	}
@@ -38,31 +30,28 @@ func handlerBookmark(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func handlerUnbookmark(s *state, cmd command, user database.User) error {
+func handlerUnbookmark(ctx context.Context, s *state, cmd command, _ store.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: unbookmark <post_url>")
 	}
 
-	post, err := s.Db.GetPostByUrl(context.Background(), cmd.Args[0])
+	post, err := s.Store.PostByURL(ctx, cmd.Args[0])
 	if err != nil {
-		return fmt.Errorf("post not found: %v", err)
+		return fmt.Errorf("post not found: %w", err)
 	}
 
-	if err := s.Db.DeleteBookmark(context.Background(), database.DeleteBookmarkParams{
-		UserID: user.ID,
-		PostID: post.ID,
-	}); err != nil {
-		return fmt.Errorf("error removing bookmark: %v", err)
+	if err := s.Store.Unbookmark(ctx, post.ID); err != nil {
+		return fmt.Errorf("error removing bookmark: %w", err)
 	}
 
 	fmt.Printf("Removed bookmark for %q\n", post.Title)
 	return nil
 }
 
-func handlerBookmarks(s *state, _ command, user database.User) error {
-	posts, err := s.Db.GetBookmarksForUser(context.Background(), user.ID)
+func handlerBookmarks(ctx context.Context, s *state, _ command, _ store.User) error {
+	posts, err := s.Store.BookmarkedPosts(ctx)
 	if err != nil {
-		return fmt.Errorf("error fetching bookmarks: %v", err)
+		return fmt.Errorf("error fetching bookmarks: %w", err)
 	}
 
 	for _, p := range posts {

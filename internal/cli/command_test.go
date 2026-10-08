@@ -1,26 +1,27 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 )
 
 func newCommands() commands {
-	return commands{registeredCommands: make(map[string]func(*state, command) error)}
+	return commands{registeredCommands: make(map[string]handlerFunc)}
 }
 
 func TestRunDispatchesToHandler(t *testing.T) {
 	c := newCommands()
 
 	var gotCmd command
-	c.register("browse", func(_ *state, cmd command) error {
+	c.register("browse", func(_ context.Context, _ *state, cmd command) error {
 		gotCmd = cmd
 		return nil
 	})
 
 	want := command{Name: "browse", Args: []string{"--limit", "5"}}
-	if err := c.run(&state{}, want); err != nil {
+	if err := c.run(t.Context(), &state{}, want); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
@@ -35,7 +36,7 @@ func TestRunDispatchesToHandler(t *testing.T) {
 func TestRunUnknownCommand(t *testing.T) {
 	c := newCommands()
 
-	err := c.run(&state{}, command{Name: "nope"})
+	err := c.run(t.Context(), &state{}, command{Name: "nope"})
 	if err == nil {
 		t.Fatal("expected error for unknown command, got nil")
 	}
@@ -48,12 +49,12 @@ func TestRunDoesNotDispatchUnknownCommand(t *testing.T) {
 	c := newCommands()
 
 	called := false
-	c.register("browse", func(*state, command) error {
+	c.register("browse", func(context.Context, *state, command) error {
 		called = true
 		return nil
 	})
 
-	if err := c.run(&state{}, command{Name: "browsee"}); err == nil {
+	if err := c.run(t.Context(), &state{}, command{Name: "browsee"}); err == nil {
 		t.Fatal("expected error for near-miss command name, got nil")
 	}
 	if called {
@@ -65,9 +66,9 @@ func TestRunWrapsHandlerError(t *testing.T) {
 	c := newCommands()
 
 	sentinel := errors.New("boom")
-	c.register("addfeed", func(*state, command) error { return sentinel })
+	c.register("addfeed", func(context.Context, *state, command) error { return sentinel })
 
-	err := c.run(&state{}, command{Name: "addfeed"})
+	err := c.run(t.Context(), &state{}, command{Name: "addfeed"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -82,10 +83,10 @@ func TestRunWrapsHandlerError(t *testing.T) {
 func TestRegisterOverwrites(t *testing.T) {
 	c := newCommands()
 
-	c.register("login", func(*state, command) error { return errors.New("stara") })
-	c.register("login", func(*state, command) error { return nil })
+	c.register("login", func(context.Context, *state, command) error { return errors.New("stara") })
+	c.register("login", func(context.Context, *state, command) error { return nil })
 
-	if err := c.run(&state{}, command{Name: "login"}); err != nil {
+	if err := c.run(t.Context(), &state{}, command{Name: "login"}); err != nil {
 		t.Errorf("second registration did not win: %v", err)
 	}
 }

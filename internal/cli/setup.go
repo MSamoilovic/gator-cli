@@ -20,7 +20,7 @@ import (
 
 const defaultDBURL = "postgres://postgres@localhost:5432/gator?sslmode=disable"
 
-func handlerInit(s *state, cmd command) error {
+func handlerInit(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	dbURL := fs.String("db-url", "", "PostgreSQL connection string")
 	username := fs.String("user", "", "username to create and log in as")
@@ -31,8 +31,6 @@ func handlerInit(s *state, cmd command) error {
 	if fs.NArg() != 0 {
 		return errors.New("usage: init [--db-url url] [--user name] [--force]")
 	}
-
-	ctx := context.Background()
 
 	if existing, err := config.Read(); err == nil && !*force {
 		return fmt.Errorf("already initialised (%s holds a config for %s); run gator migrate to apply new migrations, or init --force to start over",
@@ -87,7 +85,7 @@ func handlerInit(s *state, cmd command) error {
 	return nil
 }
 
-func handlerMigrate(s *state, cmd command) error {
+func handlerMigrate(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("migrate", flag.ContinueOnError)
 	status := fs.Bool("status", false, "list migrations this build carries that the database lacks")
 	if err := fs.Parse(cmd.Args); err != nil {
@@ -96,8 +94,6 @@ func handlerMigrate(s *state, cmd command) error {
 	if fs.NArg() != 0 {
 		return errors.New("usage: migrate [--status]")
 	}
-
-	ctx := context.Background()
 
 	if *status {
 		return reportStatus(ctx, s)

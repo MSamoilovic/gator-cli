@@ -10,11 +10,11 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/menu"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 )
 
-func runMenu(schema fs.FS, cmds commands) error {
+func runMenu(ctx context.Context, schema fs.FS, cmds commands) error {
 	if !interactive() {
 		printUsage(os.Stderr)
 		return errors.New("no command given")
@@ -27,7 +27,7 @@ func runMenu(schema fs.FS, cmds commands) error {
 		defer closeDB()
 	}
 
-	user, loggedIn := currentUser(s)
+	user, loggedIn := currentUser(ctx, s)
 
 	choice, ok, err := menu.Select(menu.Config{
 		Title:    "gator",
@@ -40,21 +40,21 @@ func runMenu(schema fs.FS, cmds commands) error {
 	if !ok {
 		return nil
 	}
-	return cmds.run(s, command{Name: choice.Name, Args: choice.Args})
+	return cmds.run(ctx, s, command{Name: choice.Name, Args: choice.Args})
 }
 
-func currentUser(s *state) (database.User, bool) {
-	if s.Cfg == nil || s.Cfg.CurrentUserName == "" {
-		return database.User{}, false
+func currentUser(ctx context.Context, s *state) (store.User, bool) {
+	if s.Store == nil || s.Cfg == nil || s.Cfg.CurrentUserName == "" {
+		return store.User{}, false
 	}
-	user, err := s.Db.GetUser(context.Background(), s.Cfg.CurrentUserName)
+	user, err := s.Store.Me(ctx)
 	if err != nil {
-		return database.User{}, false
+		return store.User{}, false
 	}
 	return user, true
 }
 
-func greeting(user database.User, loggedIn, configured bool) string {
+func greeting(user store.User, loggedIn, configured bool) string {
 	switch {
 	case !configured:
 		return "No working database — see the README for ~/.gatorconfig.json"
@@ -87,7 +87,7 @@ func offered(loggedIn, configured bool) []menu.Item {
 	return items
 }
 
-func handlerHelp(*state, command) error {
+func handlerHelp(context.Context, *state, command) error {
 	printUsage(os.Stdout)
 	return nil
 }

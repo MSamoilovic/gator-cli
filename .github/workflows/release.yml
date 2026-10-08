@@ -15,7 +15,7 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: gator_test
         ports:
           - 5432:5432
@@ -26,7 +26,7 @@ jobs:
           --health-retries 5
 
     env:
-      GATOR_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/gator_test?sslmode=disable
+      GATOR_TEST_DB_URL: postgres://postgres@localhost:5432/gator_test?sslmode=disable
 
     steps:
       - uses: actions/checkout@v4

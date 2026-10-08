@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 )
 
-func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
-	return func(s *state, cmd command) error {
-		user, err := s.Db.GetUser(context.Background(), s.Cfg.CurrentUserName)
+func middlewareLoggedIn(handler func(context.Context, *state, command, store.User) error) handlerFunc {
+	return func(ctx context.Context, s *state, cmd command) error {
+		user, err := s.Store.Me(ctx)
 		if err != nil {
-			return fmt.Errorf("user not logged in: %v", err)
+			return fmt.Errorf("user not logged in: %w", err)
 		}
-		return handler(s, cmd, user)
+		return handler(ctx, s, cmd, user)
 	}
 }

@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func Run(ctx context.Context, q *database.Queries, user database.User) error {
-	return run(newModel(ctx, q, user, loadState()))
+func Run(ctx context.Context, st store.Store, user store.User) error {
+	return run(newModel(ctx, st, user, loadState()))
 }
 
-func RunCatalog(ctx context.Context, q *database.Queries, user database.User) error {
-	m := newModel(ctx, q, user, loadState())
+func RunCatalog(ctx context.Context, st store.Store, user store.User) error {
+	m := newModel(ctx, st, user, loadState())
 	m.openOnLoad = true
 	return run(m)
 }

@@ -1,32 +1,33 @@
 package cli
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type command struct {
 	Name string
 	Args []string
 }
 
+type handlerFunc func(context.Context, *state, command) error
+
 type commands struct {
-	registeredCommands map[string]func(*state, command) error
+	registeredCommands map[string]handlerFunc
 }
 
-func (c *commands) register(name string, f func(*state, command) error) {
+func (c *commands) register(name string, f handlerFunc) {
 	c.registeredCommands[name] = f
 }
 
-func (c *commands) run(s *state, cmd command) error {
+func (c *commands) run(ctx context.Context, s *state, cmd command) error {
 	f, ok := c.registeredCommands[cmd.Name]
-
 	if !ok {
 		return fmt.Errorf("command %s doesn't exist (try: gator help)", cmd.Name)
 	}
 
-	err := f(s, cmd)
-
-	if err != nil {
+	if err := f(ctx, s, cmd); err != nil {
 		return fmt.Errorf("can't execute %s: %w", cmd.Name, err)
 	}
-
 	return nil
 }

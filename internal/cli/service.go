@@ -17,7 +17,7 @@ const (
 	superviseHealthy   = 30 * time.Second
 )
 
-func handlerSupervise(_ *state, cmd command) error {
+func handlerSupervise(ctx context.Context, _ *state, cmd command) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: supervise <time_between_reqs>")
 	}
@@ -39,7 +39,7 @@ func handlerSupervise(_ *state, cmd command) error {
 
 	out := io.MultiWriter(os.Stdout, logFile)
 
-	ctx, stop := signal.NotifyContext(context.Background(), shutdownSignals()...)
+	ctx, stop := signal.NotifyContext(ctx, shutdownSignals()...)
 	defer stop()
 
 	backoff := superviseMinBackff

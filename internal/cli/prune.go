@@ -8,7 +8,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/feeds"
 )
 
-func handlerPrune(s *state, cmd command) error {
+func handlerPrune(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("prune", flag.ContinueOnError)
 	olderThan := fs.Duration("older-than", feeds.DefaultRetention, "delete posts older than this")
 	if err := fs.Parse(cmd.Args); err != nil {
@@ -18,7 +18,7 @@ func handlerPrune(s *state, cmd command) error {
 		return fmt.Errorf("usage: prune [--older-than %s]", feeds.DefaultRetention)
 	}
 
-	n, err := feeds.Prune(context.Background(), s.Db, *olderThan)
+	n, err := feeds.Prune(ctx, s.Db, *olderThan)
 	if err != nil {
 		return err
 	}
