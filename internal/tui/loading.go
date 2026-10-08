@@ -9,8 +9,8 @@ import (
 
 func (m model) reloadFeeds() tea.Cmd {
 	return tea.Batch(
-		loadFeeds(m.ctx, m.queries, m.userID),
-		loadUnreadCounts(m.ctx, m.queries, m.userID),
+		loadFeeds(m.ctx, m.store),
+		loadUnreadCounts(m.ctx, m.store),
 	)
 }
 
@@ -20,13 +20,13 @@ func (m *model) startLoad() tea.Cmd {
 	m.loadingMore = false
 	switch m.source {
 	case sourceBookmarks:
-		return loadBookmarkedPosts(m.ctx, m.queries, m.userID)
+		return loadBookmarkedPosts(m.ctx, m.store)
 	case sourceRead:
-		return loadReadPosts(m.ctx, m.queries, m.userID)
+		return loadReadPosts(m.ctx, m.store)
 	case sourceSearch:
-		return searchPosts(m.ctx, m.queries, m.userID, m.filter.query)
+		return searchPosts(m.ctx, m.store, m.filter.query)
 	}
-	return loadPosts(m.ctx, m.queries, m.userID, m.filter.params(), 0)
+	return loadPosts(m.ctx, m.store, m.filter.params(), 0)
 }
 
 func (m *model) maybeLoadMore() tea.Cmd {
@@ -41,7 +41,7 @@ func (m *model) maybeLoadMore() tea.Cmd {
 
 	m.loadingMore = true
 	m.offset += pageSize
-	return loadPosts(m.ctx, m.queries, m.userID, m.filter.params(), m.offset)
+	return loadPosts(m.ctx, m.store, m.filter.params(), m.offset)
 }
 
 func (m *model) setPostsTitle() {

@@ -96,7 +96,7 @@ func (m model) confirmCatalog() (tea.Model, tea.Cmd) {
 
 	m.screen = screenList
 	next, cmd := m.withStatus("Adding " + strconv.Itoa(len(entries)) + " feeds…")
-	return next, tea.Batch(cmd, addCatalogFeeds(next.ctx, next.queries, next.userID, entries))
+	return next, tea.Batch(cmd, addCatalogFeeds(next.ctx, next.store, entries))
 }
 
 func (m model) catalogView() string {

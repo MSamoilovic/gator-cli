@@ -5,19 +5,19 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/feeds"
 	"github.com/MSamoilovic/gator-cli/internal/opml"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 )
 
 const stdioName = "-"
 
-func handlerExport(ctx context.Context, s *state, cmd command, user database.User) error {
+func handlerExport(ctx context.Context, s *state, cmd command, user store.User) error {
 	if len(cmd.Args) > 1 {
 		return fmt.Errorf("usage: export [file|-]")
 	}
 
-	follows, err := s.Db.GetFeedFollowsForUser(ctx, user.ID)
+	follows, err := s.Store.Subscriptions(ctx)
 	if err != nil {
 		return fmt.Errorf("error fetching follows: %w", err)
 	}
@@ -49,7 +49,7 @@ func handlerExport(ctx context.Context, s *state, cmd command, user database.Use
 	return nil
 }
 
-func handlerImport(ctx context.Context, s *state, cmd command, user database.User) error {
+func handlerImport(ctx context.Context, s *state, cmd command, _ store.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: import <file|->")
 	}
@@ -79,7 +79,7 @@ func handlerImport(ctx context.Context, s *state, cmd command, user database.Use
 
 	fmt.Printf("Importing %d feeds…\n", len(entries))
 
-	results := feeds.AddMany(ctx, s.Db, user.ID, entries, func(r feeds.AddResult) {
+	results := s.Store.AddFeeds(ctx, entries, func(r feeds.AddResult) {
 		switch {
 		case r.Err != nil:
 			fmt.Fprintf(os.Stderr, "  x %s: %v\n", r.Entry.Name, r.Err)

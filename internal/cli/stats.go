@@ -11,14 +11,14 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 )
 
 const statsWindow = 7 * 24 * time.Hour
 
 const neverLabel = "never"
 
-func handlerStats(ctx context.Context, s *state, cmd command, user database.User) error {
+func handlerStats(ctx context.Context, s *state, cmd command, _ store.User) error {
 	fs := flag.NewFlagSet("stats", flag.ContinueOnError)
 	sortBy := fs.String("sort", "posts", "order rows by: posts, week, read, unread, stale or name")
 	limit := fs.Int("limit", 0, "show only the first N feeds (0 = all)")
@@ -35,10 +35,7 @@ func handlerStats(ctx context.Context, s *state, cmd command, user database.User
 	}
 
 	now := time.Now()
-	rows, err := s.Db.GetFeedStatsForUser(ctx, database.GetFeedStatsForUserParams{
-		UserID: user.ID,
-		Since:  now.Add(-statsWindow),
-	})
+	rows, err := s.Store.Stats(ctx, now.Add(-statsWindow))
 	if err != nil {
 		return fmt.Errorf("error fetching stats: %w", err)
 	}
@@ -60,7 +57,7 @@ func handlerStats(ctx context.Context, s *state, cmd command, user database.User
 	return nil
 }
 
-func printStatsSummary(rows []database.GetFeedStatsForUserRow) {
+func printStatsSummary(rows []store.FeedStat) {
 	var posts, recent, read, saved, broken int64
 	for _, r := range rows {
 		posts += r.PostCount
@@ -81,7 +78,7 @@ func printStatsSummary(rows []database.GetFeedStatsForUserRow) {
 	fmt.Println()
 }
 
-func printStatsTable(rows []database.GetFeedStatsForUserRow, now time.Time) {
+func printStatsTable(rows []store.FeedStat, now time.Time) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "FEED\tPOSTS\t/WEEK\tREAD\tUNREAD\tLAST POST\tLAST READ")
 
@@ -103,8 +100,8 @@ func printStatsTable(rows []database.GetFeedStatsForUserRow, now time.Time) {
 	w.Flush()
 }
 
-func printStatsAdvice(rows []database.GetFeedStatsForUserRow) {
-	var noisy []database.GetFeedStatsForUserRow
+func printStatsAdvice(rows []store.FeedStat) {
+	var noisy []store.FeedStat
 	for _, r := range rows {
 		if r.ReadCount == 0 && r.BookmarkCount == 0 && r.RecentCount > 0 {
 			noisy = append(noisy, r)
@@ -128,24 +125,24 @@ func printStatsAdvice(rows []database.GetFeedStatsForUserRow) {
 	fmt.Println("\nDrop one with: gator unfollow <url>")
 }
 
-func statsOrder(name string) (func(a, b database.GetFeedStatsForUserRow) bool, error) {
+func statsOrder(name string) (func(a, b store.FeedStat) bool, error) {
 	switch name {
 	case "posts":
-		return func(a, b database.GetFeedStatsForUserRow) bool { return a.PostCount > b.PostCount }, nil
+		return func(a, b store.FeedStat) bool { return a.PostCount > b.PostCount }, nil
 	case "week":
-		return func(a, b database.GetFeedStatsForUserRow) bool { return a.RecentCount > b.RecentCount }, nil
+		return func(a, b store.FeedStat) bool { return a.RecentCount > b.RecentCount }, nil
 	case "read":
-		return func(a, b database.GetFeedStatsForUserRow) bool { return a.ReadCount > b.ReadCount }, nil
+		return func(a, b store.FeedStat) bool { return a.ReadCount > b.ReadCount }, nil
 	case "unread":
-		return func(a, b database.GetFeedStatsForUserRow) bool {
+		return func(a, b store.FeedStat) bool {
 			return a.PostCount-a.ReadCount > b.PostCount-b.ReadCount
 		}, nil
 	case "stale":
-		return func(a, b database.GetFeedStatsForUserRow) bool {
+		return func(a, b store.FeedStat) bool {
 			return a.LastPublished.Before(b.LastPublished)
 		}, nil
 	case "name":
-		return func(a, b database.GetFeedStatsForUserRow) bool {
+		return func(a, b store.FeedStat) bool {
 			return strings.ToLower(a.FeedName) < strings.ToLower(b.FeedName)
 		}, nil
 	}

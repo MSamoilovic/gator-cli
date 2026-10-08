@@ -26,9 +26,9 @@ func (m model) postAction(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			return m, nil, true
 		}
 		if m.bookmarks[post.ID] {
-			return m, removeBookmark(m.ctx, m.queries, m.userID, post.ID), true
+			return m, removeBookmark(m.ctx, m.store, post.ID), true
 		}
-		return m, addBookmark(m.ctx, m.queries, m.userID, post.ID), true
+		return m, addBookmark(m.ctx, m.store, post.ID), true
 	}
 	return m, nil, false
 }
@@ -74,11 +74,11 @@ func (m model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.source = sourceSearch
 			m.filter.query = value
 			m.setPostsTitle()
-			return m, searchPosts(m.ctx, m.queries, m.userID, value)
+			return m, searchPosts(m.ctx, m.store, value)
 
 		case inputAddFeed:
 			next, cmd := m.withStatus("Adding " + value + "…")
-			return next, tea.Batch(cmd, addFeed(next.ctx, next.queries, next.userID, value))
+			return next, tea.Batch(cmd, addFeed(next.ctx, next.store, value))
 		}
 		return m, nil
 	}
@@ -107,7 +107,7 @@ func (m model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if !ok || item.id == uuid.Nil {
 		return m, nil
 	}
-	return m, unfollowFeed(m.ctx, m.queries, m.userID, item.id, item.name)
+	return m, unfollowFeed(m.ctx, m.store, item.id, item.name)
 }
 
 func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -154,7 +154,7 @@ func (m model) loadFullText() (tea.Model, tea.Cmd) {
 
 	m.fetchingText = true
 	next, cmd := m.withStatus("Fetching the full article…")
-	return next, tea.Batch(cmd, fetchFullText(next.ctx, next.queries, next.selected))
+	return next, tea.Batch(cmd, fetchFullText(next.ctx, next.store, next.selected))
 }
 
 func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -271,7 +271,7 @@ func (m *model) openPost(post database.Post) tea.Cmd {
 		return nil
 	}
 	m.applyRead(post.ID, post.FeedID, true)
-	return setPostRead(m.ctx, m.queries, m.userID, post, true)
+	return setPostRead(m.ctx, m.store, post, true)
 }
 
 func (m *model) stepPost(delta int) tea.Cmd {

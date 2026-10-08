@@ -87,7 +87,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		next, cmd := m.withStatus("Bookmark removed")
 
 		if next.source == sourceBookmarks {
-			return next, tea.Batch(cmd, loadBookmarkedPosts(next.ctx, next.queries, next.userID))
+			return next, tea.Batch(cmd, loadBookmarkedPosts(next.ctx, next.store))
 		}
 		return next, cmd
 

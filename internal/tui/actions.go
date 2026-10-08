@@ -42,7 +42,7 @@ func (m model) fetchAll() (tea.Model, tea.Cmd) {
 	}
 	m.fetching = true
 	next, cmd := m.withStatus("Fetching feeds…")
-	return next, tea.Batch(cmd, scrapeFeeds(next.ctx, next.queries))
+	return next, tea.Batch(cmd, scrapeFeeds(next.ctx, next.store))
 }
 
 func (m model) toggleBookmarksView() (tea.Model, tea.Cmd) {
@@ -137,7 +137,7 @@ func (m model) toggleSelectedRead() (tea.Model, tea.Cmd) {
 		label = "Marked read"
 	}
 	next, cmd := m.withStatus(label)
-	return next, tea.Batch(cmd, setPostRead(next.ctx, next.queries, next.userID, post, read))
+	return next, tea.Batch(cmd, setPostRead(next.ctx, next.store, post, read))
 }
 
 func (m model) markListRead() (tea.Model, tea.Cmd) {
@@ -150,5 +150,5 @@ func (m model) markListRead() (tea.Model, tea.Cmd) {
 		ids = append(ids, pi.post.ID)
 		m.applyRead(pi.post.ID, pi.post.FeedID, true)
 	}
-	return m, markAllRead(m.ctx, m.queries, m.userID, ids)
+	return m, markAllRead(m.ctx, m.store, ids)
 }

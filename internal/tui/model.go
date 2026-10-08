@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
@@ -87,8 +88,7 @@ func (f listFilter) params() postFilter {
 
 type model struct {
 	ctx      context.Context
-	queries  *database.Queries
-	userID   uuid.UUID
+	store    store.Store
 	userName string
 
 	keys        keyMap
@@ -136,7 +136,7 @@ type model struct {
 	err          error
 }
 
-func newModel(ctx context.Context, q *database.Queries, user database.User, saved uiState) model {
+func newModel(ctx context.Context, st store.Store, user store.User, saved uiState) model {
 	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
 	l.Title = postsTitle
 	l.SetStatusBarItemName("post", "posts")
@@ -171,8 +171,7 @@ func newModel(ctx context.Context, q *database.Queries, user database.User, save
 
 	m := model{
 		ctx:         ctx,
-		queries:     q,
-		userID:      user.ID,
+		store:       st,
 		userName:    user.Name,
 		keys:        defaultKeyMap(),
 		help:        help.New(),
@@ -205,11 +204,11 @@ func newModel(ctx context.Context, q *database.Queries, user database.User, save
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		loadPosts(m.ctx, m.queries, m.userID, m.filter.params(), 0),
-		loadBookmarks(m.ctx, m.queries, m.userID),
-		loadReads(m.ctx, m.queries, m.userID),
-		loadFeeds(m.ctx, m.queries, m.userID),
-		loadUnreadCounts(m.ctx, m.queries, m.userID),
+		loadPosts(m.ctx, m.store, m.filter.params(), 0),
+		loadBookmarks(m.ctx, m.store),
+		loadReads(m.ctx, m.store),
+		loadFeeds(m.ctx, m.store),
+		loadUnreadCounts(m.ctx, m.store),
 	)
 }
 

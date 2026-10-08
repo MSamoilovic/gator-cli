@@ -8,6 +8,8 @@ import (
 
 	"github.com/MSamoilovic/gator-cli/internal/config"
 	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/store"
+	"github.com/MSamoilovic/gator-cli/internal/store/local"
 
 	_ "github.com/lib/pq"
 )
@@ -15,6 +17,7 @@ import (
 var version = "dev"
 
 type state struct {
+	Store  store.Store
 	Db     *database.Queries
 	DB     *sql.DB
 	Cfg    *config.Config
@@ -28,7 +31,7 @@ type entry struct {
 	group   string
 
 	run     handlerFunc
-	runAuth func(context.Context, *state, command, database.User) error
+	runAuth func(context.Context, *state, command, store.User) error
 
 	guest  bool
 	hidden bool
@@ -129,7 +132,14 @@ func open(schema fs.FS) (*state, func() error, error) {
 		return nil, nil, err
 	}
 
-	return &state{Cfg: &cfg, DB: db, Db: database.New(db), Schema: schema}, db.Close, nil
+	q := database.New(db)
+	return &state{
+		Store:  local.New(q, cfg.CurrentUserName),
+		Db:     q,
+		DB:     db,
+		Cfg:    &cfg,
+		Schema: schema,
+	}, db.Close, nil
 }
 
 func connect(dbURL string) (*sql.DB, error) {

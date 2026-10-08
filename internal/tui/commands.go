@@ -7,10 +7,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/MSamoilovic/gator-cli/internal/article"
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/feeds"
-	"github.com/MSamoilovic/gator-cli/internal/text"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
@@ -81,16 +80,15 @@ type postFilter struct {
 	since      time.Time
 }
 
-func loadPosts(ctx context.Context, q *database.Queries, userID uuid.UUID, f postFilter, offset int32) tea.Cmd {
+func loadPosts(ctx context.Context, st store.Store, f postFilter, offset int32) tea.Cmd {
 	return func() tea.Msg {
-		posts, err := q.GetPostsForUserFiltered(ctx, database.GetPostsForUserFilteredParams{
-			UserID:     userID,
+		posts, err := st.Posts(ctx, store.PostQuery{
 			FeedID:     f.feedID,
 			SortDir:    f.sortDir,
 			UnreadOnly: f.unreadOnly,
 			Since:      f.since,
-			PostLimit:  pageSize,
-			PostOffset: offset,
+			Limit:      pageSize,
+			Offset:     offset,
 		})
 		if err != nil {
 			return errMsg{err}
@@ -99,9 +97,9 @@ func loadPosts(ctx context.Context, q *database.Queries, userID uuid.UUID, f pos
 	}
 }
 
-func loadBookmarkedPosts(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+func loadBookmarkedPosts(ctx context.Context, st store.Store) tea.Cmd {
 	return func() tea.Msg {
-		posts, err := q.GetBookmarksForUser(ctx, userID)
+		posts, err := st.BookmarkedPosts(ctx)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -109,13 +107,9 @@ func loadBookmarkedPosts(ctx context.Context, q *database.Queries, userID uuid.U
 	}
 }
 
-func searchPosts(ctx context.Context, q *database.Queries, userID uuid.UUID, query string) tea.Cmd {
+func searchPosts(ctx context.Context, st store.Store, query string) tea.Cmd {
 	return func() tea.Msg {
-		posts, err := q.SearchPostsForUser(ctx, database.SearchPostsForUserParams{
-			UserID:    userID,
-			Query:     query,
-			PostLimit: pageSize,
-		})
+		posts, err := st.Posts(ctx, store.PostQuery{Query: query, Limit: pageSize})
 		if err != nil {
 			return errMsg{err}
 		}
@@ -123,19 +117,19 @@ func searchPosts(ctx context.Context, q *database.Queries, userID uuid.UUID, que
 	}
 }
 
-func loadFeeds(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+func loadFeeds(ctx context.Context, st store.Store) tea.Cmd {
 	return func() tea.Msg {
-		feeds, err := q.GetFeedFollowsForUser(ctx, userID)
+		subs, err := st.Subscriptions(ctx)
 		if err != nil {
 			return errMsg{err}
 		}
-		return feedsLoadedMsg{feeds: feeds}
+		return feedsLoadedMsg{feeds: subs}
 	}
 }
 
-func loadBookmarks(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+func loadBookmarks(ctx context.Context, st store.Store) tea.Cmd {
 	return func() tea.Msg {
-		ids, err := q.GetBookmarkedPostIDs(ctx, userID)
+		ids, err := st.BookmarkedIDs(ctx)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -143,9 +137,9 @@ func loadBookmarks(ctx context.Context, q *database.Queries, userID uuid.UUID) t
 	}
 }
 
-func loadReadPosts(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+func loadReadPosts(ctx context.Context, st store.Store) tea.Cmd {
 	return func() tea.Msg {
-		posts, err := q.GetReadPostsForUser(ctx, userID)
+		posts, err := st.ReadPosts(ctx)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -153,9 +147,9 @@ func loadReadPosts(ctx context.Context, q *database.Queries, userID uuid.UUID) t
 	}
 }
 
-func loadReads(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+func loadReads(ctx context.Context, st store.Store) tea.Cmd {
 	return func() tea.Msg {
-		ids, err := q.GetReadPostIDs(ctx, userID)
+		ids, err := st.ReadIDs(ctx)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -163,9 +157,9 @@ func loadReads(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.C
 	}
 }
 
-func loadUnreadCounts(ctx context.Context, q *database.Queries, userID uuid.UUID) tea.Cmd {
+func loadUnreadCounts(ctx context.Context, st store.Store) tea.Cmd {
 	return func() tea.Msg {
-		counts, err := q.GetUnreadCountsForUser(ctx, userID)
+		counts, err := st.UnreadCounts(ctx)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -173,76 +167,48 @@ func loadUnreadCounts(ctx context.Context, q *database.Queries, userID uuid.UUID
 	}
 }
 
-func setPostRead(ctx context.Context, q *database.Queries, userID uuid.UUID, post database.Post, read bool) tea.Cmd {
+func setPostRead(ctx context.Context, st store.Store, post database.Post, read bool) tea.Cmd {
 	return func() tea.Msg {
-		var err error
-		if read {
-			err = q.MarkPostRead(ctx, database.MarkPostReadParams{
-				UserID: userID,
-				PostID: post.ID,
-				ReadAt: time.Now(),
-			})
-		} else {
-			err = q.MarkPostUnread(ctx, database.MarkPostUnreadParams{
-				UserID: userID,
-				PostID: post.ID,
-			})
-		}
-		if err != nil {
+		if err := st.SetRead(ctx, post.ID, read); err != nil {
 			return errMsg{err}
 		}
 		return readToggledMsg{postID: post.ID, feedID: post.FeedID, read: read}
 	}
 }
 
-func markAllRead(ctx context.Context, q *database.Queries, userID uuid.UUID, postIDs []uuid.UUID) tea.Cmd {
+func markAllRead(ctx context.Context, st store.Store, postIDs []uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
 		if len(postIDs) == 0 {
 			return allReadMsg{}
 		}
-		err := q.MarkPostsRead(ctx, database.MarkPostsReadParams{
-			UserID:  userID,
-			PostIds: postIDs,
-			ReadAt:  time.Now(),
-		})
-		if err != nil {
+		if err := st.SetAllRead(ctx, postIDs); err != nil {
 			return errMsg{err}
 		}
 		return allReadMsg{count: len(postIDs)}
 	}
 }
 
-func addBookmark(ctx context.Context, q *database.Queries, userID, postID uuid.UUID) tea.Cmd {
+func addBookmark(ctx context.Context, st store.Store, postID uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
-		_, err := q.CreateBookmark(ctx, database.CreateBookmarkParams{
-			ID:        uuid.New(),
-			CreatedAt: time.Now(),
-			UserID:    userID,
-			PostID:    postID,
-		})
-		if err != nil {
+		if _, err := st.Bookmark(ctx, postID); err != nil {
 			return errMsg{err}
 		}
 		return bookmarkToggledMsg{postID: postID, bookmarked: true}
 	}
 }
 
-func removeBookmark(ctx context.Context, q *database.Queries, userID, postID uuid.UUID) tea.Cmd {
+func removeBookmark(ctx context.Context, st store.Store, postID uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
-		err := q.DeleteBookmark(ctx, database.DeleteBookmarkParams{
-			UserID: userID,
-			PostID: postID,
-		})
-		if err != nil {
+		if err := st.Unbookmark(ctx, postID); err != nil {
 			return errMsg{err}
 		}
 		return bookmarkToggledMsg{postID: postID, bookmarked: false}
 	}
 }
 
-func addFeed(ctx context.Context, q *database.Queries, userID uuid.UUID, url string) tea.Cmd {
+func addFeed(ctx context.Context, st store.Store, url string) tea.Cmd {
 	return func() tea.Msg {
-		feed, created, err := feeds.Add(ctx, q, userID, "", url)
+		feed, created, err := st.AddFeed(ctx, "", url)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -250,10 +216,10 @@ func addFeed(ctx context.Context, q *database.Queries, userID uuid.UUID, url str
 	}
 }
 
-func addCatalogFeeds(ctx context.Context, q *database.Queries, userID uuid.UUID, entries []feeds.Entry) tea.Cmd {
+func addCatalogFeeds(ctx context.Context, st store.Store, entries []feeds.Entry) tea.Cmd {
 	return func() tea.Msg {
 		var msg catalogAddedMsg
-		for _, r := range feeds.AddMany(ctx, q, userID, entries, nil) {
+		for _, r := range st.AddFeeds(ctx, entries, nil) {
 			switch {
 			case r.Err != nil:
 				msg.failed++
@@ -267,57 +233,37 @@ func addCatalogFeeds(ctx context.Context, q *database.Queries, userID uuid.UUID,
 	}
 }
 
-func unfollowFeed(ctx context.Context, q *database.Queries, userID, feedID uuid.UUID, name string) tea.Cmd {
+func unfollowFeed(ctx context.Context, st store.Store, feedID uuid.UUID, name string) tea.Cmd {
 	return func() tea.Msg {
-		err := q.DeleteFeedFollow(ctx, database.DeleteFeedFollowParams{
-			UserID: userID,
-			FeedID: feedID,
-		})
-		if err != nil {
+		if err := st.Unfollow(ctx, feedID); err != nil {
 			return errMsg{err}
 		}
 		return feedUnfollowMsg{name: name}
 	}
 }
 
-func scrapeFeeds(ctx context.Context, q *database.Queries) tea.Cmd {
+func scrapeFeeds(ctx context.Context, st store.Store) tea.Cmd {
 	return func() tea.Msg {
-		results, err := feeds.ScrapeAll(ctx, q, nil)
+		got, err := st.Refresh(ctx)
 		if err != nil {
 			return errMsg{err}
 		}
-
-		msg := scrapedMsg{feeds: len(results)}
-		for _, r := range results {
-			switch {
-			case r.Err != nil:
-				msg.failed++
-			case r.NotModified:
-				msg.unchanged++
-			default:
-				msg.saved += r.Saved
-			}
+		return scrapedMsg{
+			feeds:     got.Feeds,
+			saved:     got.Saved,
+			failed:    got.Failed,
+			unchanged: got.Unchanged,
 		}
-		return msg
 	}
 }
 
-func fetchFullText(ctx context.Context, q *database.Queries, post database.Post) tea.Cmd {
+func fetchFullText(ctx context.Context, st store.Store, post database.Post) tea.Cmd {
 	return func() tea.Msg {
-		got, err := article.Fetch(ctx, post.Url)
+		body, err := st.FullText(ctx, post)
 		if err != nil {
 			return errMsg{err}
 		}
-		if !article.Improves(got.Text, text.StripHTML(post.Description.String)) {
-			return errMsg{fmt.Errorf("%s has no more text than the feed gave", post.Url)}
-		}
-		if err := q.SetPostFullText(ctx, database.SetPostFullTextParams{
-			ID:       post.ID,
-			FullText: got.Text,
-		}); err != nil {
-			return errMsg{fmt.Errorf("saving article text: %w", err)}
-		}
-		return fullTextMsg{postID: post.ID, body: got.Text}
+		return fullTextMsg{postID: post.ID, body: body}
 	}
 }
 

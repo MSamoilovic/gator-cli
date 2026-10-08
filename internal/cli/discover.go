@@ -9,14 +9,12 @@ import (
 	"text/tabwriter"
 
 	"github.com/MSamoilovic/gator-cli/internal/catalog"
-	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/feeds"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 	"github.com/MSamoilovic/gator-cli/internal/tui"
-
-	"github.com/google/uuid"
 )
 
-func handlerDiscover(ctx context.Context, s *state, cmd command, user database.User) error {
+func handlerDiscover(ctx context.Context, s *state, cmd command, user store.User) error {
 	fs := flag.NewFlagSet("discover", flag.ContinueOnError)
 	add := fs.String("add", "", "comma-separated categories to add and follow")
 	noTUI := fs.Bool("no-tui", false, "print the catalog instead of opening the picker")
@@ -25,28 +23,28 @@ func handlerDiscover(ctx context.Context, s *state, cmd command, user database.U
 	}
 
 	if *add != "" {
-		return addCategories(ctx, s, user, splitCategories(*add))
+		return addCategories(ctx, s, splitCategories(*add))
 	}
 
 	switch args := fs.Args(); len(args) {
 	case 0:
 		if !*noTUI && stdoutIsTerminal() {
-			return tui.RunCatalog(ctx, s.Db, user)
+			return tui.RunCatalog(ctx, s.Store, user)
 		}
-		return listCategories(ctx, s, user)
+		return listCategories(ctx, s)
 	case 1:
-		return listCategoryFeeds(ctx, s, user, args[0])
+		return listCategoryFeeds(ctx, s, args[0])
 	default:
 		return fmt.Errorf("usage: discover [category] | discover --add <category,...> [--no-tui]")
 	}
 }
 
-func listCategories(ctx context.Context, s *state, user database.User) error {
+func listCategories(ctx context.Context, s *state) error {
 	cats, err := catalog.Categories()
 	if err != nil {
 		return err
 	}
-	followed, err := followedURLs(ctx, s, user.ID)
+	followed, err := followedURLs(ctx, s)
 	if err != nil {
 		return err
 	}
@@ -68,12 +66,12 @@ func listCategories(ctx context.Context, s *state, user database.User) error {
 	return nil
 }
 
-func listCategoryFeeds(ctx context.Context, s *state, user database.User, id string) error {
+func listCategoryFeeds(ctx context.Context, s *state, id string) error {
 	c, err := catalog.Find(id)
 	if err != nil {
 		return err
 	}
-	followed, err := followedURLs(ctx, s, user.ID)
+	followed, err := followedURLs(ctx, s)
 	if err != nil {
 		return err
 	}
@@ -98,7 +96,7 @@ func listCategoryFeeds(ctx context.Context, s *state, user database.User, id str
 	return nil
 }
 
-func addCategories(ctx context.Context, s *state, user database.User, ids []string) error {
+func addCategories(ctx context.Context, s *state, ids []string) error {
 	catFeeds, err := catalog.Resolve(ids)
 	if err != nil {
 		return err
@@ -112,7 +110,7 @@ func addCategories(ctx context.Context, s *state, user database.User, ids []stri
 		entries[i] = feeds.Entry{Name: f.Name, URL: f.URL, Category: f.Category}
 	}
 
-	results := feeds.AddMany(ctx, s.Db, user.ID, entries, func(r feeds.AddResult) {
+	results := s.Store.AddFeeds(ctx, entries, func(r feeds.AddResult) {
 		switch {
 		case r.Err != nil:
 			fmt.Fprintf(os.Stderr, "  x %s: %v\n", r.Entry.Name, r.Err)
@@ -143,8 +141,8 @@ func addCategories(ctx context.Context, s *state, user database.User, ids []stri
 	return nil
 }
 
-func followedURLs(ctx context.Context, s *state, userID uuid.UUID) (map[string]bool, error) {
-	rows, err := s.Db.GetFeedFollowsForUser(ctx, userID)
+func followedURLs(ctx context.Context, s *state) (map[string]bool, error) {
+	rows, err := s.Store.Subscriptions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching follows: %w", err)
 	}

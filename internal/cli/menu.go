@@ -10,8 +10,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/menu"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 )
 
 func runMenu(ctx context.Context, schema fs.FS, cmds commands) error {
@@ -43,18 +43,18 @@ func runMenu(ctx context.Context, schema fs.FS, cmds commands) error {
 	return cmds.run(ctx, s, command{Name: choice.Name, Args: choice.Args})
 }
 
-func currentUser(ctx context.Context, s *state) (database.User, bool) {
-	if s.Cfg == nil || s.Cfg.CurrentUserName == "" {
-		return database.User{}, false
+func currentUser(ctx context.Context, s *state) (store.User, bool) {
+	if s.Store == nil || s.Cfg == nil || s.Cfg.CurrentUserName == "" {
+		return store.User{}, false
 	}
-	user, err := s.Db.GetUser(ctx, s.Cfg.CurrentUserName)
+	user, err := s.Store.Me(ctx)
 	if err != nil {
-		return database.User{}, false
+		return store.User{}, false
 	}
 	return user, true
 }
 
-func greeting(user database.User, loggedIn, configured bool) string {
+func greeting(user store.User, loggedIn, configured bool) string {
 	switch {
 	case !configured:
 		return "No working database — see the README for ~/.gatorconfig.json"
