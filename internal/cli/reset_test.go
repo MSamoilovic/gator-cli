@@ -80,9 +80,10 @@ func TestTotalCountsEveryTable(t *testing.T) {
 		FeedFollows: 8,
 		Bookmarks:   16,
 		PostReads:   32,
+		ApiTokens:   64,
 	})
-	if got != 63 {
-		t.Errorf("total = %d, want 63 — a table is missing from the sum", got)
+	if got != 127 {
+		t.Errorf("total = %d, want 127 — a table is missing from the sum", got)
 	}
 }
 
@@ -91,7 +92,7 @@ func TestPrintCountsNamesEveryTable(t *testing.T) {
 	printCounts(&out, "gator", database.CountAllRowsRow{Users: 3, Feeds: 160, Posts: 524})
 
 	for _, want := range []string{
-		"gator", "users", "feeds", "posts", "feed_follows", "bookmarks", "post_reads", "160", "524",
+		"gator", "users", "feeds", "posts", "feed_follows", "bookmarks", "post_reads", "api_tokens", "160", "524",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("printCounts output does not mention %q:\n%s", want, out.String())

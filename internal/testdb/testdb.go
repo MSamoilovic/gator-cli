@@ -50,7 +50,7 @@ func Open(t *testing.T) *DB {
 	if err := db.TruncateAll(t.Context()); err != nil {
 		t.Fatalf("clearing tables before the test: %v", err)
 	}
-	t.Cleanup(func() { shared.Exec("TRUNCATE users, feeds, posts, feed_follows, bookmarks, post_reads") })
+	t.Cleanup(func() { shared.Exec("TRUNCATE users, feeds, posts, feed_follows, bookmarks, post_reads, api_tokens") })
 
 	return db
 }
