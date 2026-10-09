@@ -1,13 +1,21 @@
 package cli
 
 import (
+	"bufio"
 	"context"
+	"database/sql"
+	"flag"
 	"fmt"
+	"io"
+	"os"
+	"strings"
 	"time"
 
+	"github.com/MSamoilovic/gator-cli/internal/auth"
 	"github.com/MSamoilovic/gator-cli/internal/database"
 
 	"github.com/google/uuid"
+	"golang.org/x/term"
 )
 
 func handlerLogin(ctx context.Context, s *state, cmd command) error {
@@ -61,17 +69,41 @@ func handlerUsers(ctx context.Context, s *state, _ command) error {
 }
 
 func handlerRegister(ctx context.Context, s *state, cmd command) error {
-	if len(cmd.Args) != 1 {
-		return fmt.Errorf("username required to register")
+	fs := flag.NewFlagSet("register", flag.ContinueOnError)
+	emailFlag := fs.String("email", "", "email for a future server login (optional)")
+	passwordFlag := fs.String("password", "", "password for a future server login (optional)")
+	if err := fs.Parse(cmd.Args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("usage: register [--email=...] [--password=...] <username>")
+	}
+	username := fs.Arg(0)
+
+	email, password := *emailFlag, *passwordFlag
+	if isTerminal(os.Stdin) {
+		email = resolveEmail(email, os.Stdin)
+		password = resolvePassword(password)
 	}
 
-	params := database.CreateUserParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Name:      cmd.Args[0],
+	passwordHash := ""
+	if password != "" {
+		hash, err := auth.HashPassword(password)
+		if err != nil {
+			return fmt.Errorf("can't register: %w", err)
+		}
+		passwordHash = hash
 	}
-	dbUser, err := s.Db.CreateUser(ctx, params)
+
+	params := database.CreateUserWithCredentialsParams{
+		ID:           uuid.New(),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+		Name:         username,
+		Email:        sql.NullString{String: email, Valid: email != ""},
+		PasswordHash: passwordHash,
+	}
+	dbUser, err := s.Db.CreateUserWithCredentials(ctx, params)
 	if err != nil {
 		return fmt.Errorf("error creating user: %v", err)
 	}
@@ -83,4 +115,28 @@ func handlerRegister(ctx context.Context, s *state, cmd command) error {
 	printNextStep(ctx, s, dbUser)
 
 	return nil
+}
+
+func resolveEmail(given string, in io.Reader) string {
+	if given = strings.TrimSpace(given); given != "" {
+		return given
+	}
+
+	fmt.Print("Email (optional, enter to skip): ")
+	line, _ := bufio.NewReader(in).ReadString('\n')
+	return strings.TrimSpace(line)
+}
+
+func resolvePassword(given string) string {
+	if given != "" {
+		return given
+	}
+
+	fmt.Print("Password (optional, enter to skip): ")
+	pw, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Println()
+	if err != nil {
+		return ""
+	}
+	return string(pw)
 }

@@ -11,6 +11,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type ApiToken struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	TokenHash  string
+	CreatedAt  time.Time
+	LastUsedAt sql.NullTime
+}
+
 type Bookmark struct {
 	ID        uuid.UUID
 	CreatedAt time.Time
@@ -60,8 +68,10 @@ type PostRead struct {
 }
 
 type User struct {
-	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Name      string
+	ID           uuid.UUID
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	Name         string
+	Email        sql.NullString
+	PasswordHash string
 }

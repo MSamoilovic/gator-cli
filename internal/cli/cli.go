@@ -72,7 +72,7 @@ func allCommands() []entry {
 		{group: "aggregation", name: "supervise", args: "<duration>", summary: "Keep agg running, restart it on crash", run: handlerSupervise},
 		{group: "aggregation", name: "prune", args: "[flags]", summary: "Delete posts older than the retention window", run: handlerPrune},
 
-		{group: "account", name: "register", args: "<username>", summary: "Create a new user and log in", run: handlerRegister, guest: true},
+		{group: "account", name: "register", args: "[flags] <username>", summary: "Create a new user and log in", run: handlerRegister, guest: true},
 		{group: "account", name: "login", args: "<username>", summary: "Log in as an existing user", run: handlerLogin, guest: true},
 		{group: "account", name: "users", summary: "List all users", run: handlerUsers, guest: true},
 		{group: "account", name: "reset", args: "[flags]", summary: "Delete every row in the database", run: handlerReset, hidden: true},

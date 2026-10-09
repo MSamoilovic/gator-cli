@@ -78,13 +78,14 @@ func printCounts(w io.Writer, dbName string, c database.CountAllRowsRow) {
 		{"feed_follows", c.FeedFollows},
 		{"bookmarks", c.Bookmarks},
 		{"post_reads", c.PostReads},
+		{"api_tokens", c.ApiTokens},
 	} {
 		fmt.Fprintf(w, "  %-13s %d\n", row.name, row.n)
 	}
 }
 
 func total(c database.CountAllRowsRow) int64 {
-	return c.Users + c.Feeds + c.Posts + c.FeedFollows + c.Bookmarks + c.PostReads
+	return c.Users + c.Feeds + c.Posts + c.FeedFollows + c.Bookmarks + c.PostReads + c.ApiTokens
 }
 
 func confirm(in io.Reader, out io.Writer, dbName string) error {
