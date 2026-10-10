@@ -32,7 +32,7 @@ func runMenu(ctx context.Context, schema fs.FS, cmds commands) error {
 	choice, ok, err := menu.Select(menu.Config{
 		Title:    "gator",
 		Greeting: greeting(user, loggedIn, dbErr == nil),
-		Items:    offered(loggedIn, dbErr == nil),
+		Items:    reachable(s, offered(loggedIn, dbErr == nil)),
 	})
 	if err != nil {
 		return fmt.Errorf("opening the command menu: %w", err)
@@ -41,6 +41,20 @@ func runMenu(ctx context.Context, schema fs.FS, cmds commands) error {
 		return nil
 	}
 	return cmds.run(ctx, s, command{Name: choice.Name, Args: choice.Args})
+}
+
+func reachable(s *state, items []menu.Item) []menu.Item {
+	if s.Cfg == nil || s.Cfg.ServerURL == "" {
+		return items
+	}
+	out := make([]menu.Item, 0, len(items))
+	for _, it := range items {
+		if e, ok := lookup(it.Name); ok && e.localOnly {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
 }
 
 func currentUser(ctx context.Context, s *state) (store.User, bool) {

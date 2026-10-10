@@ -11,6 +11,7 @@ const configFileName = ".gatorconfig.json"
 type Config struct {
 	DBURL           string `json:"db_url"`
 	CurrentUserName string `json:"current_user_name"`
+	ServerURL       string `json:"server_url,omitempty"`
 }
 
 func (cfg *Config) SetUsername(username string) error {

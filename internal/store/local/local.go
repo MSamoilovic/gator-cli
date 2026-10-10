@@ -29,6 +29,10 @@ func New(q *database.Queries, username string) *Store {
 	return &Store{q: q, username: username}
 }
 
+func NewFor(q *database.Queries, user store.User) *Store {
+	return &Store{q: q, username: user.Name, user: user}
+}
+
 func (s *Store) Me(ctx context.Context) (store.User, error) {
 	return s.resolve(ctx)
 }

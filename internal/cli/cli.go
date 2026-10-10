@@ -7,9 +7,11 @@ import (
 	"io/fs"
 
 	"github.com/MSamoilovic/gator-cli/internal/config"
+	"github.com/MSamoilovic/gator-cli/internal/credentials"
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/store"
 	"github.com/MSamoilovic/gator-cli/internal/store/local"
+	"github.com/MSamoilovic/gator-cli/internal/store/remote"
 
 	_ "github.com/lib/pq"
 )
@@ -33,9 +35,10 @@ type entry struct {
 	run     handlerFunc
 	runAuth func(context.Context, *state, command, store.User) error
 
-	guest  bool
-	hidden bool
-	noDB   bool
+	guest     bool
+	hidden    bool
+	noDB      bool
+	localOnly bool
 }
 
 func (e entry) needsLogin() bool { return e.runAuth != nil }
@@ -60,7 +63,7 @@ func allCommands() []entry {
 		{group: "feeds", name: "discover", args: "[category]", summary: "Pick feeds from the built-in catalog", runAuth: handlerDiscover},
 		{group: "feeds", name: "following", summary: "List the feeds you follow, grouped by folder", runAuth: handlerFollowing},
 		{group: "feeds", name: "addfeed", args: "[name] <url>", summary: "Add a feed and follow it", runAuth: handlerAddFeed},
-		{group: "feeds", name: "feeds", summary: "List every feed in the database", run: handlerFeeds},
+		{group: "feeds", name: "feeds", summary: "List every feed in the database", run: handlerFeeds, localOnly: true},
 		{group: "feeds", name: "stats", args: "[flags]", summary: "Which feeds you actually read, and which just arrive", runAuth: handlerStats},
 		{group: "feeds", name: "follow", args: "<url>", summary: "Follow a feed someone else added", runAuth: handlerFollow},
 		{group: "feeds", name: "unfollow", args: "<url>", summary: "Stop following a feed", runAuth: handlerUnfollow},
@@ -68,17 +71,20 @@ func allCommands() []entry {
 		{group: "feeds", name: "import", args: "<file>", summary: "Follow everything in an OPML file (- for stdin)", runAuth: handlerImport},
 		{group: "feeds", name: "export", args: "[file]", summary: "Write your subscriptions out as OPML", runAuth: handlerExport},
 
-		{group: "aggregation", name: "agg", args: "<duration>", summary: "Fetch every feed in a loop, e.g. 15m", run: handlerAgg},
-		{group: "aggregation", name: "supervise", args: "<duration>", summary: "Keep agg running, restart it on crash", run: handlerSupervise},
-		{group: "aggregation", name: "prune", args: "[flags]", summary: "Delete posts older than the retention window", run: handlerPrune},
+		{group: "aggregation", name: "agg", args: "<duration>", summary: "Fetch every feed in a loop, e.g. 15m", run: handlerAgg, localOnly: true},
+		{group: "aggregation", name: "supervise", args: "<duration>", summary: "Keep agg running, restart it on crash", run: handlerSupervise, localOnly: true},
+		{group: "aggregation", name: "prune", args: "[flags]", summary: "Delete posts older than the retention window", run: handlerPrune, localOnly: true},
 
-		{group: "account", name: "register", args: "[flags] <username>", summary: "Create a new user and log in", run: handlerRegister, guest: true},
-		{group: "account", name: "login", args: "<username>", summary: "Log in as an existing user", run: handlerLogin, guest: true},
-		{group: "account", name: "users", summary: "List all users", run: handlerUsers, guest: true},
-		{group: "account", name: "reset", args: "[flags]", summary: "Delete every row in the database", run: handlerReset, hidden: true},
+		{group: "aggregation", name: "serve", args: "[flags]", summary: "Serve the HTTP API so gator works from other machines", run: handlerServe, localOnly: true},
+
+		{group: "account", name: "register", args: "[flags] <username>", summary: "Create a new user and log in", run: handlerRegister, guest: true, noDB: true},
+		{group: "account", name: "login", args: "[flags] <username>", summary: "Log in as an existing user, or to a server with --server", run: handlerLogin, guest: true, noDB: true},
+		{group: "account", name: "logout", summary: "Disconnect from a server and go back to the local database", run: handlerLogout, guest: true, noDB: true},
+		{group: "account", name: "users", summary: "List all users", run: handlerUsers, guest: true, localOnly: true},
+		{group: "account", name: "reset", args: "[flags]", summary: "Delete every row in the database", run: handlerReset, hidden: true, localOnly: true},
 
 		{group: "setup", name: "init", args: "[flags]", summary: "Create the config and the database schema", run: handlerInit, guest: true, noDB: true},
-		{group: "setup", name: "migrate", args: "[flags]", summary: "Apply any database migrations this build carries", run: handlerMigrate},
+		{group: "setup", name: "migrate", args: "[flags]", summary: "Apply any database migrations this build carries", run: handlerMigrate, localOnly: true},
 
 		{group: "other", name: "help", summary: "Print the list of commands", run: handlerHelp, guest: true, noDB: true},
 		{group: "other", name: "version", summary: "Print the version of gator", run: handlerVersion, guest: true, noDB: true},
@@ -127,6 +133,18 @@ func open(schema fs.FS) (*state, func() error, error) {
 		return nil, nil, fmt.Errorf("reading config: %w", err)
 	}
 
+	if cfg.ServerURL != "" {
+		token, err := credentials.Load(cfg.ServerURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("not logged in to %s (gator login --server %s <name>): %w", cfg.ServerURL, cfg.ServerURL, err)
+		}
+		return &state{
+			Store:  remote.New(cfg.ServerURL, token),
+			Cfg:    &cfg,
+			Schema: schema,
+		}, func() error { return nil }, nil
+	}
+
 	db, err := connect(cfg.DBURL)
 	if err != nil {
 		return nil, nil, err
@@ -157,7 +175,20 @@ func connect(dbURL string) (*sql.DB, error) {
 func defaultCommands() commands {
 	cmds := commands{registeredCommands: make(map[string]handlerFunc)}
 	for _, e := range allCommands() {
-		cmds.register(e.name, e.handler())
+		cmds.register(e.name, guardLocal(e))
 	}
 	return cmds
+}
+
+func guardLocal(e entry) handlerFunc {
+	h := e.handler()
+	if !e.localOnly {
+		return h
+	}
+	return func(ctx context.Context, s *state, cmd command) error {
+		if s.Db == nil && s.Cfg != nil && s.Cfg.ServerURL != "" {
+			return fmt.Errorf("%s works on the database itself, not through %s (gator logout to go back to local)", e.name, s.Cfg.ServerURL)
+		}
+		return h(ctx, s, cmd)
+	}
 }
