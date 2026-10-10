@@ -6,6 +6,9 @@ RETURNING *;
 -- name: GetPostByUrl :one
 SELECT * FROM posts WHERE url = $1;
 
+-- name: GetPostByID :one
+SELECT * FROM posts WHERE id = $1;
+
 -- name: SearchPostsForUser :many
 SELECT posts.* FROM posts
 JOIN feed_follows ON posts.feed_id = feed_follows.feed_id

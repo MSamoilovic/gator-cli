@@ -28,3 +28,6 @@ RETURNING *;
 SELECT users.* FROM users
 JOIN api_tokens ON api_tokens.user_id = users.id
 WHERE api_tokens.token_hash = $1;
+
+-- name: DeleteAPIToken :execrows
+DELETE FROM api_tokens WHERE token_hash = $1;

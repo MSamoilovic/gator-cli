@@ -18,12 +18,43 @@ import (
 	"golang.org/x/term"
 )
 
+func (s *state) withDB() (*state, func() error, error) {
+	if s.Db != nil {
+		return s, func() error { return nil }, nil
+	}
+
+	opened, closeDB, err := open(s.Schema)
+	if err != nil {
+		return nil, nil, err
+	}
+	if opened.Db == nil {
+		return nil, nil, fmt.Errorf("connected to %s, which has no local database (gator logout first)", opened.Cfg.ServerURL)
+	}
+	return opened, closeDB, nil
+}
+
 func handlerLogin(ctx context.Context, s *state, cmd command) error {
-	if len(cmd.Args) != 1 {
+	fs := flag.NewFlagSet("login", flag.ContinueOnError)
+	serverFlag := fs.String("server", "", "log in to a gator server instead of the local database")
+	passwordFlag := fs.String("password", "", "password for the server (prompted when omitted)")
+	if err := fs.Parse(cmd.Args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
 		return fmt.Errorf("username required to log in")
 	}
 
-	dbUser, err := s.Db.GetUser(ctx, cmd.Args[0])
+	if *serverFlag != "" {
+		return loginRemote(ctx, *serverFlag, fs.Arg(0), *passwordFlag)
+	}
+
+	s, closeDB, err := s.withDB()
+	if err != nil {
+		return err
+	}
+	defer closeDB()
+
+	dbUser, err := s.Db.GetUser(ctx, fs.Arg(0))
 	if err != nil {
 		return fmt.Errorf("user doesn't exist: %v", err)
 	}
@@ -72,6 +103,7 @@ func handlerRegister(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
 	emailFlag := fs.String("email", "", "email for a future server login (optional)")
 	passwordFlag := fs.String("password", "", "password for a future server login (optional)")
+	serverFlag := fs.String("server", "", "register on a gator server instead of the local database (email and password required)")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
 	}
@@ -85,6 +117,16 @@ func handlerRegister(ctx context.Context, s *state, cmd command) error {
 		email = resolveEmail(email, os.Stdin)
 		password = resolvePassword(password)
 	}
+
+	if *serverFlag != "" {
+		return registerRemote(ctx, *serverFlag, username, email, password)
+	}
+
+	s, closeDB, err := s.withDB()
+	if err != nil {
+		return err
+	}
+	defer closeDB()
 
 	passwordHash := ""
 	if password != "" {

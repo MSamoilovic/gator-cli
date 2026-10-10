@@ -92,6 +92,18 @@ func (q *Queries) CreateUserWithCredentials(ctx context.Context, arg CreateUserW
 	return i, err
 }
 
+const deleteAPIToken = `-- name: DeleteAPIToken :execrows
+DELETE FROM api_tokens WHERE token_hash = $1
+`
+
+func (q *Queries) DeleteAPIToken(ctx context.Context, tokenHash string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAPIToken, tokenHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, created_at, updated_at, name, email, password_hash FROM users
 WHERE lower(email) = lower($1)
