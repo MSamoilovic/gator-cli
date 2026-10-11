@@ -115,6 +115,18 @@ Selecting the store: `open()` in `cli.go` builds `remote.New` when `config.Serve
 
 Endpoints deviating from `docs/product-roadmap.md`: unfollow/categorize/follow take a feed **URL** (`DELETE /v1/subscriptions?url=`, `PATCH /v1/subscriptions`, `POST /v1/subscriptions/follow`) because `store.Store` is URL-keyed and a lookup-by-id round trip could not tell "unknown feed" from "not followed"; `DELETE /v1/subscriptions/{feed_id}` exists for `Unfollow`. Errors carry a `code` that `remote.Error.Is` maps back to `store.ErrFeedNotFound`/`ErrNotFollowed`/`ErrNoMoreText`. **`POST /v1/subscriptions` makes the server fetch an arbitrary URL and there is no SSRF guard or rate limit yet — that is Faza 4. Do not expose `serve` to strangers before it lands.**
 
+**The feed catalog is verified against the live network, not just checked for shape.** `internal/catalog/catalog.json` is 54 categories and 424 feeds, embedded in the binary. Three tests guard it: `TestCatalogIsWellFormed` (kebab ids, absolute https, no duplicate URL), `TestEveryCategoryIsWorthBrowsing` (at least 4 feeds — a near-empty category looks broken in `gator discover`), and two network tests gated behind `GATOR_CATALOG_CHECK=1`, which fetch every feed through `rss.FetchFeed` and assert none is unreachable or empty, then compare per-category item links and fail when two feeds in one category overlap by more than 60%.
+
+```bash
+GATOR_CATALOG_CHECK=1 go test ./internal/catalog/ -timeout 10m
+```
+
+**Run that before adding catalog feeds, and after.** Of 301 candidate URLs collected by hand, 65 were dead on arrival and nine more passed a plain `curl` but failed gator's own parser — 8 MB-plus Blogger archives, feeds slower than the 10s `rss.FetchFeed` timeout, and `&nbsp;` in XML. The overlap test is the one that cannot be replaced by reading URLs: it caught `cyclingtips.com` and `velo.outsideonline.com` serving identical items after a rebrand, a blogspot mirror of a blog already listed under its own domain, and two NASA paths with the same content — while correctly allowing `motorsport.com`'s three separate series feeds, which a same-host rule would have rejected.
+
+**`internal/rss` is stricter than other readers, and `encoding/xml` is why.** A bare `&nbsp;` makes `xml.Decoder` fail with `invalid character entity`, which is the single most common malformation in real feeds — four of the candidate URLs above died on it. Nothing substitutes HTML entities before decoding. That is a real gap for non-technical users, who see `XML syntax error on line 758` from `addfeed` and have no way to act on it; it is not the catalog's problem to work around.
+
+**One `User-Agent`, in `internal/useragent`.** Both fetch paths (`rss.FetchFeed` and `article.Fetch`) send `useragent.String`. It must stay a conventional `name/version (+url)` token: the previous value was the bare word `gator`, and WAFs read a single-word agent as an unidentified bot — `locusmag.com` returned 403 to `gator` and 200 to anything with a version or URL in it. The string names the repository, so it lives in one place for the same reason the module path does.
+
 ## Code style
 
 The maintainer is actively working toward **idiomatic Go** — prefer the idiomatic form even when a working alternative exists, and point out non-idiomatic patterns in code you touch.

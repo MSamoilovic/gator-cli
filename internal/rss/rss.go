@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/text"
+	"github.com/MSamoilovic/gator-cli/internal/useragent"
 
 	"golang.org/x/text/encoding/htmlindex"
 )
@@ -171,7 +172,7 @@ func FetchFeed(ctx context.Context, src Source) (*RSSFeed, Source, error) {
 	if err != nil {
 		return nil, src, err
 	}
-	req.Header.Set("User-Agent", "gator")
+	req.Header.Set("User-Agent", useragent.String)
 	if src.ETag != "" {
 		req.Header.Set("If-None-Match", src.ETag)
 	}

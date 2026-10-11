@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/text"
+	"github.com/MSamoilovic/gator-cli/internal/useragent"
 
 	readability "github.com/go-shiori/go-readability"
 )
@@ -18,7 +19,6 @@ import (
 const (
 	fetchTimeout = 20 * time.Second
 	maxBody      = 8 << 20
-	userAgent    = "gator"
 )
 
 var ErrBodyTooLarge = errors.New("response body too large")
@@ -53,7 +53,7 @@ func Fetch(ctx context.Context, pageURL string) (Article, error) {
 	if err != nil {
 		return Article{}, err
 	}
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", useragent.String)
 
 	client := http.Client{Timeout: fetchTimeout}
 	res, err := client.Do(req)

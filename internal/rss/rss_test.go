@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/MSamoilovic/gator-cli/internal/useragent"
 )
 
 const sampleFeed = `<?xml version="1.0" encoding="UTF-8"?>
@@ -42,8 +44,8 @@ func fetchCtx(ctx context.Context, url string) (*RSSFeed, error) {
 func serve(t *testing.T, status int, body string) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("User-Agent"); got != "gator" {
-			t.Errorf("User-Agent = %q, want %q", got, "gator")
+		if got := r.Header.Get("User-Agent"); got != useragent.String {
+			t.Errorf("User-Agent = %q, want %q", got, useragent.String)
 		}
 		w.WriteHeader(status)
 		w.Write([]byte(body))

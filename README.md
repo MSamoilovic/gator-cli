@@ -99,9 +99,52 @@ gator login <username>      # log in as an existing user
 gator users                 # list all users
 ```
 
+### Using a server (extra)
+
+By default gator talks to your own PostgreSQL. It can also talk to a gator
+server, so the same feeds, folders, bookmarks and read markers follow you
+between machines.
+
+On the machine that holds the database:
+
+```bash
+gator serve                       # listen on 127.0.0.1:8080
+gator serve --addr 0.0.0.0:8080   # ...or on another address
+gator agg 15m                     # the server does not fetch feeds by itself; keep this running
+```
+
+`serve` speaks plain HTTP and does no TLS of its own. Put a reverse proxy such
+as Caddy in front of it for anything that leaves the machine.
+
+On any other machine:
+
+```bash
+gator register --server https://gator.example.com --email you@example.com <username>
+gator login --server https://gator.example.com <username-or-email>
+gator logout                      # forget the server and go back to your own database
+```
+
+Both prompt for a password (at least 8 characters) unless you pass
+`--password`. Flags go before the username. The token is saved in
+`~/.gatorcredentials.json` with mode `0600`, and `gator` refuses to send a
+password over plain `http://` unless the server is on the loopback address.
+
+Once logged in, `tui`, `browse`, `search`, `bookmark`, `follow`, `addfeed`,
+`import`, `export`, `stats` and the rest work as before. Commands that operate
+on the database itself — `agg`, `supervise`, `prune`, `feeds`, `users`,
+`migrate`, `reset` and `serve` — are refused until you `logout`.
+
+> **Not ready for strangers.** `addfeed` makes the server fetch whatever URL it
+> is given, and there is no SSRF protection or rate limit yet. Run `serve` for
+> yourself and people you trust, not on the open internet.
+
 ### Finding feeds to follow (extra)
 
-Don't know any RSS URLs? The binary ships with a curated catalog:
+Don't know any RSS URLs? The binary ships with a curated catalog — 54 topics
+and 424 feeds, every one of them fetched and parsed before it was added. It is
+not only a developer catalog: alongside Go, Python, web dev and security there
+are health, personal finance, history, longform essays, books, travel, design,
+photography, architecture, cars, football, cooking and two dozen more.
 
 ```bash
 gator discover                      # interactive picker: space to pick, ⏎ to follow
