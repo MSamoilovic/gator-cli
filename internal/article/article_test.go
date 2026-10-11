@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/MSamoilovic/gator-cli/internal/useragent"
 )
 
 const page = `<!doctype html>
@@ -98,8 +100,8 @@ func TestExtractRejectsABadURL(t *testing.T) {
 
 func TestFetch(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("User-Agent"); got != userAgent {
-			t.Errorf("User-Agent = %q, want %q", got, userAgent)
+		if got := r.Header.Get("User-Agent"); got != useragent.String {
+			t.Errorf("User-Agent = %q, want %q", got, useragent.String)
 		}
 		w.Write([]byte(page))
 	}))

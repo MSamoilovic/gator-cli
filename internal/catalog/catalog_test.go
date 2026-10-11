@@ -9,6 +9,21 @@ import (
 
 var kebab = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
+func TestEveryCategoryIsWorthBrowsing(t *testing.T) {
+	cats, err := Categories()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const minFeeds = 4
+	for _, c := range cats {
+		if len(c.Feeds) < minFeeds {
+			t.Errorf("%s has %d feeds, want at least %d — a near-empty category looks broken to a first-time user",
+				c.ID, len(c.Feeds), minFeeds)
+		}
+	}
+}
+
 func TestCatalogIsWellFormed(t *testing.T) {
 	cats, err := Categories()
 	if err != nil {
