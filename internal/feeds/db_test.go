@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -266,5 +267,56 @@ func TestScrapeAllPicksUpEveryFeed(t *testing.T) {
 	}
 	if seen != 2 {
 		t.Errorf("onResult fired %d times, want 2", seen)
+	}
+}
+
+func TestScrapeAllBoundsHowManyFeedsItFetchesAtOnce(t *testing.T) {
+	db := testdb.Open(t)
+	user := db.User(t, "alice")
+
+	var (
+		mu       sync.Mutex
+		inFlight int
+		peak     int
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		inFlight++
+		if inFlight > peak {
+			peak = inFlight
+		}
+		mu.Unlock()
+
+		time.Sleep(50 * time.Millisecond)
+
+		mu.Lock()
+		inFlight--
+		mu.Unlock()
+
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprint(w, liveFeed)
+	}))
+	t.Cleanup(srv.Close)
+
+	const feeds = 40
+	for i := range feeds {
+		db.Feed(t, user.ID, fmt.Sprintf("Feed %d", i), fmt.Sprintf("%s/feed/%d", srv.URL, i))
+	}
+
+	results, err := ScrapeAll(t.Context(), db.Queries, nil)
+	if err != nil {
+		t.Fatalf("ScrapeAll: %v", err)
+	}
+	if len(results) != feeds {
+		t.Fatalf("ScrapeAll returned %d results, want %d", len(results), feeds)
+	}
+
+	mu.Lock()
+	got := peak
+	mu.Unlock()
+
+	if got > maxParallelScrapes {
+		t.Errorf("ScrapeAll had %d requests in flight at once, want at most %d — an unbounded fan-out "+
+			"makes healthy feeds time out and records the failure against them", got, maxParallelScrapes)
 	}
 }
