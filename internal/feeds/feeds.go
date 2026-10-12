@@ -105,7 +105,10 @@ type AddResult struct {
 	Err     error
 }
 
-const maxParallelAdds = 8
+const (
+	maxParallelAdds    = 8
+	maxParallelScrapes = 8
+)
 
 func AddMany(ctx context.Context, q *database.Queries, userID uuid.UUID, entries []Entry, onResult func(AddResult)) []AddResult {
 	return addAll(ctx, entries, maxParallelAdds, onResult, func(ctx context.Context, e Entry) AddResult {
@@ -174,6 +177,7 @@ func ScrapeAll(ctx context.Context, q *database.Queries, onResult func(Result)) 
 	var (
 		mu      sync.Mutex
 		results = make([]Result, 0, len(feeds))
+		sem     = make(chan struct{}, maxParallelScrapes)
 		wg      sync.WaitGroup
 	)
 
@@ -181,6 +185,10 @@ func ScrapeAll(ctx context.Context, q *database.Queries, onResult func(Result)) 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
 			res := Scrape(ctx, q, feed)
 
 			mu.Lock()
