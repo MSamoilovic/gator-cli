@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/testdb"
+
+	"github.com/google/uuid"
 )
 
 const liveFeed = `<?xml version="1.0" encoding="UTF-8"?>
@@ -233,7 +235,7 @@ func TestPruneDeletesOnlyPostsPastTheRetention(t *testing.T) {
 	db.Post(t, feed.ID, "Ancient", "https://go.test/old", time.Now().Add(-100*time.Hour))
 	db.Post(t, feed.ID, "Recent", "https://go.test/new", time.Now().Add(-1*time.Hour))
 
-	n, err := Prune(t.Context(), db.Queries, DefaultRetention)
+	n, err := Prune(t.Context(), db.Queries, DefaultRetention, 0)
 	if err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
@@ -318,5 +320,92 @@ func TestScrapeAllBoundsHowManyFeedsItFetchesAtOnce(t *testing.T) {
 	if got > maxParallelScrapes {
 		t.Errorf("ScrapeAll had %d requests in flight at once, want at most %d — an unbounded fan-out "+
 			"makes healthy feeds time out and records the failure against them", got, maxParallelScrapes)
+	}
+}
+
+func TestPruneKeepsTheNewestPerFeedWhateverTheirAge(t *testing.T) {
+	db := testdb.Open(t)
+	user := db.User(t, "alice")
+	feed := db.Feed(t, user.ID, "Go Blog", "https://go.test/rss")
+
+	const posts = 15
+	for i := range posts {
+		db.Post(t, feed.ID,
+			fmt.Sprintf("Post %02d", i),
+			fmt.Sprintf("https://go.test/%d", i),
+			time.Now().Add(-time.Duration(100+i)*time.Hour))
+	}
+
+	n, err := Prune(t.Context(), db.Queries, DefaultRetention, 10)
+	if err != nil {
+		t.Fatalf("Prune: %v", err)
+	}
+	if n != posts-10 {
+		t.Errorf("Prune deleted %d posts, want %d — every post is past the retention, so only the newest 10 should survive", n, posts-10)
+	}
+	if got := db.Count(t, "SELECT count(*) FROM posts"); got != 10 {
+		t.Errorf("%d posts left, want 10", got)
+	}
+
+	if db.Count(t, "SELECT count(*) FROM posts WHERE title = 'Post 00'") != 1 {
+		t.Error("Prune deleted the newest post of a feed whose every post is past the retention")
+	}
+	if db.Count(t, "SELECT count(*) FROM posts WHERE title = 'Post 14'") != 0 {
+		t.Error("Prune kept the oldest post, which is past both the retention and the per-feed window")
+	}
+}
+
+func TestPruneCountsTheKeepWindowPerFeedNotGlobally(t *testing.T) {
+	db := testdb.Open(t)
+	user := db.User(t, "alice")
+
+	for f := range 2 {
+		feed := db.Feed(t, user.ID,
+			fmt.Sprintf("Feed %d", f),
+			fmt.Sprintf("https://feed%d.test/rss", f))
+		for i := range 8 {
+			db.Post(t, feed.ID,
+				fmt.Sprintf("f%d post %d", f, i),
+				fmt.Sprintf("https://feed%d.test/%d", f, i),
+				time.Now().Add(-time.Duration(100+i)*time.Hour))
+		}
+	}
+
+	n, err := Prune(t.Context(), db.Queries, DefaultRetention, 5)
+	if err != nil {
+		t.Fatalf("Prune: %v", err)
+	}
+	if n != 6 {
+		t.Errorf("Prune deleted %d posts, want 6 — three from each of the two feeds", n)
+	}
+	for f := range 2 {
+		got := db.Count(t, fmt.Sprintf("SELECT count(*) FROM posts WHERE title LIKE 'f%d %%'", f))
+		if got != 5 {
+			t.Errorf("feed %d has %d posts left, want 5 — the window is per feed", f, got)
+		}
+	}
+}
+
+func TestPruneStillProtectsABookmarkBeyondTheKeepWindow(t *testing.T) {
+	db := testdb.Open(t)
+	user := db.User(t, "alice")
+	feed := db.Feed(t, user.ID, "Go Blog", "https://go.test/rss")
+
+	var oldest uuid.UUID
+	for i := range 12 {
+		p := db.Post(t, feed.ID,
+			fmt.Sprintf("Post %02d", i),
+			fmt.Sprintf("https://go.test/%d", i),
+			time.Now().Add(-time.Duration(100+i)*time.Hour))
+		oldest = p.ID
+	}
+	db.Bookmark(t, user.ID, oldest)
+
+	if _, err := Prune(t.Context(), db.Queries, DefaultRetention, 5); err != nil {
+		t.Fatalf("Prune: %v", err)
+	}
+
+	if db.Count(t, "SELECT count(*) FROM posts WHERE title = 'Post 11'") != 1 {
+		t.Error("Prune deleted a bookmarked post that fell outside the per-feed window")
 	}
 }

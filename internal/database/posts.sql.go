@@ -217,15 +217,29 @@ func (q *Queries) GetPostsForUserFiltered(ctx context.Context, arg GetPostsForUs
 }
 
 const prunePosts = `-- name: PrunePosts :execrows
+WITH ranked AS (
+    SELECT id,
+           row_number() OVER (
+               PARTITION BY feed_id
+               ORDER BY COALESCE(published_at, created_at) DESC, id
+           ) AS rank
+    FROM posts
+)
 DELETE FROM posts
 WHERE COALESCE(published_at, created_at) < $1::timestamp
+  AND id IN (SELECT id FROM ranked WHERE rank > $2::int)
   AND NOT EXISTS (
     SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id
   )
 `
 
-func (q *Queries) PrunePosts(ctx context.Context, before time.Time) (int64, error) {
-	result, err := q.db.ExecContext(ctx, prunePosts, before)
+type PrunePostsParams struct {
+	Before      time.Time
+	KeepPerFeed int32
+}
+
+func (q *Queries) PrunePosts(ctx context.Context, arg PrunePostsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, prunePosts, arg.Before, arg.KeepPerFeed)
 	if err != nil {
 		return 0, err
 	}

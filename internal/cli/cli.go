@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
+	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/config"
 	"github.com/MSamoilovic/gator-cli/internal/credentials"
@@ -160,11 +161,22 @@ func open(schema fs.FS) (*state, func() error, error) {
 	}, db.Close, nil
 }
 
+const (
+	maxOpenConns    = 20
+	maxIdleConns    = 10
+	connMaxLifetime = 5 * time.Minute
+)
+
 func connect(dbURL string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
+
+	db.SetMaxOpenConns(maxOpenConns)
+	db.SetMaxIdleConns(maxIdleConns)
+	db.SetConnMaxLifetime(connMaxLifetime)
+
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("connecting to database: %w", err)
