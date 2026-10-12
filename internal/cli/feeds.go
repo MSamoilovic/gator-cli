@@ -213,11 +213,12 @@ func scrapeFeeds(ctx context.Context, s *state) {
 		fmt.Fprintln(os.Stderr, "error:", err)
 	}
 
-	switch n, err := feeds.Prune(ctx, s.Db, feeds.DefaultRetention); {
+	switch n, err := feeds.Prune(ctx, s.Db, feeds.DefaultRetention, feeds.DefaultKeepPerFeed); {
 	case err != nil:
 		fmt.Fprintln(os.Stderr, "error:", err)
 	case n > 0:
-		fmt.Printf("Deleted %d posts older than %s\n", n, feeds.DefaultRetention)
+		fmt.Printf("Deleted %d posts older than %s, keeping the newest %d per feed\n",
+			n, feeds.DefaultRetention, feeds.DefaultKeepPerFeed)
 	}
 }
 
