@@ -37,7 +37,6 @@ func New(q *database.Queries, logger *log.Logger) http.Handler {
 	mux.Handle("GET /v1/posts", s.authed(s.posts))
 	mux.Handle("GET /v1/posts/bookmarked", s.authed(s.bookmarkedPosts))
 	mux.Handle("GET /v1/posts/bookmarked/ids", s.authed(s.bookmarkedIDs))
-	mux.Handle("GET /v1/posts/read", s.authed(s.readPosts))
 	mux.Handle("GET /v1/posts/read/ids", s.authed(s.readIDs))
 	mux.Handle("POST /v1/posts/read", s.authed(s.markAllRead))
 	mux.Handle("GET /v1/posts/by-url", s.authed(s.postByURL))

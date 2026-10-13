@@ -168,9 +168,7 @@ func (s *Store) Posts(ctx context.Context, q store.PostQuery) ([]store.Post, err
 	set("feed_name", q.FeedName)
 	set("q", q.Query)
 	set("sort", q.SortDir)
-	if q.UnreadOnly {
-		set("unread", "true")
-	}
+	set("read", string(q.Read))
 	if !q.Since.IsZero() {
 		set("since", q.Since.UTC().Format(time.RFC3339Nano))
 	}
@@ -192,10 +190,6 @@ func (s *Store) posts(ctx context.Context, path string, query url.Values) ([]sto
 
 func (s *Store) BookmarkedPosts(ctx context.Context) ([]store.Post, error) {
 	return s.posts(ctx, "/v1/posts/bookmarked", nil)
-}
-
-func (s *Store) ReadPosts(ctx context.Context) ([]store.Post, error) {
-	return s.posts(ctx, "/v1/posts/read", nil)
 }
 
 func (s *Store) PostByURL(ctx context.Context, postURL string) (store.Post, error) {

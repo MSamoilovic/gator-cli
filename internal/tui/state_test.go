@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/MSamoilovic/gator-cli/internal/store"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -137,13 +138,13 @@ func TestSavedStateIsApplied(t *testing.T) {
 	if f.sortDir != sortAsc {
 		t.Errorf("sortDir = %q, want %q", f.sortDir, sortAsc)
 	}
-	if !f.unreadOnly {
-		t.Error("saved unread filter was not applied")
+	if f.read != store.ReadUnread {
+		t.Errorf("saved unread filter came back as %q", f.read)
 	}
 	if f.since.IsZero() {
 		t.Error("saved time range was not applied")
 	}
-	if got, want := m.list.Title, "BBC Sport · 7d"; got != want {
+	if got, want := m.list.Title, "BBC Sport · unread · 7d"; got != want {
 		t.Errorf("title = %q, want %q", got, want)
 	}
 }
@@ -271,5 +272,22 @@ func TestDetailHeaderHeightIsStableWithScroll(t *testing.T) {
 		if n := strings.Count(got, "\n"); n != detailChromeHeight-2 {
 			t.Errorf("scroll %v: header = %d newlines, want %d", pct, n, detailChromeHeight-2)
 		}
+	}
+}
+
+func TestSnapshotDoesNotRememberTheReadOnlyView(t *testing.T) {
+	m := loaded(t, fullPage("a"))
+	m, _ = step(t, m, press("H"))
+
+	if m.filter.read != store.ReadOnly {
+		t.Fatalf("H left the read state at %q", m.filter.read)
+	}
+	if got := m.snapshot(); got.UnreadOnly {
+		t.Error("the read-only view was persisted as UnreadOnly — only the unread filter is remembered")
+	}
+
+	reopened, _ := step(t, newModel(t.Context(), nil, testUser(), m.snapshot()), tea.WindowSizeMsg{Width: 80, Height: 24})
+	if reopened.filter.read != store.ReadAny {
+		t.Errorf("reopening restored the read state as %q, want all", reopened.filter.read)
 	}
 }

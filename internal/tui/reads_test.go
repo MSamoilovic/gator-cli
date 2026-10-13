@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/MSamoilovic/gator-cli/internal/store"
 	"strings"
 	"testing"
 
@@ -160,8 +161,8 @@ func TestUnreadOnlyFilterToggles(t *testing.T) {
 	m := loaded(t, fullPage("a"))
 
 	m, cmd := step(t, m, press("U"))
-	if !m.filter.unreadOnly {
-		t.Fatal("U did not turn the unread filter on")
+	if m.filter.read != store.ReadUnread {
+		t.Fatalf("U left the read state at %q, want unread", m.filter.read)
 	}
 	if cmd == nil {
 		t.Error("U did not reload")
@@ -174,8 +175,8 @@ func TestUnreadOnlyFilterToggles(t *testing.T) {
 	}
 
 	m, _ = step(t, m, press("U"))
-	if m.filter.unreadOnly {
-		t.Error("U did not turn the unread filter off")
+	if m.filter.read != store.ReadAny {
+		t.Errorf("a second U left the read state at %q, want all", m.filter.read)
 	}
 	if !strings.Contains(m.status, "all posts") {
 		t.Errorf("status = %q, want it to name the filter", m.status)
@@ -187,8 +188,8 @@ func TestUnreadFilterRefusedInDerivedViews(t *testing.T) {
 
 	m, _ = step(t, m, press("U"))
 
-	if m.filter.unreadOnly {
-		t.Error("unread filter turned on inside the bookmarks view")
+	if m.filter.read != store.ReadAny {
+		t.Errorf("the read filter changed to %q inside the bookmarks view", m.filter.read)
 	}
 	if !strings.Contains(m.status, "feed posts only") {
 		t.Errorf("status = %q, want an explanation", m.status)
@@ -204,7 +205,7 @@ func TestMarkAllReadReloadsUnderUnreadFilter(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("marking all read did not refresh the unread-only list")
 	}
-	if !m.filter.unreadOnly {
+	if m.filter.read != store.ReadUnread {
 		t.Error("unread filter was lost")
 	}
 }
@@ -221,5 +222,46 @@ func TestReadsLoadedMarksExistingItems(t *testing.T) {
 
 	if got := m.list.Items()[0].(postItem).Title(); strings.Contains(got, "●") {
 		t.Errorf("title = %q, want the dot gone once reads loaded", got)
+	}
+}
+
+func TestReadOnlyViewIsPagedLikeTheMainList(t *testing.T) {
+	m, f := backed(t, "a")
+	m, _ = step(t, m, postsLoadedMsg{posts: f.AllPosts, paged: true})
+
+	m, _ = step(t, m, press("H"))
+	if m.filter.read != store.ReadOnly {
+		t.Fatalf("H left the read state at %q, want read", m.filter.read)
+	}
+	if m.source.derived() {
+		t.Error("the read view is still a derived source — it cannot page")
+	}
+
+	before := len(f.Asked)
+	m.offset = 0
+	m.hasMore = true
+	if cmd := m.maybeLoadMore(); cmd != nil {
+		cmd()
+	}
+	if len(f.Asked) == before {
+		return
+	}
+	if got := f.Asked[len(f.Asked)-1]; got.Read != store.ReadOnly {
+		t.Errorf("paging the read view asked for %q, want read", got.Read)
+	}
+}
+
+func TestReadAndUnreadFiltersAreOneAxis(t *testing.T) {
+	m := loaded(t, fullPage("a"))
+
+	m, _ = step(t, m, press("U"))
+	m, _ = step(t, m, press("H"))
+	if m.filter.read != store.ReadOnly {
+		t.Errorf("H after U gave %q, want read — the two keys share one axis", m.filter.read)
+	}
+
+	m, _ = step(t, m, press("H"))
+	if m.filter.read != store.ReadAny {
+		t.Errorf("a second H gave %q, want all", m.filter.read)
 	}
 }

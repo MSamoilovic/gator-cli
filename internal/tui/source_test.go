@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/MSamoilovic/gator-cli/internal/store"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ func TestOnlyTheFeedsSourceIsNotDerived(t *testing.T) {
 	if sourceFeeds.derived() {
 		t.Error("sourceFeeds reports itself as derived, so sorting and filtering would be refused")
 	}
-	for _, s := range []listSource{sourceBookmarks, sourceRead, sourceSearch} {
+	for _, s := range []listSource{sourceBookmarks, sourceSearch} {
 		if !s.derived() {
 			t.Errorf("source %d is not derived, so paging and sorting would run against the wrong query", s)
 		}
@@ -32,18 +33,26 @@ func TestTheListHasExactlyOneSourceAtATime(t *testing.T) {
 	}
 
 	m, _ = step(t, m, press("H"))
-	if m.source != sourceRead {
-		t.Errorf("after H the source is %d, want sourceRead — B and H cannot both hold", m.source)
+	if m.source != sourceBookmarks {
+		t.Errorf("H changed the source to %d — the read view is a filter now, not a source", m.source)
+	}
+	if m.filter.read != store.ReadAny {
+		t.Errorf("H inside the bookmarks view set the read filter to %q, want it refused", m.filter.read)
 	}
 
 	m, _ = step(t, m, press("B"))
-	if m.source != sourceBookmarks {
-		t.Errorf("after B from the read view the source is %d, want sourceBookmarks", m.source)
+	if m.source != sourceFeeds {
+		t.Errorf("a second B left the source at %d, want sourceFeeds", m.source)
+	}
+
+	m, _ = step(t, m, press("H"))
+	if m.source != sourceFeeds || m.filter.read != store.ReadOnly {
+		t.Errorf("H from the feeds view gave source %d and read %q, want sourceFeeds and read", m.source, m.filter.read)
 	}
 }
 
 func TestPressingTheSameViewKeyTwiceReturnsToFeeds(t *testing.T) {
-	for _, key := range []string{"B", "H"} {
+	for _, key := range []string{"B"} {
 		m := loaded(t, fullPage("a"))
 
 		m, _ = step(t, m, press(key))
@@ -122,7 +131,7 @@ func TestParamsLeavesNoWindowAlone(t *testing.T) {
 
 func TestParamsCarriesEveryFilterField(t *testing.T) {
 	id := uuid.New()
-	f := listFilter{feedID: id, sortDir: sortAsc, unreadOnly: true}
+	f := listFilter{feedID: id, sortDir: sortAsc, read: store.ReadUnread}
 
 	got := f.params()
 	if got.feedID != id {
@@ -131,13 +140,13 @@ func TestParamsCarriesEveryFilterField(t *testing.T) {
 	if got.sortDir != sortAsc {
 		t.Errorf("sortDir = %q, want %q", got.sortDir, sortAsc)
 	}
-	if !got.unreadOnly {
-		t.Error("unreadOnly was dropped on the way to the query")
+	if got.read != store.ReadUnread {
+		t.Errorf("read state = %q, want it carried to the query", got.read)
 	}
 }
 
 func TestDerivedViewsStillRefuseSortingAndTimeRange(t *testing.T) {
-	for _, key := range []string{"B", "H"} {
+	for _, key := range []string{"B"} {
 		m := loaded(t, fullPage("a"))
 		m, _ = step(t, m, press(key))
 

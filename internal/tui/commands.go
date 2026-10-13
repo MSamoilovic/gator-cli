@@ -74,21 +74,21 @@ const (
 )
 
 type postFilter struct {
-	feedID     uuid.UUID
-	sortDir    string
-	unreadOnly bool
-	since      time.Time
+	feedID  uuid.UUID
+	sortDir string
+	read    store.ReadState
+	since   time.Time
 }
 
 func loadPosts(ctx context.Context, st store.Store, f postFilter, offset int32) tea.Cmd {
 	return func() tea.Msg {
 		posts, err := st.Posts(ctx, store.PostQuery{
-			FeedID:     f.feedID,
-			SortDir:    f.sortDir,
-			UnreadOnly: f.unreadOnly,
-			Since:      f.since,
-			Limit:      pageSize,
-			Offset:     offset,
+			FeedID:  f.feedID,
+			SortDir: f.sortDir,
+			Read:    f.read,
+			Since:   f.since,
+			Limit:   pageSize,
+			Offset:  offset,
 		})
 		if err != nil {
 			return errMsg{err}
@@ -134,16 +134,6 @@ func loadBookmarks(ctx context.Context, st store.Store) tea.Cmd {
 			return errMsg{err}
 		}
 		return bookmarksLoadedMsg{postIDs: ids}
-	}
-}
-
-func loadReadPosts(ctx context.Context, st store.Store) tea.Cmd {
-	return func() tea.Msg {
-		posts, err := st.ReadPosts(ctx)
-		if err != nil {
-			return errMsg{err}
-		}
-		return postsLoadedMsg{posts: posts}
 	}
 }
 

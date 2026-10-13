@@ -84,6 +84,7 @@ func handlerBrowse(ctx context.Context, s *state, cmd command, user store.User) 
 	page := fs.Int("page", 1, "page of results, 1-based")
 	feed := fs.String("feed", "", "filter by feed name (substring match)")
 	sortDir := fs.String("sort", "desc", "sort by publish date: asc or desc")
+	read := fs.String("read", "all", "which posts to show: all, unread or read")
 	noTUI := fs.Bool("no-tui", false, "print posts instead of opening the TUI")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
@@ -91,6 +92,10 @@ func handlerBrowse(ctx context.Context, s *state, cmd command, user store.User) 
 
 	if *sortDir != "asc" && *sortDir != "desc" {
 		return fmt.Errorf("invalid sort %q: use 'asc' or 'desc'", *sortDir)
+	}
+	readState := store.ReadState(*read)
+	if !readState.Valid() {
+		return fmt.Errorf("invalid read %q: use 'all', 'unread' or 'read'", *read)
 	}
 	if *limit < 1 {
 		return fmt.Errorf("invalid limit %d: must be at least 1", *limit)
@@ -106,6 +111,7 @@ func handlerBrowse(ctx context.Context, s *state, cmd command, user store.User) 
 	posts, err := s.Store.Posts(ctx, store.PostQuery{
 		FeedName: *feed,
 		SortDir:  *sortDir,
+		Read:     readState,
 		Limit:    int32(*limit),
 		Offset:   int32((*page - 1) * *limit),
 	})

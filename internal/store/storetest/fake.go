@@ -100,8 +100,15 @@ func (f *Fake) Posts(_ context.Context, q store.PostQuery) ([]store.Post, error)
 		if q.FeedID != uuid.Nil && p.FeedID != q.FeedID {
 			continue
 		}
-		if q.UnreadOnly && f.Read[p.ID] {
-			continue
+		switch q.Read {
+		case store.ReadUnread:
+			if f.Read[p.ID] {
+				continue
+			}
+		case store.ReadOnly:
+			if !f.Read[p.ID] {
+				continue
+			}
 		}
 		out = append(out, p)
 	}
@@ -121,13 +128,6 @@ func (f *Fake) BookmarkedPosts(context.Context) ([]store.Post, error) {
 	defer f.mu.Unlock()
 
 	return f.selected(f.Bookmarked)
-}
-
-func (f *Fake) ReadPosts(context.Context) ([]store.Post, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.selected(f.Read)
 }
 
 func (f *Fake) selected(set map[uuid.UUID]bool) ([]store.Post, error) {

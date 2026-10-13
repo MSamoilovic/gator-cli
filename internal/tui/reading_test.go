@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/MSamoilovic/gator-cli/internal/store"
 	"strings"
 	"testing"
 	"time"
@@ -104,8 +105,8 @@ func TestUnreadFilterAndTimeRangeCombine(t *testing.T) {
 	m, _ = step(t, m, press("t"))
 
 	f := m.filter.params()
-	if !f.unreadOnly {
-		t.Error("unread filter was lost")
+	if f.read != store.ReadUnread {
+		t.Errorf("unread filter was lost, read state is %q", f.read)
 	}
 	if f.since.IsZero() {
 		t.Error("time range was lost")

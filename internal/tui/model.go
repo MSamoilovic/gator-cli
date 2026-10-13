@@ -59,26 +59,25 @@ type listSource int
 const (
 	sourceFeeds listSource = iota
 	sourceBookmarks
-	sourceRead
 	sourceSearch
 )
 
 func (s listSource) derived() bool { return s != sourceFeeds }
 
 type listFilter struct {
-	feedID     uuid.UUID
-	feedName   string
-	query      string
-	sortDir    string
-	since      time.Duration
-	unreadOnly bool
+	feedID   uuid.UUID
+	feedName string
+	query    string
+	sortDir  string
+	since    time.Duration
+	read     store.ReadState
 }
 
 func (f listFilter) params() postFilter {
 	p := postFilter{
-		feedID:     f.feedID,
-		sortDir:    f.sortDir,
-		unreadOnly: f.unreadOnly,
+		feedID:  f.feedID,
+		sortDir: f.sortDir,
+		read:    f.read,
 	}
 	if f.since > 0 {
 		p.since = time.Now().Add(-f.since)
@@ -187,11 +186,11 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 		picked:      make(map[string]bool),
 		expanded:    expandedSet(saved.Expanded),
 		filter: listFilter{
-			feedID:     saved.feedUUID(),
-			feedName:   saved.FeedName,
-			sortDir:    saved.SortDir,
-			since:      saved.since(),
-			unreadOnly: saved.UnreadOnly,
+			feedID:   saved.feedUUID(),
+			feedName: saved.FeedName,
+			sortDir:  saved.SortDir,
+			since:    saved.since(),
+			read:     saved.readState(),
 		},
 		loading: true,
 		hasMore: true,

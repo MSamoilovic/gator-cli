@@ -45,12 +45,9 @@ func postQuery(r *http.Request) (store.PostQuery, error) {
 		}
 		q.FeedID = id
 	}
-	if raw := v.Get("unread"); raw != "" {
-		b, err := strconv.ParseBool(raw)
-		if err != nil {
-			return q, errors.New("unread must be true or false")
-		}
-		q.UnreadOnly = b
+	q.Read = store.ReadState(v.Get("read"))
+	if !q.Read.Valid() {
+		return q, errors.New("read must be all, unread or read")
 	}
 	if raw := v.Get("since"); raw != "" {
 		t, err := time.Parse(time.RFC3339Nano, raw)
@@ -88,15 +85,6 @@ func intParam(raw, name string) (int32, error) {
 
 func (s *Server) bookmarkedPosts(w http.ResponseWriter, r *http.Request, st store.Store) {
 	posts, err := st.BookmarkedPosts(r.Context())
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, wire.Posts{Posts: wire.FromPosts(posts)})
-}
-
-func (s *Server) readPosts(w http.ResponseWriter, r *http.Request, st store.Store) {
-	posts, err := st.ReadPosts(r.Context())
 	if err != nil {
 		s.fail(w, r, err)
 		return

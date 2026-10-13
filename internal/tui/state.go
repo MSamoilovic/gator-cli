@@ -2,6 +2,7 @@ package tui
 
 import (
 	"encoding/json"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 	"os"
 	"path/filepath"
 	"sort"
@@ -90,6 +91,13 @@ func (s uiState) feedUUID() uuid.UUID {
 	return id
 }
 
+func (s uiState) readState() store.ReadState {
+	if s.UnreadOnly {
+		return store.ReadUnread
+	}
+	return store.ReadAny
+}
+
 func (s uiState) since() time.Duration {
 	return time.Duration(s.SinceHours) * time.Hour
 }
@@ -97,7 +105,7 @@ func (s uiState) since() time.Duration {
 func (m model) snapshot() uiState {
 	s := uiState{
 		SortDir:    m.filter.sortDir,
-		UnreadOnly: m.filter.unreadOnly,
+		UnreadOnly: m.filter.read == store.ReadUnread,
 		SinceHours: int(m.filter.since / time.Hour),
 	}
 	if m.filter.feedID != uuid.Nil {

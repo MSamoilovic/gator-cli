@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/MSamoilovic/gator-cli/internal/store"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
 )
@@ -23,11 +24,12 @@ func (m model) focusFeedPanel() (tea.Model, tea.Cmd) {
 }
 
 func (m model) leaveDerivedView() (tea.Model, tea.Cmd) {
-	if !m.inDerivedView() {
+	if !m.inDerivedView() && m.filter.read == store.ReadAny {
 		return m, nil
 	}
 	m.source = sourceFeeds
 	m.filter.query = ""
+	m.filter.read = store.ReadAny
 	m.setPostsTitle()
 	return m, m.startLoad()
 }
@@ -50,7 +52,7 @@ func (m model) toggleBookmarksView() (tea.Model, tea.Cmd) {
 }
 
 func (m model) toggleReadView() (tea.Model, tea.Cmd) {
-	return m.switchSource(sourceRead)
+	return m.setReadState(store.ReadOnly, "Showing read posts")
 }
 
 func (m model) switchSource(want listSource) (tea.Model, tea.Cmd) {
@@ -98,11 +100,21 @@ func (m model) toggleUnreadOnly() (tea.Model, tea.Cmd) {
 		return m.refuseDerived("Unread filter")
 	}
 
-	m.filter.unreadOnly = !m.filter.unreadOnly
-	label := "Showing all posts"
-	if m.filter.unreadOnly {
-		label = "Showing unread only"
+	return m.setReadState(store.ReadUnread, "Showing unread only")
+}
+
+func (m model) setReadState(want store.ReadState, label string) (tea.Model, tea.Cmd) {
+	if m.inDerivedView() {
+		return m.refuseDerived("Read filter")
 	}
+
+	if m.filter.read == want {
+		m.filter.read = store.ReadAny
+		label = "Showing all posts"
+	} else {
+		m.filter.read = want
+	}
+	m.setPostsTitle()
 	return m.statusAndReload(label)
 }
 
