@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 
 	"github.com/MSamoilovic/gator-cli/internal/database"
 
@@ -67,7 +68,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.withStatus("Nothing to mark")
 		}
 		next, cmd := m.withStatus(fmt.Sprintf("Marked %d posts read", msg.count))
-		if next.filter.unreadOnly {
+		if next.filter.read != store.ReadAny {
 			return next, tea.Batch(cmd, next.startLoad())
 		}
 		return next, cmd

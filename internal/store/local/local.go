@@ -72,7 +72,7 @@ func (s *Store) Posts(ctx context.Context, q store.PostQuery) ([]store.Post, err
 		FeedID:     q.FeedID,
 		FeedName:   q.FeedName,
 		SortDir:    q.SortDir,
-		UnreadOnly: q.UnreadOnly,
+		ReadFilter: string(q.Read),
 		Since:      q.Since,
 		PostLimit:  q.Limit,
 		PostOffset: q.Offset,
@@ -85,14 +85,6 @@ func (s *Store) BookmarkedPosts(ctx context.Context) ([]store.Post, error) {
 		return nil, err
 	}
 	return s.q.GetBookmarksForUser(ctx, user.ID)
-}
-
-func (s *Store) ReadPosts(ctx context.Context) ([]store.Post, error) {
-	user, err := s.resolve(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.q.GetReadPostsForUser(ctx, user.ID)
 }
 
 func (s *Store) PostByURL(ctx context.Context, url string) (store.Post, error) {

@@ -3,6 +3,8 @@ package tui
 import (
 	"time"
 
+	"github.com/MSamoilovic/gator-cli/internal/store"
+
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -21,8 +23,6 @@ func (m *model) startLoad() tea.Cmd {
 	switch m.source {
 	case sourceBookmarks:
 		return loadBookmarkedPosts(m.ctx, m.store)
-	case sourceRead:
-		return loadReadPosts(m.ctx, m.store)
 	case sourceSearch:
 		return searchPosts(m.ctx, m.store, m.filter.query)
 	}
@@ -49,9 +49,6 @@ func (m *model) setPostsTitle() {
 	case sourceBookmarks:
 		m.list.Title = bookmarksTitle
 		return
-	case sourceRead:
-		m.list.Title = readTitle
-		return
 	case sourceSearch:
 		m.list.Title = "Search: " + m.filter.query
 		return
@@ -61,6 +58,12 @@ func (m *model) setPostsTitle() {
 		m.list.Title = m.filter.feedName
 	} else {
 		m.list.Title = postsTitle
+	}
+	switch m.filter.read {
+	case store.ReadOnly:
+		m.list.Title = readTitle
+	case store.ReadUnread:
+		m.list.Title += " · unread"
 	}
 	if label := sinceLabel(m.filter.since); label != "" {
 		m.list.Title += " · " + label

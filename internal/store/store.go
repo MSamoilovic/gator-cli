@@ -21,15 +21,31 @@ type (
 	FeedStat     = database.GetFeedStatsForUserRow
 )
 
+type ReadState string
+
+const (
+	ReadAny    ReadState = "all"
+	ReadUnread ReadState = "unread"
+	ReadOnly   ReadState = "read"
+)
+
+func (r ReadState) Valid() bool {
+	switch r {
+	case "", ReadAny, ReadUnread, ReadOnly:
+		return true
+	}
+	return false
+}
+
 type PostQuery struct {
-	FeedID     uuid.UUID
-	FeedName   string
-	Query      string
-	UnreadOnly bool
-	Since      time.Time
-	SortDir    string
-	Limit      int32
-	Offset     int32
+	FeedID   uuid.UUID
+	FeedName string
+	Query    string
+	Read     ReadState
+	Since    time.Time
+	SortDir  string
+	Limit    int32
+	Offset   int32
 }
 
 type RefreshResult struct {
@@ -50,7 +66,6 @@ type Store interface {
 
 	Posts(ctx context.Context, q PostQuery) ([]Post, error)
 	BookmarkedPosts(ctx context.Context) ([]Post, error)
-	ReadPosts(ctx context.Context) ([]Post, error)
 	PostByURL(ctx context.Context, url string) (Post, error)
 	BookmarkedIDs(ctx context.Context) ([]uuid.UUID, error)
 	ReadIDs(ctx context.Context) ([]uuid.UUID, error)

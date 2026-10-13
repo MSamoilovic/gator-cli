@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/MSamoilovic/gator-cli/internal/store"
 	"strings"
 	"testing"
 
@@ -241,19 +242,19 @@ func TestHistoryOpensTheReadView(t *testing.T) {
 	m := loaded(t, fullPage("a"))
 
 	m, cmd := step(t, m, press("H"))
-	if m.source != sourceRead {
-		t.Fatal("H did not open the read view")
+	if m.filter.read != store.ReadOnly {
+		t.Fatalf("H left the read state at %q, want read", m.filter.read)
 	}
 	if cmd == nil {
-		t.Error("H did not load the read posts")
+		t.Error("H did not reload the list")
 	}
 	if got, want := m.list.Title, readTitle; got != want {
 		t.Errorf("title = %q, want %q", got, want)
 	}
 
 	m, cmd = step(t, m, press("H"))
-	if m.source == sourceRead {
-		t.Error("H did not close the read view")
+	if m.filter.read != store.ReadAny {
+		t.Errorf("a second H left the read state at %q, want all", m.filter.read)
 	}
 	if cmd == nil {
 		t.Error("leaving the read view did not reload posts")
@@ -263,21 +264,20 @@ func TestHistoryOpensTheReadView(t *testing.T) {
 	}
 }
 
-func TestReadAndBookmarkViewsAreExclusive(t *testing.T) {
+func TestTheReadFilterDoesNotLeakIntoTheBookmarksView(t *testing.T) {
 	m := loaded(t, fullPage("a"))
 
-	m, _ = step(t, m, press("B"))
 	m, _ = step(t, m, press("H"))
-	if m.source == sourceBookmarks {
-		t.Error("opening the read view left the bookmarks view on")
-	}
-	if m.source != sourceRead {
-		t.Fatal("H did not open the read view")
+	if m.filter.read != store.ReadOnly {
+		t.Fatalf("H left the read state at %q, want read", m.filter.read)
 	}
 
 	m, _ = step(t, m, press("B"))
-	if m.source == sourceRead {
-		t.Error("opening the bookmarks view left the read view on")
+	if m.source != sourceBookmarks {
+		t.Fatalf("B left the source at %d, want sourceBookmarks", m.source)
+	}
+	if got, want := m.list.Title, bookmarksTitle; got != want {
+		t.Errorf("title = %q, want %q — the bookmarks view shows every saved post, read or not", got, want)
 	}
 }
 
@@ -287,8 +287,8 @@ func TestEscapeLeavesTheReadView(t *testing.T) {
 	m, _ = step(t, m, press("H"))
 	m, cmd := step(t, m, tea.KeyMsg{Type: tea.KeyEsc})
 
-	if m.source == sourceRead {
-		t.Error("esc did not leave the read view")
+	if m.filter.read != store.ReadAny {
+		t.Errorf("esc left the read state at %q, want all", m.filter.read)
 	}
 	if cmd == nil {
 		t.Error("esc did not reload posts")
@@ -298,17 +298,30 @@ func TestEscapeLeavesTheReadView(t *testing.T) {
 	}
 }
 
-func TestReadViewRefusesFeedOnlyFilters(t *testing.T) {
+func TestReadViewAcceptsSortingAndTimeRange(t *testing.T) {
 	m := loaded(t, fullPage("a"))
 	m, _ = step(t, m, press("H"))
+	before := m.filter
 
-	for _, key := range []string{"S", "t", "U"} {
-		next, _ := step(t, m, press(key))
-		if next.source != sourceRead {
-			t.Errorf("%s dropped out of the read view", key)
-		}
-		if next.status == "" {
-			t.Errorf("%s in the read view said nothing", key)
-		}
+	m, cmd := step(t, m, press("S"))
+	if m.filter.sortDir == before.sortDir {
+		t.Error("S did not flip the sort inside the read view — R1a exists so it can")
+	}
+	if cmd == nil {
+		t.Error("S inside the read view did not reload")
+	}
+	if m.filter.read != store.ReadOnly {
+		t.Errorf("sorting dropped the read state to %q", m.filter.read)
+	}
+
+	m, cmd = step(t, m, press("t"))
+	if m.filter.since == 0 {
+		t.Error("t did not set a time range inside the read view")
+	}
+	if cmd == nil {
+		t.Error("t inside the read view did not reload")
+	}
+	if m.filter.read != store.ReadOnly {
+		t.Errorf("the time range dropped the read state to %q", m.filter.read)
 	}
 }

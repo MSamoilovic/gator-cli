@@ -37,7 +37,9 @@ LEFT JOIN post_reads
 WHERE feed_follows.user_id = @user_id
   AND (@feed_name::text = '' OR feeds.name ILIKE '%' || @feed_name::text || '%')
   AND (@feed_id::uuid = '00000000-0000-0000-0000-000000000000'::uuid OR posts.feed_id = @feed_id::uuid)
-  AND (NOT @unread_only::bool OR post_reads.post_id IS NULL)
+  AND (@read_filter::text NOT IN ('unread', 'read')
+       OR (@read_filter::text = 'unread' AND post_reads.post_id IS NULL)
+       OR (@read_filter::text = 'read' AND post_reads.post_id IS NOT NULL))
   AND (@since::timestamp = '0001-01-01 00:00:00'::timestamp OR posts.published_at >= @since::timestamp)
 ORDER BY
   CASE WHEN @sort_dir::text = 'asc' THEN posts.published_at END ASC NULLS LAST,

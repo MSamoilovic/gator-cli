@@ -155,7 +155,7 @@ func TestPostsUnreadOnlyHidesWhatWasRead(t *testing.T) {
 	f.db.MarkRead(t, f.alice.ID, f.newGo.ID)
 
 	p := allPosts(f.alice.ID)
-	p.UnreadOnly = true
+	p.ReadFilter = "unread"
 
 	posts, err := f.db.GetPostsForUserFiltered(t.Context(), p)
 	if err != nil {
@@ -177,7 +177,7 @@ func TestReadingAPostDoesNotHideItFromAnotherUser(t *testing.T) {
 	f.db.MarkRead(t, f.alice.ID, f.newGo.ID)
 
 	p := allPosts(f.bob.ID)
-	p.UnreadOnly = true
+	p.ReadFilter = "unread"
 
 	posts, err := f.db.GetPostsForUserFiltered(t.Context(), p)
 	if err != nil {
@@ -323,5 +323,66 @@ func TestTruncateAllEmptiesEveryTable(t *testing.T) {
 	}
 	if after != (database.CountAllRowsRow{}) {
 		t.Errorf("TruncateAll left rows behind: %+v", after)
+	}
+}
+
+func TestPostsReadOnlyShowsOnlyWhatWasRead(t *testing.T) {
+	f := seed(t)
+	f.db.MarkRead(t, f.alice.ID, f.newGo.ID)
+
+	p := allPosts(f.alice.ID)
+	p.ReadFilter = "read"
+
+	posts, err := f.db.GetPostsForUserFiltered(t.Context(), p)
+	if err != nil {
+		t.Fatalf("GetPostsForUserFiltered: %v", err)
+	}
+	if len(posts) != 1 || posts[0].ID != f.newGo.ID {
+		t.Errorf("read_only returned %v, want only the post that was marked read", titles(posts))
+	}
+}
+
+func TestPostsReadFilterDefaultsToEverything(t *testing.T) {
+	f := seed(t)
+	f.db.MarkRead(t, f.alice.ID, f.newGo.ID)
+
+	for _, filter := range []string{"", "all"} {
+		p := allPosts(f.alice.ID)
+		p.ReadFilter = filter
+
+		posts, err := f.db.GetPostsForUserFiltered(t.Context(), p)
+		if err != nil {
+			t.Fatalf("GetPostsForUserFiltered(%q): %v", filter, err)
+		}
+		if len(posts) != 3 {
+			t.Errorf("read_filter %q returned %d posts, want all 3: %v", filter, len(posts), titles(posts))
+		}
+	}
+}
+
+func TestPostsReadOnlyIsPagedAndSortable(t *testing.T) {
+	f := seed(t)
+	f.db.MarkRead(t, f.alice.ID, f.newGo.ID)
+	f.db.MarkRead(t, f.alice.ID, f.oldGo.ID)
+
+	p := allPosts(f.alice.ID)
+	p.ReadFilter = "read"
+	p.PostLimit = 1
+
+	first, err := f.db.GetPostsForUserFiltered(t.Context(), p)
+	if err != nil {
+		t.Fatalf("page 1: %v", err)
+	}
+	p.PostOffset = 1
+	second, err := f.db.GetPostsForUserFiltered(t.Context(), p)
+	if err != nil {
+		t.Fatalf("page 2: %v", err)
+	}
+
+	if len(first) != 1 || len(second) != 1 {
+		t.Fatalf("pages returned %d and %d rows, want 1 each", len(first), len(second))
+	}
+	if first[0].ID == second[0].ID {
+		t.Error("page 2 of the read view repeated page 1 — the read filter is not paged")
 	}
 }

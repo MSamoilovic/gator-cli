@@ -84,8 +84,8 @@ func TestEveryRouteButTheOpenOnesRefusesAMissingOrUnknownToken(t *testing.T) {
 		{"GET", "/v1/me"},
 		{"GET", "/v1/posts"},
 		{"GET", "/v1/posts/bookmarked"},
-		{"GET", "/v1/posts/read"},
 		{"POST", "/v1/posts/read"},
+		{"GET", "/v1/posts/read/ids"},
 		{"GET", "/v1/subscriptions"},
 		{"POST", "/v1/subscriptions"},
 		{"GET", "/v1/subscriptions/stats"},
@@ -255,7 +255,9 @@ func TestRemoteAndLocalStoresAgree(t *testing.T) {
 		"ascending":      {Limit: 50, SortDir: "asc"},
 		"one feed by id": {Limit: 50, FeedID: golang.ID},
 		"feed by name":   {Limit: 50, FeedName: "rust"},
-		"unread only":    {Limit: 50, UnreadOnly: true},
+		"unread only":    {Limit: 50, Read: store.ReadUnread},
+		"read only":      {Limit: 50, Read: store.ReadOnly},
+		"read all":       {Limit: 50, Read: store.ReadAny},
 		"since":          {Limit: 50, Since: now.Add(150 * time.Second)},
 		"paged":          {Limit: 1, Offset: 1},
 		"search":         {Limit: 50, Query: "async"},
@@ -291,7 +293,6 @@ func TestRemoteAndLocalStoresAgree(t *testing.T) {
 	since := now.Add(-24 * time.Hour)
 	pairs := []pair{
 		{"bookmarked", func() (any, error) { return ls.BookmarkedPosts(ctx) }, func() (any, error) { return rs.BookmarkedPosts(ctx) }},
-		{"read posts", func() (any, error) { return ls.ReadPosts(ctx) }, func() (any, error) { return rs.ReadPosts(ctx) }},
 		{"bookmarked ids", func() (any, error) { ids, err := ls.BookmarkedIDs(ctx); return sorted(ids), err }, func() (any, error) { ids, err := rs.BookmarkedIDs(ctx); return sorted(ids), err }},
 		{"read ids", func() (any, error) { ids, err := ls.ReadIDs(ctx); return sorted(ids), err }, func() (any, error) { ids, err := rs.ReadIDs(ctx); return sorted(ids), err }},
 		{"subscriptions", func() (any, error) { return ls.Subscriptions(ctx) }, func() (any, error) { return rs.Subscriptions(ctx) }},

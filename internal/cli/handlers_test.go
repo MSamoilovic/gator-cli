@@ -368,3 +368,41 @@ func TestFollowAndUnfollowPassTheNotFoundErrorThrough(t *testing.T) {
 		})
 	}
 }
+
+func TestBrowseRejectsAnUnknownReadState(t *testing.T) {
+	f := storetest.New("marko")
+	s := fakeState(f)
+	cmd := command{Name: "browse", Args: []string{"--no-tui", "--read", "sideways"}}
+
+	_, err := capture(t, func() error { return handlerBrowse(context.Background(), s, cmd, f.Identity) })
+	if err == nil {
+		t.Fatal("browse accepted an unknown read state")
+	}
+	if !strings.Contains(err.Error(), "invalid read") {
+		t.Errorf("error was %q, want it to name the bad flag", err)
+	}
+	if len(f.Asked) != 0 {
+		t.Errorf("browse hit the store before validating --read: %+v", f.Asked)
+	}
+}
+
+func TestBrowsePassesTheReadStateToTheStore(t *testing.T) {
+	f := storetest.New("marko")
+	post := f.Post("Go 1.26 is out", "https://go.dev/blog/go1.26")
+	f.Read[post.ID] = true
+	s := fakeState(f)
+
+	out, err := capture(t, func() error {
+		return handlerBrowse(context.Background(), s,
+			command{Name: "browse", Args: []string{"--no-tui", "--read", "read"}}, f.Identity)
+	})
+	if err != nil {
+		t.Fatalf("browse: %v", err)
+	}
+	if len(f.Asked) != 1 || f.Asked[0].Read != store.ReadOnly {
+		t.Fatalf("store was asked %+v, want read state %q", f.Asked, store.ReadOnly)
+	}
+	if !strings.Contains(out, "Go 1.26 is out") {
+		t.Errorf("printed %q", out)
+	}
+}
