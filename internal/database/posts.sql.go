@@ -98,52 +98,6 @@ func (q *Queries) GetPostByUrl(ctx context.Context, url string) (Post, error) {
 	return i, err
 }
 
-const getPostsForUser = `-- name: GetPostsForUser :many
-SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM posts
-JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
-WHERE feed_follows.user_id = $1
-ORDER BY posts.published_at DESC
-LIMIT $2
-`
-
-type GetPostsForUserParams struct {
-	UserID uuid.UUID
-	Limit  int32
-}
-
-func (q *Queries) GetPostsForUser(ctx context.Context, arg GetPostsForUserParams) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, getPostsForUser, arg.UserID, arg.Limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Post
-	for rows.Next() {
-		var i Post
-		if err := rows.Scan(
-			&i.ID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Title,
-			&i.Url,
-			&i.Description,
-			&i.PublishedAt,
-			&i.FeedID,
-			&i.FullText,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getPostsForUserFiltered = `-- name: GetPostsForUserFiltered :many
 SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM posts
 JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
@@ -157,10 +111,10 @@ WHERE feed_follows.user_id = $1
   AND ($4::text NOT IN ('unread', 'read')
        OR ($4::text = 'unread' AND post_reads.post_id IS NULL)
        OR ($4::text = 'read' AND post_reads.post_id IS NOT NULL))
-  AND ($5::timestamp = '0001-01-01 00:00:00'::timestamp OR posts.published_at >= $5::timestamp)
+  AND ($5::timestamp = '0001-01-01 00:00:00'::timestamp OR COALESCE(posts.published_at, posts.created_at) >= $5::timestamp)
 ORDER BY
-  CASE WHEN $6::text = 'asc' THEN posts.published_at END ASC NULLS LAST,
-  posts.published_at DESC NULLS LAST
+  CASE WHEN $6::text = 'asc' THEN COALESCE(posts.published_at, posts.created_at) END ASC,
+  COALESCE(posts.published_at, posts.created_at) DESC
 LIMIT $8
 OFFSET $7
 `
@@ -256,7 +210,7 @@ WHERE feed_follows.user_id = $1
     posts.title ILIKE '%' || $2::text || '%'
     OR posts.description ILIKE '%' || $2::text || '%'
   )
-ORDER BY posts.published_at DESC NULLS LAST
+ORDER BY COALESCE(posts.published_at, posts.created_at) DESC
 LIMIT $3
 `
 

@@ -60,3 +60,38 @@ func TestParsePubDate(t *testing.T) {
 		})
 	}
 }
+
+func TestParsePubDateIgnoresSurroundingWhitespace(t *testing.T) {
+	const want = "2026-10-14T06:52:45Z"
+	for _, raw := range []string{
+		"\n\t\t\t2026-10-14T06:52:45+00:00\t\t",
+		"  Mon, 02 Jan 2006 15:04:05 -0700  ",
+		"\r\n2026-10-14\r\n",
+	} {
+		got := ParsePubDate(raw)
+		if !got.Valid {
+			t.Errorf("ParsePubDate(%q) is not valid — pretty-printed XML indents the value", raw)
+		}
+	}
+
+	got := ParsePubDate("\n\t\t\t2026-10-14T06:52:45+00:00\t\t")
+	if !got.Valid || got.Time.UTC().Format(time.RFC3339) != want {
+		t.Errorf("ParsePubDate = %v, want %s", got, want)
+	}
+}
+
+func TestParsePubDateAcceptsFormatsRealFeedsSend(t *testing.T) {
+	cases := map[string]string{
+		"MDN Blog, single-digit day":     "Wed, 8 Apr 2026 00:00:00 +0000",
+		"MDN Blog, two-digit day":        "Mon, 15 Jun 2026 00:00:00 +0000",
+		"BBC Good Food, GMT":             "Tue, 13 Oct 2026 21:14:00 GMT",
+		"ESPN, US zone abbreviation":     "Wed, 14 Oct 2026 01:56:38 EST",
+		"A List Apart, indented RFC3339": "\n\t\t\t2026-10-14T06:52:45+00:00\t\t",
+		"Golang Weekly, channel level":   "Fri, 9 Oct 2026 00:00:00 +0000",
+	}
+	for name, raw := range cases {
+		if got := ParsePubDate(raw); !got.Valid {
+			t.Errorf("%s: ParsePubDate(%q) did not parse", name, raw)
+		}
+	}
+}

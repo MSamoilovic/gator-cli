@@ -1,6 +1,7 @@
 package database_test
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -385,4 +386,84 @@ func TestPostsReadOnlyIsPagedAndSortable(t *testing.T) {
 	if first[0].ID == second[0].ID {
 		t.Error("page 2 of the read view repeated page 1 — the read filter is not paged")
 	}
+}
+
+func TestPostsWithoutAPublishDateAreStillListed(t *testing.T) {
+	f := seed(t)
+	undated := f.db.UndatedPost(t, f.goFeed.ID, "No date at all", "https://go.test/undated")
+
+	posts, err := f.db.GetPostsForUserFiltered(t.Context(), allPosts(f.alice.ID))
+	if err != nil {
+		t.Fatalf("GetPostsForUserFiltered: %v", err)
+	}
+
+	if len(posts) != 4 {
+		t.Fatalf("got %d posts, want 4: %v", len(posts), titles(posts))
+	}
+	if posts[0].ID != undated.ID {
+		t.Errorf("the list starts with %q, want the undated post — it was just created, so COALESCE puts it newest", posts[0].Title)
+	}
+}
+
+func TestPostsWithoutAPublishDateHonourTheSinceWindow(t *testing.T) {
+	f := seed(t)
+	f.db.UndatedPost(t, f.goFeed.ID, "No date at all", "https://go.test/undated")
+
+	p := allPosts(f.alice.ID)
+	p.Since = time.Now().Add(-30 * time.Minute)
+
+	posts, err := f.db.GetPostsForUserFiltered(t.Context(), p)
+	if err != nil {
+		t.Fatalf("GetPostsForUserFiltered: %v", err)
+	}
+	if !slices.Contains(titles(posts), "No date at all") {
+		t.Errorf("a time range of 30m returned %v — an undated post created just now was filtered out", titles(posts))
+	}
+}
+
+func TestSearchSortsPostsWithoutAPublishDateByWhenTheyArrived(t *testing.T) {
+	f := seed(t)
+	undated := f.db.UndatedPost(t, f.goFeed.ID, "Undated Go post", "https://go.test/undated")
+
+	posts, err := f.db.SearchPostsForUser(t.Context(), database.SearchPostsForUserParams{
+		UserID:    f.alice.ID,
+		Query:     "Go post",
+		PostLimit: 50,
+	})
+	if err != nil {
+		t.Fatalf("SearchPostsForUser: %v", err)
+	}
+	if len(posts) != 3 {
+		t.Fatalf("search returned %d posts, want 3: %v", len(posts), titles(posts))
+	}
+	if posts[0].ID != undated.ID {
+		t.Errorf("search put %q first, want the undated post — NULLS LAST buried it below every dated result", posts[0].Title)
+	}
+}
+
+func TestStatsCountPostsWithoutAPublishDate(t *testing.T) {
+	f := seed(t)
+	f.db.UndatedPost(t, f.goFeed.ID, "No date at all", "https://go.test/undated")
+
+	rows, err := f.db.GetFeedStatsForUser(t.Context(), database.GetFeedStatsForUserParams{
+		UserID: f.alice.ID,
+		Since:  time.Now().Add(-24 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("GetFeedStatsForUser: %v", err)
+	}
+
+	for _, r := range rows {
+		if r.FeedName != "Go Blog" {
+			continue
+		}
+		if r.RecentCount != 2 {
+			t.Errorf("Go Blog recent_count = %d, want 2 — the undated post was created just now", r.RecentCount)
+		}
+		if r.LastPublished.IsZero() {
+			t.Error("Go Blog last_published is the zero time even though it has posts")
+		}
+		return
+	}
+	t.Fatal("Go Blog is missing from the stats rows")
 }
