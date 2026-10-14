@@ -36,6 +36,7 @@ type RSSItem struct {
 
 	Content string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
 	PubDate string `xml:"pubDate"`
+	Date    string `xml:"date"`
 }
 
 type atomFeed struct {
@@ -274,6 +275,7 @@ func resolveBody(f *RSSFeed) {
 		it := &f.Channel.Item[i]
 		it.Title = text.OneLine(it.Title)
 		it.Description = firstNonEmpty(it.Content, it.Description)
+		it.PubDate = firstNonEmpty(it.PubDate, it.Date)
 	}
 }
 

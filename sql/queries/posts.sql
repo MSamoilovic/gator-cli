@@ -17,15 +17,8 @@ WHERE feed_follows.user_id = @user_id
     posts.title ILIKE '%' || @query::text || '%'
     OR posts.description ILIKE '%' || @query::text || '%'
   )
-ORDER BY posts.published_at DESC NULLS LAST
+ORDER BY COALESCE(posts.published_at, posts.created_at) DESC
 LIMIT @post_limit;
-
--- name: GetPostsForUser :many
-SELECT posts.* FROM posts
-JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
-WHERE feed_follows.user_id = $1
-ORDER BY posts.published_at DESC
-LIMIT $2;
 
 -- name: GetPostsForUserFiltered :many
 SELECT posts.* FROM posts
@@ -40,10 +33,10 @@ WHERE feed_follows.user_id = @user_id
   AND (@read_filter::text NOT IN ('unread', 'read')
        OR (@read_filter::text = 'unread' AND post_reads.post_id IS NULL)
        OR (@read_filter::text = 'read' AND post_reads.post_id IS NOT NULL))
-  AND (@since::timestamp = '0001-01-01 00:00:00'::timestamp OR posts.published_at >= @since::timestamp)
+  AND (@since::timestamp = '0001-01-01 00:00:00'::timestamp OR COALESCE(posts.published_at, posts.created_at) >= @since::timestamp)
 ORDER BY
-  CASE WHEN @sort_dir::text = 'asc' THEN posts.published_at END ASC NULLS LAST,
-  posts.published_at DESC NULLS LAST
+  CASE WHEN @sort_dir::text = 'asc' THEN COALESCE(posts.published_at, posts.created_at) END ASC,
+  COALESCE(posts.published_at, posts.created_at) DESC
 LIMIT @post_limit
 OFFSET @post_offset;
 

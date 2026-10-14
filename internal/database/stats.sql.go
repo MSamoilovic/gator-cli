@@ -20,10 +20,10 @@ SELECT
     feed_follows.category,
     feeds.failure_count,
     COUNT(posts.id) AS post_count,
-    COUNT(posts.id) FILTER (WHERE posts.published_at >= $1::timestamp) AS recent_count,
+    COUNT(posts.id) FILTER (WHERE COALESCE(posts.published_at, posts.created_at) >= $1::timestamp) AS recent_count,
     COUNT(post_reads.post_id) AS read_count,
     COUNT(bookmarks.post_id) AS bookmark_count,
-    COALESCE(MAX(posts.published_at), '0001-01-01 00:00:00'::timestamp)::timestamp AS last_published,
+    COALESCE(MAX(COALESCE(posts.published_at, posts.created_at)), '0001-01-01 00:00:00'::timestamp)::timestamp AS last_published,
     COALESCE(MAX(post_reads.read_at), '0001-01-01 00:00:00'::timestamp)::timestamp AS last_read
 FROM feed_follows
 JOIN feeds ON feeds.id = feed_follows.feed_id

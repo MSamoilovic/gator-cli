@@ -250,6 +250,23 @@ func (db *DB) Post(t *testing.T, feedID uuid.UUID, title, postURL string, publis
 	return p
 }
 
+func (db *DB) UndatedPost(t *testing.T, feedID uuid.UUID, title, postURL string) database.Post {
+	t.Helper()
+	p, err := db.CreatePost(t.Context(), database.CreatePostParams{
+		ID:          uuid.New(),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		Title:       title,
+		Url:         postURL,
+		Description: sql.NullString{String: title + " body", Valid: true},
+		FeedID:      feedID,
+	})
+	if err != nil {
+		t.Fatalf("creating undated post %q: %v", title, err)
+	}
+	return p
+}
+
 func (db *DB) Bookmark(t *testing.T, userID, postID uuid.UUID) {
 	t.Helper()
 	if _, err := db.CreateBookmark(t.Context(), database.CreateBookmarkParams{

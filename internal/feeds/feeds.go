@@ -308,12 +308,17 @@ var pubDateFormats = []string{
 	time.RFC1123Z,
 	time.RFC1123,
 	time.RFC3339,
+	"Mon, 2 Jan 2006 15:04:05 -0700",
+	"Mon, 2 Jan 2006 15:04:05 MST",
 	"02 Jan 2006 15:04:05 -0700",
 	"02 Jan 2006 15:04:05 MST",
+	"2 Jan 2006 15:04:05 -0700",
+	"2 Jan 2006 15:04:05 MST",
 	time.DateOnly,
 }
 
 func ParsePubDate(s string) sql.NullTime {
+	s = strings.TrimSpace(s)
 	for _, layout := range pubDateFormats {
 		if t, err := time.Parse(layout, s); err == nil {
 			return sql.NullTime{Time: t, Valid: true}

@@ -591,3 +591,41 @@ func TestTitlesLoseTheirLineBreaks(t *testing.T) {
 		t.Errorf("item title = %q, want %q", got, want)
 	}
 }
+
+const rssWithDublinCoreDate = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>A List Apart</title>
+    <item>
+      <title>Only dc:date</title>
+      <link>https://alistapart.com/article/one</link>
+      <dc:date>
+			2026-10-14T06:52:45+00:00		</dc:date>
+    </item>
+    <item>
+      <title>Both, pubDate wins</title>
+      <link>https://alistapart.com/article/two</link>
+      <pubDate>Mon, 02 Jan 2006 15:04:05 -0700</pubDate>
+      <dc:date>2026-10-14T06:52:45+00:00</dc:date>
+    </item>
+  </channel>
+</rss>`
+
+func TestFetchFeedReadsDublinCoreDates(t *testing.T) {
+	srv := serve(t, 200, rssWithDublinCoreDate)
+
+	feed, _, err := FetchFeed(context.Background(), Source{URL: srv.URL})
+	if err != nil {
+		t.Fatalf("FetchFeed: %v", err)
+	}
+	if len(feed.Channel.Item) != 2 {
+		t.Fatalf("got %d items, want 2", len(feed.Channel.Item))
+	}
+
+	if got := strings.TrimSpace(feed.Channel.Item[0].PubDate); got != "2026-10-14T06:52:45+00:00" {
+		t.Errorf("item without pubDate carried %q, want the dc:date value — RSS 2.0 feeds may date items only in Dublin Core", got)
+	}
+	if got := feed.Channel.Item[1].PubDate; got != "Mon, 02 Jan 2006 15:04:05 -0700" {
+		t.Errorf("item with both carried %q, want pubDate to win", got)
+	}
+}
