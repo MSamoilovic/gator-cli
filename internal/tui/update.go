@@ -247,8 +247,8 @@ func (m model) feedItems() []list.Item {
 		return items
 	}
 
-	for _, fol := range groupFeeds(m.feeds) {
-		items = append(items, m.newFolderItem(fol))
+	for i, fol := range groupFeeds(m.feeds) {
+		items = append(items, m.newFolderItem(fol, i+1))
 		if !m.expanded[fol.name] {
 			continue
 		}
@@ -270,9 +270,10 @@ func (m model) newFeedItem(f database.GetFeedFollowsForUserRow, indent bool) fee
 	}
 }
 
-func (m model) newFolderItem(fol folder) folderItem {
+func (m model) newFolderItem(fol folder, number int) folderItem {
 	item := folderItem{
 		name:     fol.name,
+		number:   number,
 		feedIDs:  make([]uuid.UUID, len(fol.feeds)),
 		expanded: m.expanded,
 		unread:   m.unread,
@@ -344,4 +345,64 @@ func scrapeSummary(msg scrapedMsg) string {
 	default:
 		return fmt.Sprintf("Fetched %d new posts from %d feeds", msg.saved, msg.feeds)
 	}
+}
+
+func (m model) jumpToFolder(n int) (tea.Model, tea.Cmd) {
+	name, ok := folderByNumber(m.feeds, n)
+	if !ok || m.feedWidth == 0 {
+		return m, nil
+	}
+
+	m.expanded[name] = true
+	cmd := m.feedList.SetItems(m.feedItems())
+	m.selectFolder(name)
+	m.focus = focusFeeds
+	m.applyFocus()
+	return m, cmd
+}
+
+func (m model) stepFolder(delta int) (tea.Model, tea.Cmd) {
+	items := m.feedList.Items()
+	for i := m.feedList.Index() + delta; i >= 0 && i < len(items); i += delta {
+		if _, ok := items[i].(folderItem); ok {
+			m.feedList.Select(i)
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+func (m model) refoldAll(expand bool) (tea.Model, tea.Cmd) {
+	if !hasFolders(m.feeds) || m.feedWidth == 0 {
+		return m, nil
+	}
+
+	keep := m.selectedFolderName()
+	label := "Folders collapsed"
+
+	clear(m.expanded)
+	if expand {
+		for _, fol := range groupFeeds(m.feeds) {
+			m.expanded[fol.name] = true
+		}
+		label = "Folders expanded"
+	}
+
+	cmd := m.feedList.SetItems(m.feedItems())
+	if keep != "" {
+		m.selectFolder(keep)
+	}
+
+	next, statusCmd := m.withStatus(label)
+	return next, tea.Batch(cmd, statusCmd)
+}
+
+func (m model) selectedFolderName() string {
+	switch it := m.feedList.SelectedItem().(type) {
+	case folderItem:
+		return it.name
+	case feedItem:
+		return folderOf(m.feeds, it.id)
+	}
+	return ""
 }

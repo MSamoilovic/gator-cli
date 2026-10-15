@@ -8,7 +8,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const rootFolder = "(uncategorized)"
+const (
+	rootFolder    = "(uncategorized)"
+	maxFolderKeys = 9
+)
 
 type folder struct {
 	name  string
@@ -66,4 +69,15 @@ func folderOf(rows []database.GetFeedFollowsForUserRow, feedID uuid.UUID) string
 		return r.Category
 	}
 	return ""
+}
+
+func folderByNumber(rows []database.GetFeedFollowsForUserRow, n int) (string, bool) {
+	if n < 1 || n > maxFolderKeys || !hasFolders(rows) {
+		return "", false
+	}
+	folders := groupFeeds(rows)
+	if n > len(folders) {
+		return "", false
+	}
+	return folders[n-1].name, true
 }

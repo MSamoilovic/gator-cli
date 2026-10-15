@@ -54,9 +54,9 @@ func TestPanelStartsWithEveryFolderClosed(t *testing.T) {
 	got := panelTitles(m)
 	want := []string{
 		allFeedsLabel,
-		folderClosed + " Comics",
-		folderClosed + " Tech",
-		folderClosed + " " + rootFolder,
+		"1 " + folderClosed + " Comics",
+		"2 " + folderClosed + " Tech",
+		"3 " + folderClosed + " " + rootFolder,
 	}
 
 	if len(got) != len(want) {
@@ -85,7 +85,7 @@ func TestEnterOnHeaderTogglesTheFolder(t *testing.T) {
 	if !strings.Contains(strings.Join(panelTitles(m), "\n"), "XKCD") {
 		t.Error("opening did not bring the feeds in")
 	}
-	if !strings.HasPrefix(panelTitles(m)[1], folderOpen) {
+	if !strings.HasPrefix(panelTitles(m)[1], "1 "+folderOpen) {
 		t.Errorf("header did not switch to the open arrow: %q", panelTitles(m)[1])
 	}
 

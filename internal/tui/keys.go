@@ -30,6 +30,9 @@ type keyMap struct {
 	Search   key.Binding
 	Filter   key.Binding
 	Tab      key.Binding
+	Folder   key.Binding
+	StepFold key.Binding
+	FoldAll  key.Binding
 	Back     key.Binding
 	Help     key.Binding
 	Quit     key.Binding
@@ -55,7 +58,7 @@ func defaultKeyMap() keyMap {
 		),
 		Select: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("⏎", "select/fold"),
+			key.WithHelp("⏎", "select"),
 		),
 		Open: key.NewBinding(
 			key.WithKeys("o"),
@@ -145,6 +148,18 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("tab", "shift+tab"),
 			key.WithHelp("tab", "pane"),
 		),
+		Folder: key.NewBinding(
+			key.WithKeys("1", "2", "3", "4", "5", "6", "7", "8", "9"),
+			key.WithHelp("1-9", "folder"),
+		),
+		StepFold: key.NewBinding(
+			key.WithKeys("[", "]"),
+			key.WithHelp("[/]", "prev/next"),
+		),
+		FoldAll: key.NewBinding(
+			key.WithKeys("0", "-"),
+			key.WithHelp("0/-", "fold all"),
+		),
 		Back: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "back"),
@@ -162,12 +177,11 @@ func defaultKeyMap() keyMap {
 
 func (k keyMap) fullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Read, k.Back},
-		{k.Open, k.Bookmark, k.Saved, k.History, k.Sort},
-		{k.Unread, k.AllRead, k.OnlyNew, k.Since},
-		{k.Search, k.Filter, k.Copy, k.FullText, k.Tab},
-		{k.Reload, k.Fetch, k.AddFeed, k.Unfollow, k.Catalog},
-		{k.Next, k.Prev, k.Help, k.Quit},
+		{k.Up, k.Down, k.Read, k.Back, k.Tab, k.Help},
+		{k.Open, k.Copy, k.FullText, k.Next, k.Prev, k.Quit},
+		{k.Bookmark, k.Saved, k.Unread, k.AllRead, k.OnlyNew, k.History},
+		{k.Search, k.Filter, k.Sort, k.Since, k.Reload, k.Fetch},
+		{k.Folder, k.StepFold, k.FoldAll, k.AddFeed, k.Unfollow, k.Catalog},
 	}
 }
 
@@ -183,7 +197,7 @@ func (k keyMap) listHelp(withFeeds, inDerivedView bool) []key.Binding {
 }
 
 func (k keyMap) feedsHelp() []key.Binding {
-	return []key.Binding{k.Select, k.AddFeed, k.Catalog, k.Unfollow, k.Tab, k.Help, k.Quit}
+	return []key.Binding{k.Select, k.Folder, k.AddFeed, k.Unfollow, k.Tab, k.Help, k.Quit}
 }
 
 func (k keyMap) catalogHelp() []key.Binding {
