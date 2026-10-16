@@ -23,6 +23,7 @@ type Fake struct {
 	Read       map[uuid.UUID]bool
 	FullTexts  map[uuid.UUID]string
 	Refreshed  store.RefreshResult
+	RefreshErr error
 
 	Err error
 
@@ -393,6 +394,9 @@ func (f *Fake) Refresh(context.Context) (store.RefreshResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	if f.RefreshErr != nil {
+		return store.RefreshResult{}, f.RefreshErr
+	}
 	if f.Err != nil {
 		return store.RefreshResult{}, f.Err
 	}

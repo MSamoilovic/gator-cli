@@ -110,6 +110,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		next, cmd := m.withStatus("Unfollowed " + msg.name)
 		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad())
 
+	case feedCategorizedMsg:
+		m.expanded[msg.folder] = true
+		next, cmd := m.withStatus("Moved " + msg.name + " to " + msg.folder)
+		return next, tea.Batch(cmd, next.reloadFeeds())
+
 	case catalogAddedMsg:
 		next, cmd := m.withStatus(catalogSummary(msg))
 		if msg.added+msg.known == 0 {
@@ -143,7 +148,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, nil
 		}
-		return m.withStatus("Error: " + msg.err.Error())
+		return m.withStatus(m.explain(msg.err))
 
 	case tea.KeyMsg:
 		switch {
@@ -153,6 +158,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateInput(msg)
 		case m.screen == screenCatalog:
 			return m.updateCatalog(msg)
+		case m.screen == screenPalette:
+			return m.updatePalette(msg)
 		case m.screen == screenDetail:
 			return m.updateDetail(msg)
 		case m.focus == focusFeeds:
@@ -160,6 +167,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			return m.updateList(msg)
 		}
+	}
+
+	if m.screen == screenPalette {
+		var cmd tea.Cmd
+		m.paletteList, cmd = m.paletteList.Update(msg)
+		return m, cmd
 	}
 
 	var cmd tea.Cmd
@@ -247,8 +260,8 @@ func (m model) feedItems() []list.Item {
 		return items
 	}
 
-	for _, fol := range groupFeeds(m.feeds) {
-		items = append(items, m.newFolderItem(fol))
+	for i, fol := range groupFeeds(m.feeds) {
+		items = append(items, m.newFolderItem(fol, i+1))
 		if !m.expanded[fol.name] {
 			continue
 		}
@@ -270,9 +283,10 @@ func (m model) newFeedItem(f database.GetFeedFollowsForUserRow, indent bool) fee
 	}
 }
 
-func (m model) newFolderItem(fol folder) folderItem {
+func (m model) newFolderItem(fol folder, number int) folderItem {
 	item := folderItem{
 		name:     fol.name,
+		number:   number,
 		feedIDs:  make([]uuid.UUID, len(fol.feeds)),
 		expanded: m.expanded,
 		unread:   m.unread,
@@ -344,4 +358,71 @@ func scrapeSummary(msg scrapedMsg) string {
 	default:
 		return fmt.Sprintf("Fetched %d new posts from %d feeds", msg.saved, msg.feeds)
 	}
+}
+
+func (m model) jumpToFolder(n int) (tea.Model, tea.Cmd) {
+	name, ok := folderByNumber(m.feeds, n)
+	if !ok {
+		return m, nil
+	}
+	return m.openFolder(name)
+}
+
+func (m model) openFolder(name string) (tea.Model, tea.Cmd) {
+	if name == "" || m.feedWidth == 0 {
+		return m, nil
+	}
+
+	m.expanded[name] = true
+	cmd := m.feedList.SetItems(m.feedItems())
+	m.selectFolder(name)
+	m.focus = focusFeeds
+	m.applyFocus()
+	return m, cmd
+}
+
+func (m model) stepFolder(delta int) (tea.Model, tea.Cmd) {
+	items := m.feedList.Items()
+	for i := m.feedList.Index() + delta; i >= 0 && i < len(items); i += delta {
+		if _, ok := items[i].(folderItem); ok {
+			m.feedList.Select(i)
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+func (m model) refoldAll(expand bool) (tea.Model, tea.Cmd) {
+	if !hasFolders(m.feeds) || m.feedWidth == 0 {
+		return m, nil
+	}
+
+	keep := m.selectedFolderName()
+	label := "Folders collapsed"
+
+	clear(m.expanded)
+	if expand {
+		for _, fol := range groupFeeds(m.feeds) {
+			m.expanded[fol.name] = true
+		}
+		label = "Folders expanded"
+	}
+
+	cmd := m.feedList.SetItems(m.feedItems())
+	if keep != "" {
+		m.selectFolder(keep)
+	}
+
+	next, statusCmd := m.withStatus(label)
+	return next, tea.Batch(cmd, statusCmd)
+}
+
+func (m model) selectedFolderName() string {
+	switch it := m.feedList.SelectedItem().(type) {
+	case folderItem:
+		return it.name
+	case feedItem:
+		return folderOf(m.feeds, it.id)
+	}
+	return ""
 }

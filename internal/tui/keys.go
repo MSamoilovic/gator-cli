@@ -30,6 +30,10 @@ type keyMap struct {
 	Search   key.Binding
 	Filter   key.Binding
 	Tab      key.Binding
+	Palette  key.Binding
+	Folder   key.Binding
+	StepFold key.Binding
+	FoldAll  key.Binding
 	Back     key.Binding
 	Help     key.Binding
 	Quit     key.Binding
@@ -55,7 +59,7 @@ func defaultKeyMap() keyMap {
 		),
 		Select: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("⏎", "select/fold"),
+			key.WithHelp("⏎", "select"),
 		),
 		Open: key.NewBinding(
 			key.WithKeys("o"),
@@ -145,6 +149,22 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("tab", "shift+tab"),
 			key.WithHelp("tab", "pane"),
 		),
+		Palette: key.NewBinding(
+			key.WithKeys(":", "ctrl+k"),
+			key.WithHelp(":", "commands"),
+		),
+		Folder: key.NewBinding(
+			key.WithKeys("1", "2", "3", "4", "5", "6", "7", "8", "9"),
+			key.WithHelp("1-9", "folder"),
+		),
+		StepFold: key.NewBinding(
+			key.WithKeys("[", "]"),
+			key.WithHelp("[/]", "prev/next"),
+		),
+		FoldAll: key.NewBinding(
+			key.WithKeys("0", "-"),
+			key.WithHelp("0/-", "fold all"),
+		),
 		Back: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "back"),
@@ -160,30 +180,34 @@ func defaultKeyMap() keyMap {
 	}
 }
 
-func (k keyMap) fullHelp() [][]key.Binding {
+func (k keyMap) fullHelp(remote bool) [][]key.Binding {
+	fetch := k.Fetch
+	if remote {
+		fetch = key.NewBinding(key.WithKeys("R"))
+	}
+
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Read, k.Back},
-		{k.Open, k.Bookmark, k.Saved, k.History, k.Sort},
-		{k.Unread, k.AllRead, k.OnlyNew, k.Since},
-		{k.Search, k.Filter, k.Copy, k.FullText, k.Tab},
-		{k.Reload, k.Fetch, k.AddFeed, k.Unfollow, k.Catalog},
-		{k.Next, k.Prev, k.Help, k.Quit},
+		{k.Up, k.Down, k.Read, k.Back, k.Tab, k.Help, k.Quit},
+		{k.Open, k.Copy, k.FullText, k.Next, k.Prev, k.Unread, k.Bookmark},
+		{k.Saved, k.History, k.OnlyNew, k.AllRead, k.Sort, k.Since, k.Filter},
+		{k.Search, k.Palette, k.Reload, fetch, k.AddFeed, k.Unfollow, k.Catalog},
+		{k.Folder, k.StepFold, k.FoldAll},
 	}
 }
 
 func (k keyMap) listHelp(withFeeds, inDerivedView bool) []key.Binding {
-	b := []key.Binding{k.Read, k.Open, k.Bookmark, k.Search}
-	if withFeeds {
-		b = append(b, k.Tab)
-	}
-	if inDerivedView {
+	b := []key.Binding{k.Read, k.Open, k.Bookmark, k.Palette}
+	switch {
+	case inDerivedView:
 		b = append(b, k.Back)
+	case withFeeds:
+		b = append(b, k.Tab)
 	}
 	return append(b, k.Help, k.Quit)
 }
 
 func (k keyMap) feedsHelp() []key.Binding {
-	return []key.Binding{k.Select, k.AddFeed, k.Catalog, k.Unfollow, k.Tab, k.Help, k.Quit}
+	return []key.Binding{k.Select, k.Palette, k.AddFeed, k.Tab, k.Help, k.Quit}
 }
 
 func (k keyMap) catalogHelp() []key.Binding {
@@ -192,4 +216,18 @@ func (k keyMap) catalogHelp() []key.Binding {
 
 func (k keyMap) detailHelp() []key.Binding {
 	return []key.Binding{k.FullText, k.Next, k.Prev, k.Open, k.Copy, k.Back, k.Quit}
+}
+
+func (k keyMap) paletteHelp() []key.Binding {
+	return []key.Binding{k.Up, k.Down, k.Select, k.Back}
+}
+
+func (k keyMap) all() []key.Binding {
+	return []key.Binding{
+		k.Up, k.Down, k.Read, k.Select, k.Open, k.Bookmark, k.Saved, k.History,
+		k.Sort, k.Reload, k.Fetch, k.AddFeed, k.Catalog, k.Toggle, k.Unfollow,
+		k.Unread, k.AllRead, k.OnlyNew, k.Since, k.Copy, k.FullText, k.Next,
+		k.Prev, k.Search, k.Filter, k.Tab, k.Palette, k.Folder, k.StepFold,
+		k.FoldAll, k.Back, k.Help, k.Quit,
+	}
 }

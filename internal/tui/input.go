@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/MSamoilovic/gator-cli/internal/database"
@@ -79,6 +80,9 @@ func (m model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case inputAddFeed:
 			next, cmd := m.withStatus("Adding " + value + "…")
 			return next, tea.Batch(cmd, addFeed(next.ctx, next.store, value))
+
+		case inputCategorize:
+			return m.applyCategory(value)
 		}
 		return m, nil
 	}
@@ -188,6 +192,18 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirming = true
 		return m, nil
 
+	case key.Matches(msg, m.keys.Palette):
+		return m.openPalette()
+
+	case key.Matches(msg, m.keys.Folder):
+		return m.jumpToFolder(folderKey(msg))
+
+	case key.Matches(msg, m.keys.FoldAll):
+		return m.refoldAll(msg.String() == "-")
+
+	case key.Matches(msg, m.keys.StepFold):
+		return m.stepFolder(folderStep(msg))
+
 	case key.Matches(msg, m.keys.Select):
 		if fol, ok := m.feedList.SelectedItem().(folderItem); ok {
 			return m.toggleFolder(fol.name)
@@ -224,6 +240,12 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.toggleHelp()
 		case key.Matches(msg, m.keys.Tab):
 			return m.focusFeedPanel()
+		case key.Matches(msg, m.keys.Palette):
+			return m.openPalette()
+		case key.Matches(msg, m.keys.Folder):
+			return m.jumpToFolder(folderKey(msg))
+		case key.Matches(msg, m.keys.FoldAll):
+			return m.refoldAll(msg.String() == "-")
 		case key.Matches(msg, m.keys.Search):
 			return m, m.startInput(inputSearch, "search: ")
 		case key.Matches(msg, m.keys.Back):
@@ -286,4 +308,19 @@ func (m *model) stepPost(delta int) tea.Cmd {
 		return nil
 	}
 	return m.openPost(item.post)
+}
+
+func folderKey(msg tea.KeyMsg) int {
+	n, err := strconv.Atoi(msg.String())
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+func folderStep(msg tea.KeyMsg) int {
+	if msg.String() == "[" {
+		return -1
+	}
+	return 1
 }

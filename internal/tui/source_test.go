@@ -99,7 +99,7 @@ func TestSwitchingSourceKeepsTheFilter(t *testing.T) {
 		UnreadOnly: true,
 		SinceHours: 168,
 	}
-	m, _ := step(t, newModel(t.Context(), nil, testUser(), saved), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), saved, ""), tea.WindowSizeMsg{Width: 80, Height: 24})
 
 	before := m.filter
 

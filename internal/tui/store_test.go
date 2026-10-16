@@ -22,7 +22,7 @@ func backed(t *testing.T, titles ...string) (model, *storetest.Fake) {
 		posts[i] = p
 	}
 
-	m, _ := step(t, newModel(t.Context(), f, f.Identity, uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), f, f.Identity, uiState{SortDir: sortDesc}, ""), tea.WindowSizeMsg{Width: 80, Height: 24})
 	m, _ = step(t, m, postsLoadedMsg{posts: posts})
 	return m, f
 }
@@ -67,7 +67,7 @@ func TestInitLoadsEverythingTheFirstScreenNeeds(t *testing.T) {
 	f.Sub("Hacker News", "https://news.ycombinator.com/rss", "tech")
 	f.Unread = []store.UnreadCount{{FeedID: f.Subs[0].FeedID, Unread: 3}}
 
-	m := newModel(t.Context(), f, f.Identity, uiState{SortDir: sortDesc})
+	m := newModel(t.Context(), f, f.Identity, uiState{SortDir: sortDesc}, "")
 	if cmd := m.Init(); cmd == nil {
 		t.Fatal("Init returned no command")
 	}

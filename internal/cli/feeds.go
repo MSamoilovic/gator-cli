@@ -105,7 +105,7 @@ func handlerBrowse(ctx context.Context, s *state, cmd command, user store.User) 
 	}
 
 	if !*noTUI && stdoutIsTerminal() {
-		return tui.Run(ctx, s.Store, user)
+		return tui.Run(ctx, s.Store, user, s.Cfg.ServerURL)
 	}
 
 	posts, err := s.Store.Posts(ctx, store.PostQuery{

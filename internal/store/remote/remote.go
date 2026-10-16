@@ -44,6 +44,13 @@ func (e *Error) Is(target error) bool {
 	case wire.CodeNoMoreText:
 		return target == store.ErrNoMoreText
 	}
+
+	switch e.Status {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return target == store.ErrUnauthorized
+	case http.StatusPaymentRequired:
+		return target == store.ErrPlanLimit
+	}
 	return false
 }
 
@@ -112,7 +119,7 @@ func (s *Store) do(ctx context.Context, method, path string, query url.Values, b
 
 	res, err := s.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("reaching %s: %w", s.base, err)
+		return fmt.Errorf("reaching %s: %w: %w", s.base, store.ErrUnreachable, err)
 	}
 	defer res.Body.Close()
 

@@ -233,7 +233,7 @@ func TestFeedPanelHelpListsManageKeys(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
 
 	view := m.View()
-	for _, want := range []string{"a add feed", "d unfollow"} {
+	for _, want := range []string{"a add feed", ": commands"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("feed hints missing %q:\n%s", want, view)
 		}

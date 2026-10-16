@@ -48,7 +48,11 @@ type (
 		name    string
 		created bool
 	}
-	feedUnfollowMsg struct{ name string }
+	feedUnfollowMsg    struct{ name string }
+	feedCategorizedMsg struct {
+		name   string
+		folder string
+	}
 	catalogAddedMsg struct {
 		added  int
 		known  int
@@ -293,4 +297,14 @@ func expireStatus(token int) tea.Cmd {
 	return tea.Tick(statusTimeout, func(time.Time) tea.Msg {
 		return statusExpiredMsg{token: token}
 	})
+}
+
+func categorizeFeed(ctx context.Context, st store.Store, url, folder string) tea.Cmd {
+	return func() tea.Msg {
+		feed, err := st.Categorize(ctx, url, folder)
+		if err != nil {
+			return errMsg{err}
+		}
+		return feedCategorizedMsg{name: feed.Name, folder: folder}
+	}
 }

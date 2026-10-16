@@ -74,6 +74,7 @@ const (
 
 type folderItem struct {
 	name     string
+	number   int
 	feedIDs  []uuid.UUID
 	broken   int
 	expanded map[string]bool
@@ -81,11 +82,15 @@ type folderItem struct {
 }
 
 func (i folderItem) Title() string {
-	label := folderClosed
+	chevron := folderClosed
 	if i.expanded[i.name] {
-		label = folderOpen
+		chevron = folderOpen
 	}
-	label += " " + i.name
+
+	label := chevron + " " + i.name
+	if i.number >= 1 && i.number <= maxFolderKeys {
+		label = strconv.Itoa(i.number) + " " + label
+	}
 
 	if i.broken > 0 {
 		label += " " + brokenMark

@@ -44,6 +44,7 @@ const (
 	inputNone inputMode = iota
 	inputSearch
 	inputAddFeed
+	inputCategorize
 )
 
 type screenMode int
@@ -52,6 +53,7 @@ const (
 	screenList screenMode = iota
 	screenDetail
 	screenCatalog
+	screenPalette
 )
 
 type listSource int
@@ -89,12 +91,14 @@ type model struct {
 	ctx      context.Context
 	store    store.Store
 	userName string
+	server   string
 
 	keys        keyMap
 	help        help.Model
 	list        list.Model
 	feedList    list.Model
 	catalogList list.Model
+	paletteList list.Model
 	viewport    viewport.Model
 	spinner     spinner.Model
 	prompt      textinput.Model
@@ -135,7 +139,7 @@ type model struct {
 	err          error
 }
 
-func newModel(ctx context.Context, st store.Store, user store.User, saved uiState) model {
+func newModel(ctx context.Context, st store.Store, user store.User, saved uiState, server string) model {
 	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
 	l.Title = postsTitle
 	l.SetStatusBarItemName("post", "posts")
@@ -161,6 +165,16 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 	cl.SetFilteringEnabled(false)
 	cl.SetShowHelp(false)
 
+	paletteDelegate := list.NewDefaultDelegate()
+	paletteDelegate.ShowDescription = false
+	paletteDelegate.SetSpacing(0)
+
+	pl := list.New(nil, paletteDelegate, 0, 0)
+	pl.Title = paletteTitle
+	pl.SetShowStatusBar(false)
+	pl.SetShowHelp(false)
+	pl.DisableQuitKeybindings()
+
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	sp.Style = spinnerStyle
@@ -172,11 +186,13 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 		ctx:         ctx,
 		store:       st,
 		userName:    user.Name,
+		server:      server,
 		keys:        defaultKeyMap(),
 		help:        help.New(),
 		list:        l,
 		feedList:    fl,
 		catalogList: cl,
+		paletteList: pl,
 		viewport:    viewport.New(0, 0),
 		spinner:     sp,
 		prompt:      ti,
@@ -212,6 +228,8 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) inDerivedView() bool { return m.source.derived() }
+
+func (m model) remote() bool { return m.server != "" }
 
 func (m model) withStatus(text string) (model, tea.Cmd) {
 	m.statusToken++

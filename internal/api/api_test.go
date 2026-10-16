@@ -499,3 +499,35 @@ func TestMalformedInputIsABadRequestNotAnInternalError(t *testing.T) {
 		t.Errorf("empty body = %d, want 400", res.StatusCode)
 	}
 }
+
+func TestAnExpiredTokenReachesTheClientAsErrUnauthorized(t *testing.T) {
+	db := testdb.Open(t)
+	srv := serve(t, db)
+
+	good := register(t, srv, "alice")
+	if _, err := good.Subscriptions(t.Context()); err != nil {
+		t.Fatalf("a fresh token was refused: %v", err)
+	}
+
+	stale := remote.New(srv.URL, "gat_revoked")
+
+	for _, call := range []struct {
+		name string
+		run  func() error
+	}{
+		{"Me", func() error { _, err := stale.Me(t.Context()); return err }},
+		{"Posts", func() error { _, err := stale.Posts(t.Context(), store.PostQuery{}); return err }},
+		{"Subscriptions", func() error { _, err := stale.Subscriptions(t.Context()); return err }},
+		{"UnreadCounts", func() error { _, err := stale.UnreadCounts(t.Context()); return err }},
+		{"AddFeed", func() error { _, _, err := stale.AddFeed(t.Context(), "", "https://example.com/feed"); return err }},
+	} {
+		err := call.run()
+		if err == nil {
+			t.Errorf("%s with a revoked token succeeded", call.name)
+			continue
+		}
+		if !errors.Is(err, store.ErrUnauthorized) {
+			t.Errorf("%s error = %v, want it to match store.ErrUnauthorized so the TUI can say how to sign in", call.name, err)
+		}
+	}
+}

@@ -10,12 +10,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func Run(ctx context.Context, st store.Store, user store.User) error {
-	return run(newModel(ctx, st, user, loadState()))
+func Run(ctx context.Context, st store.Store, user store.User, server string) error {
+	return run(newModel(ctx, st, user, loadState(), server))
 }
 
-func RunCatalog(ctx context.Context, st store.Store, user store.User) error {
-	m := newModel(ctx, st, user, loadState())
+func RunCatalog(ctx context.Context, st store.Store, user store.User, server string) error {
+	m := newModel(ctx, st, user, loadState(), server)
 	m.openOnLoad = true
 	return run(m)
 }

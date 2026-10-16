@@ -40,13 +40,13 @@ func step(t *testing.T, m model, msg tea.Msg) (model, tea.Cmd) {
 
 func ready(t *testing.T, posts ...database.Post) model {
 	t.Helper()
-	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}, ""), tea.WindowSizeMsg{Width: 80, Height: 24})
 	m, _ = step(t, m, postsLoadedMsg{posts: posts})
 	return m
 }
 
 func TestWindowSizeSetsViewportHeight(t *testing.T) {
-	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}, ""), tea.WindowSizeMsg{Width: 80, Height: 24})
 
 	if got, want := m.viewport.Width, 80; got != want {
 		t.Errorf("viewport width = %d, want %d", got, want)
@@ -57,7 +57,7 @@ func TestWindowSizeSetsViewportHeight(t *testing.T) {
 }
 
 func TestWindowSizeTinyTerminal(t *testing.T) {
-	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 10, Height: 2})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}, ""), tea.WindowSizeMsg{Width: 10, Height: 2})
 
 	if m.viewport.Height < 1 {
 		t.Errorf("viewport height = %d, want at least 1", m.viewport.Height)
@@ -79,7 +79,7 @@ func TestPostsLoadedFillsList(t *testing.T) {
 }
 
 func TestErrMsgShownInView(t *testing.T) {
-	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), errMsg{errors.New("baza pukla")})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}, ""), errMsg{errors.New("baza pukla")})
 
 	if m.loading {
 		t.Error("loading still true after errMsg")
@@ -90,7 +90,7 @@ func TestErrMsgShownInView(t *testing.T) {
 }
 
 func TestLoadingView(t *testing.T) {
-	m := newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc})
+	m := newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}, "")
 
 	if got := m.View(); !strings.Contains(got, "Loading") {
 		t.Errorf("initial view = %q, want a loading message", got)
