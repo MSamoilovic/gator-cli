@@ -221,7 +221,7 @@ func TestCatalogAddedReloadsFeeds(t *testing.T) {
 }
 
 func TestCatalogOpensAfterFeedsLoadWhenAskedTo(t *testing.T) {
-	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}, ""), tea.WindowSizeMsg{Width: 80, Height: 24})
 	m.openOnLoad = true
 
 	if m.screen == screenCatalog {

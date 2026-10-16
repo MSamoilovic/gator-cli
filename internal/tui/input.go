@@ -80,6 +80,9 @@ func (m model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case inputAddFeed:
 			next, cmd := m.withStatus("Adding " + value + "…")
 			return next, tea.Batch(cmd, addFeed(next.ctx, next.store, value))
+
+		case inputCategorize:
+			return m.applyCategory(value)
 		}
 		return m, nil
 	}
@@ -189,6 +192,9 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirming = true
 		return m, nil
 
+	case key.Matches(msg, m.keys.Palette):
+		return m.openPalette()
+
 	case key.Matches(msg, m.keys.Folder):
 		return m.jumpToFolder(folderKey(msg))
 
@@ -234,6 +240,8 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.toggleHelp()
 		case key.Matches(msg, m.keys.Tab):
 			return m.focusFeedPanel()
+		case key.Matches(msg, m.keys.Palette):
+			return m.openPalette()
 		case key.Matches(msg, m.keys.Folder):
 			return m.jumpToFolder(folderKey(msg))
 		case key.Matches(msg, m.keys.FoldAll):

@@ -39,6 +39,9 @@ func (m model) reload() (tea.Model, tea.Cmd) {
 }
 
 func (m model) fetchAll() (tea.Model, tea.Cmd) {
+	if m.remote() {
+		return m.withStatus(m.serverName() + " refreshes feeds on its own — press r to reload")
+	}
 	if m.fetching {
 		return m, nil
 	}
@@ -163,4 +166,58 @@ func (m model) markListRead() (tea.Model, tea.Cmd) {
 		m.applyRead(pi.post.ID, pi.post.FeedID, true)
 	}
 	return m, markAllRead(m.ctx, m.store, ids)
+}
+
+func (m model) toggleSelectedBookmark() (tea.Model, tea.Cmd) {
+	post, ok := m.currentPost()
+	if !ok {
+		return m, nil
+	}
+	if m.bookmarks[post.ID] {
+		return m, removeBookmark(m.ctx, m.store, post.ID)
+	}
+	return m, addBookmark(m.ctx, m.store, post.ID)
+}
+
+func (m model) openSelectedInBrowser() (tea.Model, tea.Cmd) {
+	post, ok := m.currentPost()
+	if !ok {
+		return m, nil
+	}
+	return m, openInBrowser(post.Url)
+}
+
+func (m model) selectedFeed() (feedItem, bool) {
+	item, ok := m.feedList.SelectedItem().(feedItem)
+	if !ok || item.id == uuid.Nil {
+		return feedItem{}, false
+	}
+	return item, true
+}
+
+func (m model) askUnfollow() (tea.Model, tea.Cmd) {
+	if _, ok := m.selectedFeed(); !ok {
+		return m.withStatus("Pick a feed in the feed pane first")
+	}
+	m.confirming = true
+	m.focus = focusFeeds
+	m.applyFocus()
+	return m, nil
+}
+
+func (m model) promptCategory() (tea.Model, tea.Cmd) {
+	item, ok := m.selectedFeed()
+	if !ok {
+		return m.withStatus("Pick a feed in the feed pane first")
+	}
+	return m, m.startInput(inputCategorize, "move "+item.name+" to folder: ")
+}
+
+func (m model) applyCategory(folder string) (tea.Model, tea.Cmd) {
+	item, ok := m.selectedFeed()
+	if !ok {
+		return m.withStatus("Pick a feed in the feed pane first")
+	}
+	next, cmd := m.withStatus("Moving " + item.name + " to " + folder + "…")
+	return next, tea.Batch(cmd, categorizeFeed(next.ctx, next.store, item.url, folder))
 }

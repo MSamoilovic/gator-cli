@@ -59,6 +59,9 @@ var (
 	ErrNoMoreText   = errors.New("the article has no more text than the feed already gave")
 	ErrNotFollowed  = errors.New("you do not follow that feed")
 	ErrFeedNotFound = errors.New("feed not found")
+	ErrUnauthorized = errors.New("not signed in to this server")
+	ErrPlanLimit    = errors.New("your plan does not allow that")
+	ErrUnreachable  = errors.New("cannot reach the server")
 )
 
 type Store interface {

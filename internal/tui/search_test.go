@@ -173,7 +173,7 @@ func TestSearchCtrlCQuits(t *testing.T) {
 }
 
 func TestSpinnerShownWhileLoading(t *testing.T) {
-	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}), tea.WindowSizeMsg{Width: 80, Height: 24})
+	m, _ := step(t, newModel(t.Context(), nil, testUser(), uiState{SortDir: sortDesc}, ""), tea.WindowSizeMsg{Width: 80, Height: 24})
 
 	if !strings.Contains(m.View(), "Loading posts") {
 		t.Errorf("loading view missing:\n%s", m.View())
@@ -214,7 +214,7 @@ func TestFullHelpFitsEightyColumns(t *testing.T) {
 	if strings.Contains(footer, "…") {
 		t.Errorf("help truncated at 80 columns: %q", footer)
 	}
-	for _, want := range []string{"⏎ read", "o open", "b mark", "s search", "tab pane", "? help", "q quit"} {
+	for _, want := range []string{"⏎ read", "o open", "b mark", ": commands", "tab pane", "? help", "q quit"} {
 		if !strings.Contains(footer, want) {
 			t.Errorf("short help missing %q: %q", want, footer)
 		}

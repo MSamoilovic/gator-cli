@@ -11,11 +11,13 @@ import (
 func (m model) View() string {
 	switch {
 	case m.err != nil:
-		return "Error: " + m.err.Error() + "\n\nPress q to quit.\n"
+		return m.fatalView()
 	case m.loading:
 		return "\n  " + m.spinner.View() + " Loading posts...\n"
 	case m.screen == screenCatalog:
 		return m.catalogView()
+	case m.screen == screenPalette:
+		return m.paletteView()
 	case m.screen == screenDetail:
 		return m.detailView()
 	default:
@@ -103,6 +105,8 @@ func (m model) currentBindings() []key.Binding {
 	switch {
 	case m.screen == screenCatalog:
 		return m.keys.catalogHelp()
+	case m.screen == screenPalette:
+		return m.keys.paletteHelp()
 	case m.screen == screenDetail:
 		return m.keys.detailHelp()
 	case m.focus == focusFeeds:
@@ -116,7 +120,7 @@ func (m model) footerHeight() int {
 	if !m.help.ShowAll {
 		return 1
 	}
-	return lipgloss.Height(m.help.FullHelpView(m.keys.fullHelp()))
+	return lipgloss.Height(m.help.FullHelpView(m.keys.fullHelp(m.remote())))
 }
 
 func (m model) footer() string {
@@ -129,7 +133,7 @@ func (m model) footer() string {
 	case m.status != "":
 		line = m.userTagged(m.status)
 	case m.help.ShowAll:
-		line = m.help.FullHelpView(m.keys.fullHelp())
+		line = m.help.FullHelpView(m.keys.fullHelp(m.remote()))
 	default:
 		line = m.userTagged(m.help.ShortHelpView(m.currentBindings()))
 	}
@@ -178,6 +182,7 @@ func (m *model) resize(w, h int) {
 	panelHeight := m.panelHeight()
 	m.feedList.SetSize(max(feedListWidth, 1), panelHeight)
 	m.catalogList.SetSize(w, panelHeight)
+	m.paletteList.SetSize(w, panelHeight)
 	m.list.SetSize(max(postsListWidth, 1), panelHeight)
 	m.prompt.Width = max(w-len(m.prompt.Prompt)-1, 1)
 
