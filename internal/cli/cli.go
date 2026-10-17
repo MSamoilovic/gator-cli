@@ -75,6 +75,7 @@ func allCommands() []entry {
 		{group: "aggregation", name: "agg", args: "<duration>", summary: "Fetch every feed in a loop, e.g. 15m", run: handlerAgg, localOnly: true},
 		{group: "aggregation", name: "supervise", args: "<duration>", summary: "Keep agg running, restart it on crash", run: handlerSupervise, localOnly: true},
 		{group: "aggregation", name: "prune", args: "[flags]", summary: "Delete posts older than the retention window", run: handlerPrune, localOnly: true},
+		{group: "aggregation", name: "refetch", args: "[flags]", summary: "Forget what feeds told us last time so the next fetch reads them in full", run: handlerRefetch, localOnly: true},
 
 		{group: "aggregation", name: "serve", args: "[flags]", summary: "Serve the HTTP API so gator works from other machines", run: handlerServe, localOnly: true},
 

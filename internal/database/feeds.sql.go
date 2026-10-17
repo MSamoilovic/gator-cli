@@ -61,6 +61,30 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 	return i, err
 }
 
+const forgetFeedValidators = `-- name: ForgetFeedValidators :execrows
+UPDATE feeds
+SET etag = '', last_modified = '', updated_at = NOW()
+WHERE (etag <> '' OR last_modified <> '')
+  AND EXISTS (SELECT 1 FROM feed_follows ff WHERE ff.feed_id = feeds.id)
+  AND (
+    $1::bool
+    OR (SELECT count(*) FROM posts p WHERE p.feed_id = feeds.id) < $2::int
+  )
+`
+
+type ForgetFeedValidatorsParams struct {
+	AllFeeds bool
+	Below    int32
+}
+
+func (q *Queries) ForgetFeedValidators(ctx context.Context, arg ForgetFeedValidatorsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, forgetFeedValidators, arg.AllFeeds, arg.Below)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getBrokenFeeds = `-- name: GetBrokenFeeds :many
 SELECT id, name, url, last_error, failure_count, last_fetched_at
 FROM feeds

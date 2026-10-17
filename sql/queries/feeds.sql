@@ -64,3 +64,13 @@ ORDER BY failure_count DESC, name;
 UPDATE feeds
 SET url = $2, updated_at = NOW()
 WHERE id = $1;
+
+-- name: ForgetFeedValidators :execrows
+UPDATE feeds
+SET etag = '', last_modified = '', updated_at = NOW()
+WHERE (etag <> '' OR last_modified <> '')
+  AND EXISTS (SELECT 1 FROM feed_follows ff WHERE ff.feed_id = feeds.id)
+  AND (
+    @all_feeds::bool
+    OR (SELECT count(*) FROM posts p WHERE p.feed_id = feeds.id) < @below::int
+  );
