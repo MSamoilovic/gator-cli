@@ -19,7 +19,7 @@ func handlerPrune(ctx context.Context, s *state, cmd command) error {
 		return fmt.Errorf("usage: prune [--older-than %s] [--keep-per-feed %d]", feeds.DefaultRetention, feeds.DefaultKeepPerFeed)
 	}
 
-	n, err := feeds.Prune(ctx, s.Db, *olderThan, int32(*keep))
+	n, err := feeds.Prune(ctx, s.Db, feeds.Policy{Retention: *olderThan, KeepPerFeed: int32(*keep)})
 	if err != nil {
 		return err
 	}

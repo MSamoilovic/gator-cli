@@ -56,6 +56,27 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 	return i, err
 }
 
+const getFeedKeepCutoff = `-- name: GetFeedKeepCutoff :one
+SELECT COALESCE(published_at, created_at)::timestamp AS cutoff
+FROM posts
+WHERE feed_id = $1
+ORDER BY COALESCE(published_at, created_at) DESC, id
+OFFSET $2::int
+LIMIT 1
+`
+
+type GetFeedKeepCutoffParams struct {
+	FeedID uuid.UUID
+	Skip   int32
+}
+
+func (q *Queries) GetFeedKeepCutoff(ctx context.Context, arg GetFeedKeepCutoffParams) (time.Time, error) {
+	row := q.db.QueryRowContext(ctx, getFeedKeepCutoff, arg.FeedID, arg.Skip)
+	var cutoff time.Time
+	err := row.Scan(&cutoff)
+	return cutoff, err
+}
+
 const getPostByID = `-- name: GetPostByID :one
 SELECT id, created_at, updated_at, title, url, description, published_at, feed_id, full_text FROM posts WHERE id = $1
 `

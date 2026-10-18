@@ -122,7 +122,7 @@ func TestPruneCannotLeaveAFollowedFeedBelowTheKeepWindow(t *testing.T) {
 		}
 	}
 
-	if _, err := Prune(t.Context(), db.Queries, DefaultRetention, DefaultKeepPerFeed); err != nil {
+	if _, err := Prune(t.Context(), db.Queries, DefaultPolicy()); err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
 
@@ -143,7 +143,7 @@ func TestAgeOnlyPruneIsTheOneWayLeftToTrapAFeed(t *testing.T) {
 	user := db.User(t, "alice")
 	feed := remembering(t, db, user.ID, "dave", 12, true)
 
-	if _, err := Prune(t.Context(), db.Queries, DefaultRetention, 0); err != nil {
+	if _, err := Prune(t.Context(), db.Queries, Policy{Retention: DefaultRetention}); err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
 

@@ -7,14 +7,14 @@ import (
 
 func TestPruneRefusesANonPositiveRetention(t *testing.T) {
 	for _, retention := range []time.Duration{0, -time.Hour} {
-		if _, err := Prune(t.Context(), nil, retention, DefaultKeepPerFeed); err == nil {
+		if _, err := Prune(t.Context(), nil, Policy{Retention: retention, KeepPerFeed: DefaultKeepPerFeed}); err == nil {
 			t.Errorf("Prune(%s) returned no error, want one before it touches the database", retention)
 		}
 	}
 }
 
 func TestPruneRefusesANegativeKeepPerFeed(t *testing.T) {
-	if _, err := Prune(t.Context(), nil, DefaultRetention, -1); err == nil {
+	if _, err := Prune(t.Context(), nil, Policy{Retention: DefaultRetention, KeepPerFeed: -1}); err == nil {
 		t.Error("Prune(keepPerFeed=-1) returned no error, want one before it touches the database")
 	}
 }

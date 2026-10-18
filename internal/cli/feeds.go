@@ -202,12 +202,17 @@ func postPreview(p store.Post) string {
 }
 
 func scrapeFeeds(ctx context.Context, s *state) {
-	_, err := feeds.ScrapeAll(ctx, s.Db, func(r feeds.Result) {
+	policy := feeds.DefaultPolicy()
+
+	_, err := feeds.ScrapeAll(ctx, s.Db, policy, func(r feeds.Result) {
 		switch {
 		case r.Err != nil:
 			fmt.Fprintln(os.Stderr, "error:", r.Err)
 		case r.NotModified:
 			fmt.Printf("Unchanged: %s\n", r.Feed.Name)
+		case r.Skipped > 0:
+			fmt.Printf("Fetched %d posts from %s (%d new, %d already past retention)\n",
+				r.Items, r.Feed.Name, r.Saved, r.Skipped)
 		default:
 			fmt.Printf("Fetched %d posts from %s (%d new)\n", r.Items, r.Feed.Name, r.Saved)
 		}
@@ -219,12 +224,12 @@ func scrapeFeeds(ctx context.Context, s *state) {
 		fmt.Fprintln(os.Stderr, "error:", err)
 	}
 
-	switch n, err := feeds.Prune(ctx, s.Db, feeds.DefaultRetention, feeds.DefaultKeepPerFeed); {
+	switch n, err := feeds.Prune(ctx, s.Db, policy); {
 	case err != nil:
 		fmt.Fprintln(os.Stderr, "error:", err)
 	case n > 0:
 		fmt.Printf("Deleted %d posts older than %s, keeping the newest %d per feed\n",
-			n, feeds.DefaultRetention, feeds.DefaultKeepPerFeed)
+			n, policy.Retention, policy.KeepPerFeed)
 	}
 }
 

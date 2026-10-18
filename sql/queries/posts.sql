@@ -60,3 +60,11 @@ WHERE COALESCE(published_at, created_at) < @before::timestamp
   AND NOT EXISTS (
     SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id
   );
+
+-- name: GetFeedKeepCutoff :one
+SELECT COALESCE(published_at, created_at)::timestamp AS cutoff
+FROM posts
+WHERE feed_id = @feed_id
+ORDER BY COALESCE(published_at, created_at) DESC, id
+OFFSET @skip::int
+LIMIT 1;

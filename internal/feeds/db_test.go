@@ -118,7 +118,7 @@ func TestScrapeSavesPostsThenSkipsTheDuplicates(t *testing.T) {
 
 	feed := db.Feed(t, user.ID, "Go Blog", srv.URL)
 
-	first := Scrape(t.Context(), db.Queries, feed)
+	first := Scrape(t.Context(), db.Queries, feed, Policy{})
 	if first.Err != nil {
 		t.Fatalf("first Scrape: %v", first.Err)
 	}
@@ -131,7 +131,7 @@ func TestScrapeSavesPostsThenSkipsTheDuplicates(t *testing.T) {
 		t.Fatalf("reloading feed: %v", err)
 	}
 
-	second := Scrape(t.Context(), db.Queries, fresh)
+	second := Scrape(t.Context(), db.Queries, fresh, Policy{})
 	if second.Err != nil {
 		t.Fatalf("second Scrape: %v", second.Err)
 	}
@@ -160,7 +160,7 @@ func TestScrapeRecordsAndThenClearsFailure(t *testing.T) {
 
 	feed := db.Feed(t, user.ID, "Flaky", srv.URL)
 
-	if res := Scrape(t.Context(), db.Queries, feed); res.Err == nil {
+	if res := Scrape(t.Context(), db.Queries, feed, Policy{}); res.Err == nil {
 		t.Fatal("Scrape of a 500 reported no error")
 	}
 
@@ -176,7 +176,7 @@ func TestScrapeRecordsAndThenClearsFailure(t *testing.T) {
 	}
 
 	ok = true
-	if res := Scrape(t.Context(), db.Queries, broken); res.Err != nil {
+	if res := Scrape(t.Context(), db.Queries, broken, Policy{}); res.Err != nil {
 		t.Fatalf("Scrape after recovery: %v", res.Err)
 	}
 
@@ -206,7 +206,7 @@ func TestScrapeStoresConditionalGetValidators(t *testing.T) {
 
 	feed := db.Feed(t, user.ID, "Go Blog", srv.URL)
 
-	if res := Scrape(t.Context(), db.Queries, feed); res.Err != nil {
+	if res := Scrape(t.Context(), db.Queries, feed, Policy{}); res.Err != nil {
 		t.Fatalf("first Scrape: %v", res.Err)
 	}
 
@@ -218,7 +218,7 @@ func TestScrapeStoresConditionalGetValidators(t *testing.T) {
 		t.Fatalf("etag = %q, want %q", stored.Etag, `"v1"`)
 	}
 
-	second := Scrape(t.Context(), db.Queries, stored)
+	second := Scrape(t.Context(), db.Queries, stored, Policy{})
 	if second.Err != nil {
 		t.Fatalf("second Scrape: %v", second.Err)
 	}
@@ -235,7 +235,7 @@ func TestPruneDeletesOnlyPostsPastTheRetention(t *testing.T) {
 	db.Post(t, feed.ID, "Ancient", "https://go.test/old", time.Now().Add(-100*time.Hour))
 	db.Post(t, feed.ID, "Recent", "https://go.test/new", time.Now().Add(-1*time.Hour))
 
-	n, err := Prune(t.Context(), db.Queries, DefaultRetention, 0)
+	n, err := Prune(t.Context(), db.Queries, Policy{Retention: DefaultRetention})
 	if err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestScrapeAllPicksUpEveryFeed(t *testing.T) {
 	db.Feed(t, user.ID, "Two", srv.URL+"/two")
 
 	var seen int
-	results, err := ScrapeAll(t.Context(), db.Queries, func(Result) { seen++ })
+	results, err := ScrapeAll(t.Context(), db.Queries, Policy{}, func(Result) { seen++ })
 	if err != nil {
 		t.Fatalf("ScrapeAll: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestScrapeAllBoundsHowManyFeedsItFetchesAtOnce(t *testing.T) {
 		db.Feed(t, user.ID, fmt.Sprintf("Feed %d", i), fmt.Sprintf("%s/feed/%d", srv.URL, i))
 	}
 
-	results, err := ScrapeAll(t.Context(), db.Queries, nil)
+	results, err := ScrapeAll(t.Context(), db.Queries, Policy{}, nil)
 	if err != nil {
 		t.Fatalf("ScrapeAll: %v", err)
 	}
@@ -336,7 +336,7 @@ func TestPruneKeepsTheNewestPerFeedWhateverTheirAge(t *testing.T) {
 			time.Now().Add(-time.Duration(100+i)*time.Hour))
 	}
 
-	n, err := Prune(t.Context(), db.Queries, DefaultRetention, 10)
+	n, err := Prune(t.Context(), db.Queries, Policy{Retention: DefaultRetention, KeepPerFeed: 10})
 	if err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
@@ -371,7 +371,7 @@ func TestPruneCountsTheKeepWindowPerFeedNotGlobally(t *testing.T) {
 		}
 	}
 
-	n, err := Prune(t.Context(), db.Queries, DefaultRetention, 5)
+	n, err := Prune(t.Context(), db.Queries, Policy{Retention: DefaultRetention, KeepPerFeed: 5})
 	if err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
@@ -401,7 +401,7 @@ func TestPruneStillProtectsABookmarkBeyondTheKeepWindow(t *testing.T) {
 	}
 	db.Bookmark(t, user.ID, oldest)
 
-	if _, err := Prune(t.Context(), db.Queries, DefaultRetention, 5); err != nil {
+	if _, err := Prune(t.Context(), db.Queries, Policy{Retention: DefaultRetention, KeepPerFeed: 5}); err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
 
