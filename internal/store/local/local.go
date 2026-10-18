@@ -333,7 +333,7 @@ func followsFeed(rows []store.Subscription, feedID uuid.UUID) bool {
 }
 
 func (s *Store) Refresh(ctx context.Context) (store.RefreshResult, error) {
-	results, err := feeds.ScrapeAll(ctx, s.q, nil)
+	results, err := feeds.ScrapeAll(ctx, s.q, feeds.DefaultPolicy(), nil)
 	if err != nil {
 		return store.RefreshResult{}, err
 	}

@@ -165,10 +165,11 @@ type Result struct {
 	MovedTo     string
 	Items       int
 	Saved       int
+	Skipped     int
 	Err         error
 }
 
-func ScrapeAll(ctx context.Context, q *database.Queries, onResult func(Result)) ([]Result, error) {
+func ScrapeAll(ctx context.Context, q *database.Queries, p Policy, onResult func(Result)) ([]Result, error) {
 	feeds, err := q.GetFeedsToFetch(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting feeds: %w", err)
@@ -189,7 +190,7 @@ func ScrapeAll(ctx context.Context, q *database.Queries, onResult func(Result)) 
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			res := Scrape(ctx, q, feed)
+			res := Scrape(ctx, q, feed, p)
 
 			mu.Lock()
 			defer mu.Unlock()
@@ -219,7 +220,7 @@ func rememberMove(ctx context.Context, q *database.Queries, feed database.Feed, 
 	}
 }
 
-func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result {
+func Scrape(ctx context.Context, q *database.Queries, feed database.Feed, p Policy) Result {
 	res := Result{Feed: feed}
 
 	if err := q.MarkFeedFetched(ctx, feed.ID); err != nil {
@@ -262,8 +263,15 @@ func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result
 	}
 
 	res.Items = len(rssFeed.Channel.Item)
+	prunable := prunableBefore(ctx, q, feed.ID, p)
 
 	for _, item := range rssFeed.Channel.Item {
+		published := ParsePubDate(item.PubDate)
+		if prunable.worthless(published, time.Now()) {
+			res.Skipped++
+			continue
+		}
+
 		_, err := q.CreatePost(ctx, database.CreatePostParams{
 			ID:          uuid.New(),
 			CreatedAt:   time.Now(),
@@ -271,7 +279,7 @@ func Scrape(ctx context.Context, q *database.Queries, feed database.Feed) Result
 			Title:       item.Title,
 			Url:         item.Link,
 			Description: sql.NullString{String: item.Description, Valid: item.Description != ""},
-			PublishedAt: ParsePubDate(item.PubDate),
+			PublishedAt: published,
 			FeedID:      feed.ID,
 		})
 		switch {
@@ -325,4 +333,53 @@ func ParsePubDate(s string) sql.NullTime {
 		}
 	}
 	return sql.NullTime{}
+}
+
+type prunableWindow struct {
+	retention    time.Duration
+	cutoff       time.Time
+	hasCutoff    bool
+	keepsNothing bool
+}
+
+func prunableBefore(ctx context.Context, q *database.Queries, feedID uuid.UUID, p Policy) prunableWindow {
+	w := prunableWindow{retention: p.Retention}
+	if p.Retention <= 0 {
+		return w
+	}
+	if p.KeepPerFeed < 1 {
+		w.keepsNothing = true
+		return w
+	}
+
+	cutoff, err := q.GetFeedKeepCutoff(ctx, database.GetFeedKeepCutoffParams{
+		FeedID: feedID,
+		Skip:   p.KeepPerFeed - 1,
+	})
+	if err != nil {
+		return w
+	}
+	w.hasCutoff, w.cutoff = true, cutoff
+	return w
+}
+
+func wallClock(t time.Time) time.Time {
+	y, m, d := t.Date()
+	h, min, sec := t.Clock()
+	return time.Date(y, m, d, h, min, sec, t.Nanosecond(), time.UTC)
+}
+
+func (w prunableWindow) worthless(published sql.NullTime, now time.Time) bool {
+	if w.retention <= 0 || !published.Valid {
+		return false
+	}
+
+	item := wallClock(published.Time)
+	if !item.Before(wallClock(now.Add(-w.retention))) {
+		return false
+	}
+	if w.keepsNothing {
+		return true
+	}
+	return w.hasCutoff && item.Before(w.cutoff)
 }
