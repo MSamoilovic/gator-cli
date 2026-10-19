@@ -19,6 +19,7 @@ type uiState struct {
 	SortDir    string   `json:"sort_dir,omitempty"`
 	UnreadOnly bool     `json:"unread_only,omitempty"`
 	SinceHours int      `json:"since_hours,omitempty"`
+	Density    string   `json:"density,omitempty"`
 	Expanded   []string `json:"expanded,omitempty"`
 }
 
@@ -67,6 +68,7 @@ func (s uiState) sanitized() uiState {
 	if sinceLabel(time.Duration(s.SinceHours)*time.Hour) == "" {
 		s.SinceHours = 0
 	}
+	s.Density = parseDensity(s.Density).String()
 	return s
 }
 
@@ -107,6 +109,7 @@ func (m model) snapshot() uiState {
 		SortDir:    m.filter.sortDir,
 		UnreadOnly: m.filter.read == store.ReadUnread,
 		SinceHours: int(m.filter.since / time.Hour),
+		Density:    m.density.String(),
 	}
 	if m.filter.feedID != uuid.Nil {
 		s.FeedID, s.FeedName = m.filter.feedID.String(), m.filter.feedName

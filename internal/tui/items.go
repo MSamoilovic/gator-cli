@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"database/sql"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/catalog"
 	"github.com/MSamoilovic/gator-cli/internal/database"
@@ -10,34 +12,67 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	unreadMark = "●"
+	savedMark  = "★"
+	undatedAge = "-"
+	ageCols    = 3
+)
+
 type postItem struct {
 	post      database.Post
 	bookmarks map[uuid.UUID]bool
 	reads     map[uuid.UUID]bool
+	feedNames map[uuid.UUID]string
+}
+
+func (i postItem) marks() string {
+	read, saved := " ", " "
+	if !i.reads[i.post.ID] {
+		read = unreadMark
+	}
+	if i.bookmarks[i.post.ID] {
+		saved = savedMark
+	}
+	return read + saved
 }
 
 func (i postItem) Title() string {
-	prefix := ""
-	if !i.reads[i.post.ID] {
-		prefix += "●"
-	}
-	if i.bookmarks[i.post.ID] {
-		prefix += "★"
-	}
-	if prefix == "" {
-		return i.post.Title
-	}
-	return prefix + " " + i.post.Title
+	return i.marks() + " " + relativeAge(i.post.PublishedAt, time.Now()) + " " + i.post.Title
 }
 
-func (i postItem) Description() string {
-	if i.post.PublishedAt.Valid {
-		return i.post.PublishedAt.Time.Format("2006-01-02") + " · " + i.post.Url
-	}
-	return i.post.Url
+func (i postItem) Description() string { return i.feedNames[i.post.FeedID] }
+
+func (i postItem) FilterValue() string { return i.Title() }
+
+func relativeAge(published sql.NullTime, now time.Time) string {
+	return fmt.Sprintf("%*s", ageCols, ageLabel(published, now))
 }
 
-func (i postItem) FilterValue() string { return i.post.Title }
+func ageLabel(published sql.NullTime, now time.Time) string {
+	if !published.Valid {
+		return undatedAge
+	}
+
+	const (
+		day  = 24 * time.Hour
+		week = 7 * day
+		year = 52 * week
+	)
+
+	switch age := now.Sub(published.Time); {
+	case age < time.Hour:
+		return strconv.Itoa(max(int(age/time.Minute), 0)) + "m"
+	case age < day:
+		return strconv.Itoa(int(age/time.Hour)) + "h"
+	case age < week:
+		return strconv.Itoa(int(age/day)) + "d"
+	case age < year:
+		return strconv.Itoa(int(age/week)) + "w"
+	default:
+		return strconv.Itoa(int(age/year)) + "y"
+	}
+}
 
 const brokenMark = "⚠"
 

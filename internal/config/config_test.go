@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -12,6 +13,8 @@ func TestReadWriteRoundTrip(t *testing.T) {
 	want := Config{
 		DBURL:           "postgres://localhost:5432/gator",
 		CurrentUserName: "marko",
+		ServerURL:       "https://reader.example.com",
+		Theme:           "mono",
 	}
 	if err := write(want); err != nil {
 		t.Fatalf("write: %v", err)
@@ -118,5 +121,24 @@ func TestSetUsername(t *testing.T) {
 	}
 	if reread.DBURL != "postgres://localhost/gator" {
 		t.Errorf("DBURL changed: got %q", reread.DBURL)
+	}
+}
+
+func TestAConfigWithoutOptionalFieldsDoesNotWriteThem(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := write(Config{DBURL: "postgres://localhost/gator", CurrentUserName: "marko"}); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	body, err := os.ReadFile(filepath.Join(home, configFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"server_url", "theme"} {
+		if strings.Contains(string(body), key) {
+			t.Errorf("config carries %q although it was never set: %s", key, body)
+		}
 	}
 }

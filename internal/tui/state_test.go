@@ -23,6 +23,7 @@ func TestStateRoundTrip(t *testing.T) {
 		SortDir:    sortAsc,
 		UnreadOnly: true,
 		SinceHours: 168,
+		Density:    nameCompact,
 		Expanded:   []string{"Sport", "Tech"},
 	}
 	if err := want.save(); err != nil {

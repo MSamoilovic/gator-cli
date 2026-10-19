@@ -102,27 +102,44 @@ func TestRenderDetailBodyWraps(t *testing.T) {
 	}
 }
 
-func TestPostItem(t *testing.T) {
-	published := database.Post{
+func TestPostItemNamesItsFeedAndNotItsURL(t *testing.T) {
+	feedID := uuid.New()
+	post := database.Post{
 		ID:          uuid.New(),
 		Title:       "Learn Go",
 		Url:         "https://blog.boot.dev/go",
-		PublishedAt: sql.NullTime{Time: time.Date(2026, 7, 27, 0, 0, 0, 0, time.UTC), Valid: true},
+		FeedID:      feedID,
+		PublishedAt: sql.NullTime{Time: time.Now().Add(-2 * time.Hour), Valid: true},
 	}
-	undated := database.Post{Title: "Learn Go", Url: "https://blog.boot.dev/go"}
-	read := map[uuid.UUID]bool{published.ID: true}
+	item := postItem{
+		post:      post,
+		reads:     map[uuid.UUID]bool{post.ID: true},
+		feedNames: map[uuid.UUID]string{feedID: "Boot.dev"},
+	}
 
-	if got, want := (postItem{post: published, reads: read}).Title(), "Learn Go"; got != want {
+	if got, want := item.Title(), "    2h Learn Go"; got != want {
 		t.Errorf("Title() = %q, want %q", got, want)
 	}
-	if got, want := (postItem{post: published, reads: read}).FilterValue(), "Learn Go"; got != want {
-		t.Errorf("FilterValue() = %q, want %q", got, want)
+	if got, want := item.Description(), "Boot.dev"; got != want {
+		t.Errorf("Description() = %q, want %q — the URL was always truncated and the feed never named", got, want)
 	}
-	if got, want := (postItem{post: published, reads: read}).Description(), "2026-07-27 · https://blog.boot.dev/go"; got != want {
-		t.Errorf("Description() = %q, want %q", got, want)
+	if strings.Contains(item.Description(), post.Url) {
+		t.Error("the description still spends the second row on a URL the detail view already shows")
 	}
-	if got, want := (postItem{post: undated, reads: read}).Description(), "https://blog.boot.dev/go"; got != want {
-		t.Errorf("Description() without date = %q, want %q", got, want)
+
+	unknown := postItem{post: post, reads: map[uuid.UUID]bool{post.ID: true}}
+	if got := unknown.Description(); got != "" {
+		t.Errorf("Description() before feeds load = %q, want empty", got)
+	}
+}
+
+func TestPostItemFilterValueMatchesItsTitle(t *testing.T) {
+	post := database.Post{ID: uuid.New(), Title: "Learn Go"}
+	item := postItem{post: post, reads: map[uuid.UUID]bool{}, bookmarks: map[uuid.UUID]bool{}}
+
+	if got, want := item.FilterValue(), item.Title(); got != want {
+		t.Errorf("FilterValue() = %q, Title() = %q — list highlights matches of the filter value "+
+			"on the title, so anything else underlines the wrong characters", got, want)
 	}
 }
 
@@ -135,10 +152,10 @@ func TestPostItemMarkers(t *testing.T) {
 		bookmark bool
 		want     string
 	}{
-		{"unread", false, false, "● Learn Go"},
-		{"unread and saved", false, true, "●★ Learn Go"},
-		{"read and saved", true, true, "★ Learn Go"},
-		{"read", true, false, "Learn Go"},
+		{"unread", false, false, "●    - Learn Go"},
+		{"unread and saved", false, true, "●★   - Learn Go"},
+		{"read and saved", true, true, " ★   - Learn Go"},
+		{"read", true, false, "     - Learn Go"},
 	}
 
 	for _, tc := range cases {
@@ -152,6 +169,34 @@ func TestPostItemMarkers(t *testing.T) {
 				t.Errorf("Title() = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestEveryPostStartsItsTitleInTheSameColumn(t *testing.T) {
+	post := database.Post{ID: uuid.New(), Title: "Learn Go"}
+
+	var columns []int
+	for _, read := range []bool{false, true} {
+		for _, saved := range []bool{false, true} {
+			for _, age := range []time.Duration{time.Minute, 20 * time.Hour, 900 * 24 * time.Hour} {
+				p := post
+				p.PublishedAt = sql.NullTime{Time: time.Now().Add(-age), Valid: true}
+				item := postItem{
+					post:      p,
+					reads:     map[uuid.UUID]bool{post.ID: read},
+					bookmarks: map[uuid.UUID]bool{post.ID: saved},
+				}
+				title := item.Title()
+				columns = append(columns, lipgloss.Width(title[:strings.Index(title, post.Title)]))
+			}
+		}
+	}
+
+	for _, got := range columns {
+		if got != columns[0] {
+			t.Fatalf("titles start at columns %v — a marker or an age that changes width makes the "+
+				"whole list jump sideways as posts are read", columns)
+		}
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/store"
 	"github.com/MSamoilovic/gator-cli/internal/store/local"
 	"github.com/MSamoilovic/gator-cli/internal/store/remote"
+	"github.com/MSamoilovic/gator-cli/internal/theme"
 
 	_ "github.com/lib/pq"
 )
@@ -133,6 +134,10 @@ func open(schema fs.FS) (*state, func() error, error) {
 	cfg, err := config.Read()
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading config: %w", err)
+	}
+
+	if err := theme.Apply(cfg.Theme); err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", config.Path(), err)
 	}
 
 	if cfg.ServerURL != "" {
