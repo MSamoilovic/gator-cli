@@ -51,6 +51,7 @@ func (m model) paletteActions() []paletteItem {
 		{label: "Open this post in the browser", hint: "o", run: model.openSelectedInBrowser},
 		{label: "Copy this post's URL", hint: "y", run: model.copySelectedURL},
 		{label: "Flip the sort order", hint: "S", run: model.toggleSort},
+		{label: "Switch the list density", run: model.toggleDensity},
 		{label: "Cycle the time range", hint: "t", run: model.cycleTimeRange},
 		{label: "Collapse every folder", hint: "0", run: foldAll(false)},
 		{label: "Expand every folder", hint: "-", run: foldAll(true)},

@@ -33,6 +33,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.feedsLoaded = true
 		m.feedCount = len(msg.feeds)
 		m.feeds = msg.feeds
+		clear(m.feedNames)
+		for _, f := range msg.feeds {
+			m.feedNames[f.FeedID] = f.FeedName
+		}
 		cmd := m.feedList.SetItems(m.feedItems())
 
 		if m.openOnLoad {
@@ -191,7 +195,7 @@ func (m model) postsLoaded(msg postsLoadedMsg) (tea.Model, tea.Cmd) {
 
 	items := make([]list.Item, len(msg.posts))
 	for i, p := range msg.posts {
-		items[i] = postItem{post: p, bookmarks: m.bookmarks, reads: m.reads}
+		items[i] = postItem{post: p, bookmarks: m.bookmarks, reads: m.reads, feedNames: m.feedNames}
 	}
 
 	if msg.paged && msg.offset > 0 {

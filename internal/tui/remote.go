@@ -2,9 +2,29 @@ package tui
 
 import (
 	"errors"
+	"net/url"
+	"strings"
 
 	"github.com/MSamoilovic/gator-cli/internal/store"
 )
+
+const remoteMark = "⇅"
+
+func serverHost(server string) string {
+	parsed, err := url.Parse(server)
+	if err != nil || parsed.Host == "" {
+		return server
+	}
+	return parsed.Host
+}
+
+func hostWithoutPort(host string) string {
+	name, _, found := strings.Cut(host, ":")
+	if !found || name == "" {
+		return host
+	}
+	return name
+}
 
 func (m model) serverName() string {
 	if m.server == "" {

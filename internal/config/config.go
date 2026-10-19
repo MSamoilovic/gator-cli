@@ -12,6 +12,7 @@ type Config struct {
 	DBURL           string `json:"db_url"`
 	CurrentUserName string `json:"current_user_name"`
 	ServerURL       string `json:"server_url,omitempty"`
+	Theme           string `json:"theme,omitempty"`
 }
 
 func (cfg *Config) SetUsername(username string) error {

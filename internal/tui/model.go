@@ -107,6 +107,7 @@ type model struct {
 	bookmarks map[uuid.UUID]bool
 	reads     map[uuid.UUID]bool
 	unread    map[uuid.UUID]int
+	feedNames map[uuid.UUID]string
 	picked    map[string]bool
 	expanded  map[string]bool
 	feeds     []database.GetFeedFollowsForUserRow
@@ -123,6 +124,7 @@ type model struct {
 
 	screen      screenMode
 	focus       focusArea
+	density     density
 	width       int
 	height      int
 	feedWidth   int
@@ -140,7 +142,9 @@ type model struct {
 }
 
 func newModel(ctx context.Context, st store.Store, user store.User, saved uiState, server string) model {
-	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
+	dens := parseDensity(saved.Density)
+
+	l := list.New(nil, postDelegate(dens), 0, 0)
 	l.Title = postsTitle
 	l.SetStatusBarItemName("post", "posts")
 	l.SetShowHelp(false)
@@ -196,9 +200,11 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 		viewport:    viewport.New(0, 0),
 		spinner:     sp,
 		prompt:      ti,
+		density:     dens,
 		bookmarks:   make(map[uuid.UUID]bool),
 		reads:       make(map[uuid.UUID]bool),
 		unread:      make(map[uuid.UUID]int),
+		feedNames:   make(map[uuid.UUID]string),
 		picked:      make(map[string]bool),
 		expanded:    expandedSet(saved.Expanded),
 		filter: listFilter{

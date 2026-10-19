@@ -146,16 +146,31 @@ func (m model) footer() string {
 }
 
 func (m model) userTagged(line string) string {
+	for _, tag := range m.footerTags() {
+		rendered := userTagStyle.Render(tag)
+		gap := m.width - lipgloss.Width(line) - lipgloss.Width(rendered)
+		if gap >= 1 {
+			return line + strings.Repeat(" ", gap) + rendered
+		}
+	}
+	return line
+}
+
+func (m model) footerTags() []string {
 	if m.userName == "" {
-		return line
+		return nil
 	}
 
-	tag := userTagStyle.Render("@" + m.userName)
-	gap := m.width - lipgloss.Width(line) - lipgloss.Width(tag)
-	if gap < 1 {
-		return line
+	user := "@" + m.userName
+	if !m.remote() {
+		return []string{user}
 	}
-	return line + strings.Repeat(" ", gap) + tag
+
+	tags := []string{user + " · " + serverHost(m.server)}
+	if host := hostWithoutPort(serverHost(m.server)); host != serverHost(m.server) {
+		tags = append(tags, user+" · "+host)
+	}
+	return append(tags, user+" "+remoteMark, user)
 }
 
 func (m *model) resize(w, h int) {
