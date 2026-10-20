@@ -86,17 +86,21 @@ type feedItem struct {
 }
 
 func (i feedItem) Title() string {
-	name := i.name
-	if i.failures > 0 {
-		name = brokenMark + " " + name
-	}
+	label := i.name
 	if n := i.unread[i.id]; n > 0 {
-		name += " (" + strconv.Itoa(n) + ")"
+		label += " (" + strconv.Itoa(n) + ")"
 	}
-	if i.indent {
-		name = feedIndent + name
+	return i.gutter() + label
+}
+
+func (i feedItem) gutter() string {
+	switch {
+	case i.failures > 0:
+		return brokenMark + " "
+	case i.indent:
+		return feedIndent
 	}
-	return name
+	return ""
 }
 func (i feedItem) Description() string { return "" }
 func (i feedItem) FilterValue() string { return i.name }
