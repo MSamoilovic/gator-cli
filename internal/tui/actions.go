@@ -46,8 +46,14 @@ func (m model) fetchAll() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.fetching = true
-	next, cmd := m.withStatus("Fetching feeds…")
-	return next, tea.Batch(cmd, scrapeFeeds(next.ctx, next.store))
+	m.fetchDone, m.fetchTotal = 0, 0
+	m.fetchCh = make(chan fetchProgressMsg, 1)
+
+	cmds := []tea.Cmd{scrapeFeeds(m.ctx, m.store, m.fetchCh), waitForFetch(m.fetchCh)}
+	if !m.loading {
+		cmds = append(cmds, m.spinner.Tick)
+	}
+	return m, tea.Batch(cmds...)
 }
 
 func (m model) toggleBookmarksView() (tea.Model, tea.Cmd) {

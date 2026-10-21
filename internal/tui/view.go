@@ -134,6 +134,8 @@ func (m model) footer() string {
 		line = m.userTagged(m.status)
 	case m.help.ShowAll:
 		line = m.help.FullHelpView(m.keys.fullHelp(m.remote()))
+	case m.fetching:
+		line = m.userTagged(m.fetchLine())
 	default:
 		line = m.userTagged(m.help.ShortHelpView(m.currentBindings()))
 	}
@@ -143,6 +145,14 @@ func (m model) footer() string {
 		Height(m.footerHeight()).
 		MaxHeight(m.footerHeight()).
 		Render(line)
+}
+
+func (m model) fetchLine() string {
+	line := m.spinner.View() + "Fetching feeds"
+	if m.fetchTotal == 0 {
+		return line + "…"
+	}
+	return line + " " + strconv.Itoa(m.fetchDone) + "/" + strconv.Itoa(m.fetchTotal)
 }
 
 func (m model) userTagged(line string) string {

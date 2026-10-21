@@ -64,6 +64,10 @@ type (
 		failed    int
 		unchanged int
 	}
+	fetchProgressMsg struct {
+		done  int
+		total int
+	}
 	openedMsg        struct{ url string }
 	copiedMsg        struct{ url string }
 	statusExpiredMsg struct{ token int }
@@ -236,9 +240,15 @@ func unfollowFeed(ctx context.Context, st store.Store, feedID uuid.UUID, name st
 	}
 }
 
-func scrapeFeeds(ctx context.Context, st store.Store) tea.Cmd {
+func scrapeFeeds(ctx context.Context, st store.Store, progress chan fetchProgressMsg) tea.Cmd {
 	return func() tea.Msg {
-		got, err := st.Refresh(ctx)
+		got, err := st.Refresh(ctx, func(p feeds.Progress) {
+			select {
+			case progress <- fetchProgressMsg{done: p.Done, total: p.Total}:
+			default:
+			}
+		})
+		close(progress)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -248,6 +258,16 @@ func scrapeFeeds(ctx context.Context, st store.Store) tea.Cmd {
 			failed:    got.Failed,
 			unchanged: got.Unchanged,
 		}
+	}
+}
+
+func waitForFetch(progress chan fetchProgressMsg) tea.Cmd {
+	return func() tea.Msg {
+		p, ok := <-progress
+		if !ok {
+			return nil
+		}
+		return p
 	}
 }
 

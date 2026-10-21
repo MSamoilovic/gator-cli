@@ -204,17 +204,18 @@ func postPreview(p store.Post) string {
 func scrapeFeeds(ctx context.Context, s *state) {
 	policy := feeds.DefaultPolicy()
 
-	_, err := feeds.ScrapeAll(ctx, s.Db, policy, func(r feeds.Result) {
+	_, err := feeds.ScrapeAll(ctx, s.Db, policy, func(r feeds.Progress) {
+		at := fmt.Sprintf("[%d/%d]", r.Done, r.Total)
 		switch {
 		case r.Err != nil:
-			fmt.Fprintln(os.Stderr, "error:", r.Err)
+			fmt.Fprintln(os.Stderr, at, "error:", r.Err)
 		case r.NotModified:
-			fmt.Printf("Unchanged: %s\n", r.Feed.Name)
+			fmt.Printf("%s Unchanged: %s\n", at, r.Feed.Name)
 		case r.Skipped > 0:
-			fmt.Printf("Fetched %d posts from %s (%d new, %d already past retention)\n",
-				r.Items, r.Feed.Name, r.Saved, r.Skipped)
+			fmt.Printf("%s Fetched %d posts from %s (%d new, %d already past retention)\n",
+				at, r.Items, r.Feed.Name, r.Saved, r.Skipped)
 		default:
-			fmt.Printf("Fetched %d posts from %s (%d new)\n", r.Items, r.Feed.Name, r.Saved)
+			fmt.Printf("%s Fetched %d posts from %s (%d new)\n", at, r.Items, r.Feed.Name, r.Saved)
 		}
 		if r.MovedTo != "" {
 			fmt.Printf("Moved: %s now lives at %s\n", r.Feed.Name, r.MovedTo)

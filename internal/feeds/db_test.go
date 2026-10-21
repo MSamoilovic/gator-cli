@@ -259,16 +259,27 @@ func TestScrapeAllPicksUpEveryFeed(t *testing.T) {
 	db.Feed(t, user.ID, "One", srv.URL+"/one")
 	db.Feed(t, user.ID, "Two", srv.URL+"/two")
 
-	var seen int
-	results, err := ScrapeAll(t.Context(), db.Queries, Policy{}, func(Result) { seen++ })
+	var seen []Progress
+	results, err := ScrapeAll(t.Context(), db.Queries, Policy{}, func(p Progress) { seen = append(seen, p) })
 	if err != nil {
 		t.Fatalf("ScrapeAll: %v", err)
 	}
 	if len(results) != 2 {
 		t.Errorf("ScrapeAll returned %d results, want 2", len(results))
 	}
-	if seen != 2 {
-		t.Errorf("onResult fired %d times, want 2", seen)
+	if len(seen) != 2 {
+		t.Fatalf("onProgress fired %d times, want 2", len(seen))
+	}
+	for i, p := range seen {
+		if p.Done != i+1 {
+			t.Errorf("progress %d reported Done = %d, want %d", i, p.Done, i+1)
+		}
+		if p.Total != 2 {
+			t.Errorf("progress %d reported Total = %d, want 2 — a count without a total cannot be shown", i, p.Total)
+		}
+	}
+	if last := seen[len(seen)-1]; last.Done != last.Total {
+		t.Errorf("the last progress was %d/%d, want the counter to reach the total", last.Done, last.Total)
 	}
 }
 

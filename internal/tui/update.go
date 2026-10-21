@@ -19,7 +19,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case spinner.TickMsg:
-		if !m.loading {
+		if !m.loading && !m.fetching {
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -126,8 +126,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad())
 
+	case fetchProgressMsg:
+		if !m.fetching {
+			return m, nil
+		}
+		m.fetchDone, m.fetchTotal = msg.done, msg.total
+		return m, waitForFetch(m.fetchCh)
+
 	case scrapedMsg:
-		m.fetching = false
+		m.stopFetching()
 		next, cmd := m.withStatus(scrapeSummary(msg))
 		return next, tea.Batch(cmd, next.startLoad())
 
@@ -145,7 +152,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case errMsg:
 		m.loadingMore = false
-		m.fetching = false
+		m.stopFetching()
 		m.fetchingText = false
 		if m.loading {
 			m.loading = false

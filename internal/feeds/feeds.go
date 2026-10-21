@@ -169,7 +169,13 @@ type Result struct {
 	Err         error
 }
 
-func ScrapeAll(ctx context.Context, q *database.Queries, p Policy, onResult func(Result)) ([]Result, error) {
+type Progress struct {
+	Result
+	Done  int
+	Total int
+}
+
+func ScrapeAll(ctx context.Context, q *database.Queries, p Policy, onProgress func(Progress)) ([]Result, error) {
 	feeds, err := q.GetFeedsToFetch(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting feeds: %w", err)
@@ -195,8 +201,8 @@ func ScrapeAll(ctx context.Context, q *database.Queries, p Policy, onResult func
 			mu.Lock()
 			defer mu.Unlock()
 			results = append(results, res)
-			if onResult != nil {
-				onResult(res)
+			if onProgress != nil {
+				onProgress(Progress{Result: res, Done: len(results), Total: len(feeds)})
 			}
 		}()
 	}
