@@ -35,8 +35,8 @@ func TestFetchRunsOnceAtATime(t *testing.T) {
 	if !m.fetching {
 		t.Fatal("fetching flag not set")
 	}
-	if !strings.Contains(m.status, "Fetching") {
-		t.Errorf("status = %q, want a fetching message", m.status)
+	if !strings.Contains(m.View(), "Fetching feeds") {
+		t.Errorf("the footer never said a fetch started:\n%s", m.View())
 	}
 
 	_, cmd = step(t, m, press("R"))

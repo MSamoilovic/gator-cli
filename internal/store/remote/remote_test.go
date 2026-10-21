@@ -111,7 +111,7 @@ func TestASuccessfulCallMatchesNoSentinel(t *testing.T) {
 func TestRefreshIsUnsupportedRatherThanAFailedRequest(t *testing.T) {
 	st := New("http://127.0.0.1:1", "gat_test")
 
-	_, err := st.Refresh(t.Context())
+	_, err := st.Refresh(t.Context(), nil)
 	if !errors.Is(err, errors.ErrUnsupported) {
 		t.Errorf("Refresh error = %v, want errors.ErrUnsupported so the TUI can hide the key", err)
 	}

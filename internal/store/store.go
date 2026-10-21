@@ -89,5 +89,5 @@ type Store interface {
 	Unfollow(ctx context.Context, feedID uuid.UUID) error
 	Categorize(ctx context.Context, url, category string) (Feed, error)
 
-	Refresh(ctx context.Context) (RefreshResult, error)
+	Refresh(ctx context.Context, onProgress func(feeds.Progress)) (RefreshResult, error)
 }

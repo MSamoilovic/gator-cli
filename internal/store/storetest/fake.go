@@ -3,6 +3,7 @@ package storetest
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -14,16 +15,17 @@ import (
 )
 
 type Fake struct {
-	Identity   store.User
-	AllPosts   []store.Post
-	Subs       []store.Subscription
-	FeedStats  []store.FeedStat
-	Unread     []store.UnreadCount
-	Bookmarked map[uuid.UUID]bool
-	Read       map[uuid.UUID]bool
-	FullTexts  map[uuid.UUID]string
-	Refreshed  store.RefreshResult
-	RefreshErr error
+	Identity     store.User
+	AllPosts     []store.Post
+	Subs         []store.Subscription
+	FeedStats    []store.FeedStat
+	Unread       []store.UnreadCount
+	Bookmarked   map[uuid.UUID]bool
+	Read         map[uuid.UUID]bool
+	FullTexts    map[uuid.UUID]string
+	Refreshed    store.RefreshResult
+	RefreshSteps []feeds.Result
+	RefreshErr   error
 
 	Err error
 
@@ -390,7 +392,17 @@ func (f *Fake) Categorize(_ context.Context, url, category string) (store.Feed, 
 	return store.Feed{Url: url, Name: url}, fmt.Errorf("%s: %w", url, store.ErrNotFollowed)
 }
 
-func (f *Fake) Refresh(context.Context) (store.RefreshResult, error) {
+func (f *Fake) Refresh(_ context.Context, onProgress func(feeds.Progress)) (store.RefreshResult, error) {
+	f.mu.Lock()
+	steps := slices.Clone(f.RefreshSteps)
+	f.mu.Unlock()
+
+	for i, step := range steps {
+		if onProgress != nil {
+			onProgress(feeds.Progress{Result: step, Done: i + 1, Total: len(steps)})
+		}
+	}
+
 	f.mu.Lock()
 	defer f.mu.Unlock()
 

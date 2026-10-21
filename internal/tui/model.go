@@ -136,6 +136,9 @@ type model struct {
 	openOnLoad   bool
 	confirming   bool
 	fetching     bool
+	fetchDone    int
+	fetchTotal   int
+	fetchCh      chan fetchProgressMsg
 	fetchingText bool
 	loading      bool
 	err          error
@@ -236,6 +239,12 @@ func (m model) Init() tea.Cmd {
 func (m model) inDerivedView() bool { return m.source.derived() }
 
 func (m model) remote() bool { return m.server != "" }
+
+func (m *model) stopFetching() {
+	m.fetching = false
+	m.fetchDone, m.fetchTotal = 0, 0
+	m.fetchCh = nil
+}
 
 func (m model) withStatus(text string) (model, tea.Cmd) {
 	m.statusToken++

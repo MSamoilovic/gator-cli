@@ -355,7 +355,7 @@ func (s *Store) Categorize(ctx context.Context, feedURL, category string) (store
 	return out.Feed.ToDatabase(), nil
 }
 
-func (s *Store) Refresh(context.Context) (store.RefreshResult, error) {
+func (s *Store) Refresh(context.Context, func(feeds.Progress)) (store.RefreshResult, error) {
 	return store.RefreshResult{}, fmt.Errorf("feeds are refreshed by the server's aggregator: %w", errors.ErrUnsupported)
 }
 
