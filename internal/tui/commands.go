@@ -3,8 +3,10 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/database"
@@ -311,6 +313,38 @@ func openInBrowser(url string) tea.Cmd {
 
 		return openedMsg{url: url}
 	}
+}
+
+func readInPager(p database.Post, feed string, width int) tea.Cmd {
+	name, args := pagerCommand()
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = strings.NewReader(articleText(p, feed, width))
+
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		if err != nil {
+			return errMsg{fmt.Errorf("running %s: %w", name, err)}
+		}
+		return nil
+	})
+}
+
+func pagerCommand() (string, []string) {
+	if fields := strings.Fields(os.Getenv("PAGER")); len(fields) > 0 {
+		return fields[0], fields[1:]
+	}
+	if runtime.GOOS == "windows" {
+		return "more", nil
+	}
+	return "less", nil
+}
+
+func articleText(p database.Post, feed string, width int) string {
+	return fmt.Sprintf("%s\n%s\n%s\n\n%s\n",
+		p.Title,
+		joinSource([]string{feed, p.Url, publishedOn(p)}),
+		strings.Repeat("─", width),
+		renderDetailBody(p, width),
+	)
 }
 
 func expireStatus(token int) tea.Cmd {

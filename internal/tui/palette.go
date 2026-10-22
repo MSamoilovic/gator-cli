@@ -50,6 +50,7 @@ func (m model) paletteActions() []paletteItem {
 		{label: "Save or unsave this post", hint: "b", run: model.toggleSelectedBookmark},
 		{label: "Open this post in the browser", hint: "o", run: model.openSelectedInBrowser},
 		{label: "Copy this post's URL", hint: "y", run: model.copySelectedURL},
+		{label: "Read this post in the pager", hint: "e", run: model.readSelectedInPager},
 		{label: "Flip the sort order", hint: "S", run: model.toggleSort},
 		{label: "Switch the list density", run: model.toggleDensity},
 		{label: "Cycle the time range", hint: "t", run: model.cycleTimeRange},

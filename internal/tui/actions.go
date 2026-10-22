@@ -136,6 +136,14 @@ func (m model) openSelected() (tea.Model, tea.Cmd) {
 	return m, m.openPost(item.post)
 }
 
+func (m model) readSelectedInPager() (tea.Model, tea.Cmd) {
+	post, ok := m.currentPost()
+	if !ok {
+		return m, nil
+	}
+	return m, readInPager(post, m.feedNames[post.FeedID], m.viewport.Width)
+}
+
 func (m model) copySelectedURL() (tea.Model, tea.Cmd) {
 	post, ok := m.currentPost()
 	if !ok {

@@ -24,6 +24,7 @@ type keyMap struct {
 	OnlyNew  key.Binding
 	Since    key.Binding
 	Copy     key.Binding
+	Pager    key.Binding
 	FullText key.Binding
 	Next     key.Binding
 	Prev     key.Binding
@@ -125,6 +126,10 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("y"),
 			key.WithHelp("y", "copy url"),
 		),
+		Pager: key.NewBinding(
+			key.WithKeys("e"),
+			key.WithHelp("e", "pager"),
+		),
 		FullText: key.NewBinding(
 			key.WithKeys("f"),
 			key.WithHelp("f", "full text"),
@@ -191,7 +196,7 @@ func (k keyMap) fullHelp(remote bool) [][]key.Binding {
 		{k.Open, k.Copy, k.FullText, k.Next, k.Prev, k.Unread, k.Bookmark},
 		{k.Saved, k.History, k.OnlyNew, k.AllRead, k.Sort, k.Since, k.Filter},
 		{k.Search, k.Palette, k.Reload, fetch, k.AddFeed, k.Unfollow, k.Catalog},
-		{k.Folder, k.StepFold, k.FoldAll},
+		{k.Folder, k.StepFold, k.FoldAll, k.Pager},
 	}
 }
 
@@ -215,7 +220,7 @@ func (k keyMap) catalogHelp() []key.Binding {
 }
 
 func (k keyMap) detailHelp() []key.Binding {
-	return []key.Binding{k.FullText, k.Next, k.Prev, k.Open, k.Copy, k.Back, k.Quit}
+	return []key.Binding{k.FullText, k.Pager, k.Next, k.Prev, k.Open, k.Back, k.Quit}
 }
 
 func (k keyMap) paletteHelp() []key.Binding {
@@ -226,7 +231,7 @@ func (k keyMap) all() []key.Binding {
 	return []key.Binding{
 		k.Up, k.Down, k.Read, k.Select, k.Open, k.Bookmark, k.Saved, k.History,
 		k.Sort, k.Reload, k.Fetch, k.AddFeed, k.Catalog, k.Toggle, k.Unfollow,
-		k.Unread, k.AllRead, k.OnlyNew, k.Since, k.Copy, k.FullText, k.Next,
+		k.Unread, k.AllRead, k.OnlyNew, k.Since, k.Copy, k.Pager, k.FullText, k.Next,
 		k.Prev, k.Search, k.Filter, k.Tab, k.Palette, k.Folder, k.StepFold,
 		k.FoldAll, k.Back, k.Help, k.Quit,
 	}

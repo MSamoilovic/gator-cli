@@ -95,8 +95,17 @@ func verticalRule(height int) string {
 	return strings.TrimSuffix(strings.Repeat("│\n", height), "\n")
 }
 
+func (m model) detailHeader() string {
+	return renderDetailHeader(m.selected, m.feedNames[m.selected.FeedID], m.viewport.Width, m.viewport.ScrollPercent())
+}
+
+func (m *model) fitDetail() {
+	rows := strings.Count(m.detailHeader(), "\n")
+	m.viewport.Height = max(m.height-rows-1-m.footerHeight(), 1)
+}
+
 func (m model) detailView() string {
-	return renderDetailHeader(m.selected, m.viewport.Width, m.viewport.ScrollPercent()) +
+	return m.detailHeader() +
 		m.viewport.View() +
 		"\n\n" + m.footer()
 }
@@ -212,7 +221,7 @@ func (m *model) resize(w, h int) {
 	m.prompt.Width = max(w-len(m.prompt.Prompt)-1, 1)
 
 	m.viewport.Width = w
-	m.viewport.Height = max(h-detailChromeHeight-m.footerHeight()+1, 1)
+	m.fitDetail()
 	if m.screen == screenDetail {
 		m.viewport.SetContent(renderDetailBody(m.selected, m.viewport.Width))
 	}

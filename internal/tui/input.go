@@ -132,6 +132,9 @@ func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Copy):
 		return m, copyToClipboard(m.selected.Url)
 
+	case key.Matches(msg, m.keys.Pager):
+		return m.readSelectedInPager()
+
 	case key.Matches(msg, m.keys.Next):
 		return m, m.stepPost(1)
 
@@ -286,6 +289,7 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *model) openPost(post database.Post) tea.Cmd {
 	m.selected = post
+	m.fitDetail()
 	m.viewport.SetContent(renderDetailBody(post, m.viewport.Width))
 	m.viewport.GotoTop()
 
