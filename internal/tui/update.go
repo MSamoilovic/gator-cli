@@ -229,6 +229,7 @@ func (m model) fullTextLoaded(msg fullTextMsg) (tea.Model, tea.Cmd) {
 
 	if m.selected.ID == msg.postID {
 		m.selected.FullText = msg.body
+		m.fitDetail()
 		m.viewport.SetContent(renderDetailBody(m.selected, m.viewport.Width))
 		m.viewport.GotoTop()
 	}

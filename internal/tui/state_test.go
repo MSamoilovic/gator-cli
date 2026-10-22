@@ -268,10 +268,14 @@ func TestScrollPercentShownInDetail(t *testing.T) {
 func TestDetailHeaderHeightIsStableWithScroll(t *testing.T) {
 	post := testPost("Prvi")
 
+	var rows []int
 	for _, pct := range []float64{0, 0.5, 1} {
-		got := renderDetailHeader(post, 80, pct)
-		if n := strings.Count(got, "\n"); n != detailChromeHeight-2 {
-			t.Errorf("scroll %v: header = %d newlines, want %d", pct, n, detailChromeHeight-2)
+		rows = append(rows, strings.Count(renderDetailHeader(post, "Feed", 80, pct), "\n"))
+	}
+	for _, got := range rows {
+		if got != rows[0] {
+			t.Fatalf("header rows across scroll = %v — the %%3.0f%%%% padding is what keeps the body "+
+				"from jumping as the percentage grows", rows)
 		}
 	}
 }

@@ -51,8 +51,9 @@ func TestWindowSizeSetsViewportHeight(t *testing.T) {
 	if got, want := m.viewport.Width, 80; got != want {
 		t.Errorf("viewport width = %d, want %d", got, want)
 	}
-	if got, want := m.viewport.Height, 24-detailChromeHeight; got != want {
-		t.Errorf("viewport height = %d, want %d", got, want)
+	if got, want := m.viewport.Height, 19; got != want {
+		t.Errorf("viewport height = %d, want %d — the header is a wrapped title, one source line and "+
+			"a blank, and the body takes everything else", got, want)
 	}
 }
 
@@ -109,7 +110,7 @@ func TestEnterOpensDetailAndEscCloses(t *testing.T) {
 	}
 
 	view := m.View()
-	for _, want := range []string{"Prvi", "Telo posta Prvi", "Published: 2026-07-27 18:55"} {
+	for _, want := range []string{"Prvi", "Telo posta Prvi", "2026-07-27 18:55"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("detail view missing %q:\n%s", want, view)
 		}

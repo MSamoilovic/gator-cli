@@ -8,6 +8,7 @@ import (
 
 	"github.com/MSamoilovic/gator-cli/internal/database"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 )
@@ -15,43 +16,103 @@ import (
 func TestRenderDetailHeader(t *testing.T) {
 	post := database.Post{
 		Title:       "Learn Go",
-		Url:         "https://blog.boot.dev/go",
+		Url:         "https://www.blog.boot.dev/go/learn-go-fast",
 		PublishedAt: sql.NullTime{Time: time.Date(2026, 7, 27, 18, 55, 0, 0, time.UTC), Valid: true},
 	}
 
-	got := renderDetailHeader(post, 80, 0)
-	for _, want := range []string{"Learn Go", "https://blog.boot.dev/go", "Published: 2026-07-27 18:55"} {
+	got := renderDetailHeader(post, "Boot.dev", 80, 0)
+	for _, want := range []string{"Learn Go", "Boot.dev", "blog.boot.dev", "2026-07-27 18:55", "  0%"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("header missing %q:\n%s", want, got)
 		}
 	}
+	if strings.Contains(got, post.Url) {
+		t.Errorf("header spends a line on the full URL:\n%s — measured, 61%% of real URLs do not fit "+
+			"80 columns, so that line was truncated more often than not", got)
+	}
+	if strings.Contains(got, "www.") {
+		t.Errorf("header kept the www. prefix:\n%s", got)
+	}
 
-	if n := strings.Count(got, "\n"); n != detailChromeHeight-2 {
-		t.Errorf("header = %d newlines, want %d", n, detailChromeHeight-2)
+	source := strings.Split(got, "\n")[1]
+	if w := lipgloss.Width(source); w != 80 {
+		t.Errorf("source line is %d columns, want it padded to 80 so the percentage sits at the "+
+			"right edge: %q", w, source)
+	}
+	if !strings.HasSuffix(source, "0%") {
+		t.Errorf("source line = %q, want the scroll percentage last", source)
 	}
 }
 
-func TestRenderDetailHeaderTruncatesLongLines(t *testing.T) {
-	post := database.Post{
-		Title: strings.Repeat("x", 200),
-		Url:   strings.Repeat("y", 200),
-	}
+func TestALongTitleWrapsInsteadOfBeingCut(t *testing.T) {
+	long := "There were a lot of disagreements across the place: former Marathon director Joe " +
+		"Ziegler on leading Bungie's extraction shooter"
+	post := database.Post{Title: long, Url: "https://pcgamer.com/a"}
 
-	got := renderDetailHeader(post, 40, 0)
-	if n := strings.Count(got, "\n"); n != detailChromeHeight-2 {
-		t.Fatalf("long title wrapped: %d newlines, want %d", n, detailChromeHeight-2)
+	got := renderDetailHeader(post, "PC Gamer", 80, 0)
+	if lipgloss.Height(got) < 4 {
+		t.Errorf("header is %d lines, want the title wrapped — 778 of 2647 real titles are longer "+
+			"than 78 columns and the detail view is the one screen with room:\n%s", lipgloss.Height(got), got)
+	}
+	if !strings.Contains(strings.Join(strings.Fields(got), " "), long) {
+		t.Errorf("the title lost text:\n%s", got)
 	}
 	for _, line := range strings.Split(got, "\n") {
-		if w := lipgloss.Width(line); w > 40 {
-			t.Errorf("line longer than width: %d columns", w)
+		if w := lipgloss.Width(line); w > 80 {
+			t.Errorf("line is %d columns wide: %q", w, line)
+		}
+	}
+}
+
+func TestTheSourceLineDropsPartsItCannotFit(t *testing.T) {
+	post := database.Post{
+		Title:       "T",
+		Url:         "https://some.rather.long.host.example.com/a",
+		FullText:    "the whole article",
+		PublishedAt: sql.NullTime{Time: time.Date(2026, 7, 27, 18, 55, 0, 0, time.UTC), Valid: true},
+	}
+
+	wide := detailSource(post, "A Feed With A Long Name", 200)
+	for _, want := range []string{"A Feed With A Long Name", "some.rather.long.host.example.com", "2026-07-27 18:55", "full text"} {
+		if !strings.Contains(wide, want) {
+			t.Errorf("wide source = %q, want it to contain %q", wide, want)
+		}
+	}
+
+	for _, budget := range []int{60, 40, 20, 5} {
+		got := detailSource(post, "A Feed With A Long Name", budget)
+		if !strings.Contains(got, "A Feed") {
+			t.Errorf("source at budget %d = %q, want the feed name kept last of all", budget, got)
+		}
+		if budget >= 40 && lipgloss.Width(got) > budget {
+			t.Errorf("source at budget %d is %d columns: %q", budget, lipgloss.Width(got), got)
+		}
+	}
+}
+
+func TestTheDetailScreenFitsTheTerminal(t *testing.T) {
+	m := loaded(t, fullPage("a"))
+	for _, title := range []string{"Short", strings.Repeat("long title ", 30)} {
+		post := database.Post{ID: uuid.New(), Title: title, Url: "https://example.com/x",
+			Description: sql.NullString{String: strings.Repeat("body ", 400), Valid: true}}
+		m.list.SetItem(0, postItem{post: post, reads: m.reads, bookmarks: m.bookmarks, feedNames: m.feedNames})
+		m.list.Select(0)
+
+		next, _ := step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+		view := next.detailView()
+		if h := lipgloss.Height(view); h > 24 {
+			t.Errorf("detail view is %d lines tall at 80x24 with title %q", h, title)
+		}
+		if w := lipgloss.Width(view); w > 80 {
+			t.Errorf("detail view is %d columns wide with title %q", w, title)
 		}
 	}
 }
 
 func TestRenderDetailHeaderUnknownDate(t *testing.T) {
-	got := renderDetailHeader(database.Post{Title: "T", Url: "U"}, 80, 0)
-	if !strings.Contains(got, "Published: unknown") {
-		t.Errorf("missing unknown date fallback:\n%s", got)
+	got := renderDetailHeader(database.Post{Title: "T", Url: "https://example.com/a"}, "Feed", 80, 0)
+	if !strings.Contains(got, "no date") {
+		t.Errorf("missing the dateless fallback:\n%s", got)
 	}
 }
 

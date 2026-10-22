@@ -216,9 +216,13 @@ func TestDetailHelpListsReadingKeys(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
 	view := m.View()
-	for _, want := range []string{"n next", "p prev", "y copy url"} {
+	for _, want := range []string{"n next", "p prev", "e pager"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("detail hints missing %q:\n%s", want, view)
 		}
+	}
+	if strings.Contains(view, "y copy url") {
+		t.Errorf("the detail footer advertises both e and y:\n%s — the line's budget is 73 columns "+
+			"before the user tag disappears, so y lives in ? and in the palette", view)
 	}
 }
