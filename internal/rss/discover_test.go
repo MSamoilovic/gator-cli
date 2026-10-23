@@ -185,7 +185,7 @@ func TestNotAFeedErrorNamesTheAdvertisedFeed(t *testing.T) {
 	page := `<html><head><link rel="alternate" type="application/rss+xml" href="/feed.xml"></head></html>`
 	srv := serve(t, http.StatusOK, page)
 
-	_, err := fetch(t, srv.URL)
+	_, err := get(t, srv.URL)
 	if err == nil {
 		t.Fatal("expected an error for a web page, got nil")
 	}
@@ -205,7 +205,7 @@ func TestNotAFeedErrorNamesTheAdvertisedFeed(t *testing.T) {
 func TestNotAFeedErrorWithoutLinksStillNamesTheRoot(t *testing.T) {
 	srv := serve(t, http.StatusOK, `<html><body>not a feed</body></html>`)
 
-	_, err := fetch(t, srv.URL)
+	_, err := get(t, srv.URL)
 	if err == nil {
 		t.Fatal("expected an error, got nil")
 	}
@@ -225,7 +225,7 @@ func TestNotAFeedErrorWithoutLinksStillNamesTheRoot(t *testing.T) {
 func TestNotAFeedErrorForNonHTMLRoot(t *testing.T) {
 	srv := serve(t, http.StatusOK, `<opml version="2.0"><body/></opml>`)
 
-	_, err := fetch(t, srv.URL)
+	_, err := get(t, srv.URL)
 	if err == nil {
 		t.Fatal("expected an error, got nil")
 	}
@@ -242,7 +242,7 @@ func TestDiscoveryResolvesAgainstTheURLAfterRedirects(t *testing.T) {
 		http.Redirect(w, r, final.URL+"/blog/", http.StatusMovedPermanently)
 	})
 
-	_, err := fetch(t, redirector.URL)
+	_, err := get(t, redirector.URL)
 	var notFeed *NotAFeedError
 	if !errors.As(err, &notFeed) {
 		t.Fatalf("error %[1]T does not unwrap to *NotAFeedError", err)
@@ -261,7 +261,7 @@ func TestNotAFeedErrorOnHTMLThatIsNotValidXML(t *testing.T) {
 	</head><body><p>YouTube pise ovakav HTML</body></html>`
 	srv := serve(t, http.StatusOK, page)
 
-	_, err := fetch(t, srv.URL)
+	_, err := get(t, srv.URL)
 	if err == nil {
 		t.Fatal("expected an error for a web page, got nil")
 	}

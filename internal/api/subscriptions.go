@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/MSamoilovic/gator-cli/internal/fetch"
 	"github.com/MSamoilovic/gator-cli/internal/store"
 	"github.com/MSamoilovic/gator-cli/internal/wire"
 )
@@ -33,7 +34,7 @@ func (s *Server) addFeed(w http.ResponseWriter, r *http.Request, st store.Store)
 
 	feed, created, err := st.AddFeed(r.Context(), req.Name, req.URL)
 	if err != nil {
-		if errors.Is(err, r.Context().Err()) {
+		if errors.Is(err, r.Context().Err()) || errors.Is(err, fetch.ErrBlocked) {
 			s.fail(w, r, err)
 			return
 		}

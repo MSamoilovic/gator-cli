@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/feeds"
+	"github.com/MSamoilovic/gator-cli/internal/fetch"
 	"github.com/MSamoilovic/gator-cli/internal/store"
 	"github.com/MSamoilovic/gator-cli/internal/text"
 	"github.com/MSamoilovic/gator-cli/internal/tui"
@@ -244,7 +245,7 @@ func handlerAgg(ctx context.Context, s *state, cmd command) error {
 		return fmt.Errorf("invalid duration: %w", err)
 	}
 
-	ctx, stop := signal.NotifyContext(ctx, shutdownSignals()...)
+	ctx, stop := signal.NotifyContext(fetch.PublicOnly(ctx), shutdownSignals()...)
 	defer stop()
 
 	fmt.Printf("Collecting feeds every %s\n", timeBetweenReqs)

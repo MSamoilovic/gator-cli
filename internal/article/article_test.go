@@ -2,11 +2,13 @@ package article
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/MSamoilovic/gator-cli/internal/fetch"
 	"github.com/MSamoilovic/gator-cli/internal/useragent"
 )
 
@@ -156,5 +158,26 @@ func TestNormalise(t *testing.T) {
 		if got := normalise(tt.in); got != tt.want {
 			t.Errorf("normalise(%q) = %q, want %q", tt.in, got, tt.want)
 		}
+	}
+}
+
+func TestFetchRefusesAPrivateAddressWhenGuarded(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		w.Write([]byte(page))
+	}))
+	defer srv.Close()
+
+	if _, err := Fetch(fetch.PublicOnly(context.Background()), srv.URL); !errors.Is(err, fetch.ErrBlocked) {
+		t.Fatalf("Fetch through the guard = %v, want fetch.ErrBlocked — a post's link comes from "+
+			"whatever feed a stranger added", err)
+	}
+	if hits != 0 {
+		t.Errorf("the page was fetched %d times", hits)
+	}
+
+	if _, err := Fetch(context.Background(), srv.URL); err != nil {
+		t.Fatalf("Fetch without the guard = %v, want the article", err)
 	}
 }
