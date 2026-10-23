@@ -53,10 +53,16 @@ func TestSignInErrorTellsYouWhatToRun(t *testing.T) {
 		plain  bool
 	}{
 		{
-			name:   "istekao token imenuje komandu",
+			name:   "istekao token imenuje server",
 			server: server,
 			err:    fmt.Errorf("fetching me: %w", store.ErrUnauthorized),
-			want:   "gator login --server " + server,
+			want:   server,
+		},
+		{
+			name:   "istekao token imenuje komandu bez zastavice",
+			server: server,
+			err:    fmt.Errorf("fetching me: %w", store.ErrUnauthorized),
+			want:   "gator login <your-name>",
 		},
 		{
 			name:   "nedostupan server nudi izlaz",
@@ -121,7 +127,11 @@ func TestMiddlewareUsesTheSignInMessageNotARawWrap(t *testing.T) {
 	if ran {
 		t.Error("the handler ran despite a failed sign-in")
 	}
-	if got := err.Error(); !strings.Contains(got, "gator login --server "+server) {
-		t.Errorf("middleware error = %q, want the sign-in instruction", got)
+	got := err.Error()
+	if !strings.Contains(got, server) || !strings.Contains(got, "gator login") {
+		t.Errorf("middleware error = %q, want the sign-in instruction naming the server", got)
+	}
+	if strings.Contains(got, "--server") {
+		t.Errorf("middleware error = %q — the config already names the server, so the flag is noise", got)
 	}
 }

@@ -44,8 +44,8 @@ func handlerLogin(ctx context.Context, s *state, cmd command) error {
 		return fmt.Errorf("username required to log in")
 	}
 
-	if *serverFlag != "" {
-		return loginRemote(ctx, *serverFlag, fs.Arg(0), *passwordFlag)
+	if server := serverTarget(*serverFlag); server != "" {
+		return loginRemote(ctx, server, fs.Arg(0), *passwordFlag)
 	}
 
 	s, closeDB, err := s.withDB()
@@ -118,8 +118,8 @@ func handlerRegister(ctx context.Context, s *state, cmd command) error {
 		password = resolvePassword(password)
 	}
 
-	if *serverFlag != "" {
-		return registerRemote(ctx, *serverFlag, username, email, password)
+	if server := serverTarget(*serverFlag); server != "" {
+		return registerRemote(ctx, server, username, email, password)
 	}
 
 	s, closeDB, err := s.withDB()

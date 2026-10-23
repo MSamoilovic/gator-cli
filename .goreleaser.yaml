@@ -5,6 +5,9 @@ version: 2
 
 project_name: gator
 
+env:
+  - GATOR_SERVER_URL={{ if index .Env "GATOR_SERVER_URL" }}{{ .Env.GATOR_SERVER_URL }}{{ end }}
+
 before:
   hooks:
     - go mod tidy
@@ -25,6 +28,7 @@ builds:
       # -s -w izbacuju tabele simbola; -X upisuje tag izdanja u cli.version,
       # odakle ga `gator version` cita.
       - -s -w -X github.com/MSamoilovic/gator-cli/internal/cli.version={{.Version}}
+      - -X github.com/MSamoilovic/gator-cli/internal/cli.defaultServer={{.Env.GATOR_SERVER_URL}}
 
 archives:
   - formats: [tar.gz]
