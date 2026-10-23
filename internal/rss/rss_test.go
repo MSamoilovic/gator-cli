@@ -31,12 +31,12 @@ const sampleFeed = `<?xml version="1.0" encoding="UTF-8"?>
   </channel>
 </rss>`
 
-func fetch(t *testing.T, url string) (*RSSFeed, error) {
+func get(t *testing.T, url string) (*RSSFeed, error) {
 	t.Helper()
-	return fetchCtx(t.Context(), url)
+	return getCtx(t.Context(), url)
 }
 
-func fetchCtx(ctx context.Context, url string) (*RSSFeed, error) {
+func getCtx(ctx context.Context, url string) (*RSSFeed, error) {
 	feed, _, err := FetchFeed(ctx, Source{URL: url})
 	return feed, err
 }
@@ -57,7 +57,7 @@ func serve(t *testing.T, status int, body string) *httptest.Server {
 func TestFetchFeed(t *testing.T) {
 	srv := serve(t, http.StatusOK, sampleFeed)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestFetchFeed(t *testing.T) {
 func TestFetchFeedMissingFieldsAreEmpty(t *testing.T) {
 	srv := serve(t, http.StatusOK, sampleFeed)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestFetchFeedMissingFieldsAreEmpty(t *testing.T) {
 func TestFetchFeedMalformedXML(t *testing.T) {
 	srv := serve(t, http.StatusOK, "<rss><channel><item></channel></rss>")
 
-	if _, err := fetch(t, srv.URL); err == nil {
+	if _, err := get(t, srv.URL); err == nil {
 		t.Fatal("expected error for malformed XML, got nil")
 	}
 }
@@ -125,7 +125,7 @@ func TestFetchFeedDecodesNonUTF8(t *testing.T) {
 </channel></rss>`
 			srv := serve(t, http.StatusOK, body)
 
-			feed, err := fetch(t, srv.URL)
+			feed, err := get(t, srv.URL)
 			if err != nil {
 				t.Fatalf("FetchFeed: %v", err)
 			}
@@ -143,7 +143,7 @@ func TestFetchFeedUnknownCharsetIsAnError(t *testing.T) {
 	body := `<?xml version="1.0" encoding="nepostojeci-charset"?><rss><channel></channel></rss>`
 	srv := serve(t, http.StatusOK, body)
 
-	_, err := fetch(t, srv.URL)
+	_, err := get(t, srv.URL)
 	if err == nil {
 		t.Fatal("expected an error for an unknown charset, got nil")
 	}
@@ -177,7 +177,7 @@ const sampleAtom = `<?xml version="1.0" encoding="utf-8"?>
 func TestFetchFeedParsesAtom(t *testing.T) {
 	srv := serve(t, http.StatusOK, sampleAtom)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestFetchFeedParsesAtom(t *testing.T) {
 func TestFetchFeedAtomFallsBackToContentAndUpdated(t *testing.T) {
 	srv := serve(t, http.StatusOK, sampleAtom)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestFetchFeedPrefersContentEncoded(t *testing.T) {
 </rss>`
 	srv := serve(t, http.StatusOK, body)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestFetchFeedAtomPrefersContentOverSummary(t *testing.T) {
 </feed>`
 	srv := serve(t, http.StatusOK, body)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -297,7 +297,7 @@ func TestFetchFeedParsesRSS1(t *testing.T) {
 </rdf:RDF>`
 	srv := serve(t, http.StatusOK, rdf)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -321,7 +321,7 @@ func TestFetchFeedParsesRSS1(t *testing.T) {
 func TestFetchFeedUnsupportedRootIsNamed(t *testing.T) {
 	srv := serve(t, http.StatusOK, `<html><body>not a feed</body></html>`)
 
-	_, err := fetch(t, srv.URL)
+	_, err := get(t, srv.URL)
 	if err == nil {
 		t.Fatal("expected an error for a non-feed document, got nil")
 	}
@@ -344,7 +344,7 @@ func TestFetchFeedHTTPError(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := serve(t, tc.status, `<rss version="2.0"><channel></channel></rss>`)
 
-			_, err := fetch(t, srv.URL)
+			_, err := get(t, srv.URL)
 			if err == nil {
 				t.Fatal("expected error for non-2xx status, got nil")
 			}
@@ -358,7 +358,7 @@ func TestFetchFeedHTTPError(t *testing.T) {
 func TestFetchFeedEmptyChannelIsNotAnError(t *testing.T) {
 	srv := serve(t, http.StatusOK, `<rss version="2.0"><channel><title>Prazan</title></channel></rss>`)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("FetchFeed: %v", err)
 	}
@@ -373,13 +373,13 @@ func TestFetchFeedContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	if _, err := fetchCtx(ctx, srv.URL); err == nil {
+	if _, err := getCtx(ctx, srv.URL); err == nil {
 		t.Fatal("expected error for canceled context, got nil")
 	}
 }
 
 func TestFetchFeedBadURL(t *testing.T) {
-	if _, err := fetch(t, "://not-a-url"); err == nil {
+	if _, err := get(t, "://not-a-url"); err == nil {
 		t.Fatal("expected error for invalid URL, got nil")
 	}
 }
@@ -534,7 +534,7 @@ const youtubeFeed = `<?xml version="1.0" encoding="UTF-8"?>
 func TestFetchFeedReadsYouTubeDescriptions(t *testing.T) {
 	srv := serve(t, http.StatusOK, youtubeFeed)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
@@ -567,7 +567,7 @@ func TestAtomSummaryWinsOverMediaDescription(t *testing.T) {
 </feed>`
 	srv := serve(t, http.StatusOK, feedXML)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
@@ -580,7 +580,7 @@ func TestTitlesLoseTheirLineBreaks(t *testing.T) {
 	feedXML := "<?xml version=\"1.0\"?>\n<rss version=\"2.0\"><channel>\n  <title>\n   freeCodeCamp\n  </title>\n  <item>\n    <title>\n                      Learn Data Structures and Algorithms Visually\n    </title>\n    <link>https://example.test/a</link>\n  </item>\n</channel></rss>"
 	srv := serve(t, http.StatusOK, feedXML)
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
