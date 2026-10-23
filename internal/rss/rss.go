@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MSamoilovic/gator-cli/internal/fetch"
 	"github.com/MSamoilovic/gator-cli/internal/text"
 	"github.com/MSamoilovic/gator-cli/internal/useragent"
 
@@ -146,6 +147,7 @@ var (
 const (
 	maxRedirects = 10
 	maxBody      = 8 << 20
+	fetchTimeout = 10 * time.Second
 )
 
 type Source struct {
@@ -156,17 +158,15 @@ type Source struct {
 
 func FetchFeed(ctx context.Context, src Source) (*RSSFeed, Source, error) {
 	movedForGood := true
-	httpClient := http.Client{
-		Timeout: 10 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= maxRedirects {
-				return fmt.Errorf("stopped after %d redirects", maxRedirects)
-			}
-			if req.Response != nil && !isPermanentRedirect(req.Response.StatusCode) {
-				movedForGood = false
-			}
-			return nil
-		},
+	httpClient := fetch.Client(fetchTimeout)
+	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= maxRedirects {
+			return fmt.Errorf("stopped after %d redirects", maxRedirects)
+		}
+		if req.Response != nil && !isPermanentRedirect(req.Response.StatusCode) {
+			movedForGood = false
+		}
+		return nil
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", src.URL, nil)

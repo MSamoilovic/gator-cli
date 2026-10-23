@@ -10,22 +10,31 @@ import (
 
 	"github.com/MSamoilovic/gator-cli/internal/auth"
 	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/fetch"
 	"github.com/MSamoilovic/gator-cli/internal/store"
 	"github.com/MSamoilovic/gator-cli/internal/store/local"
 	"github.com/MSamoilovic/gator-cli/internal/wire"
 )
 
-const maxRequestBody = 1 << 20
+const (
+	maxRequestBody = 1 << 20
+	blockedMessage = "that address is not on the public internet"
+)
 
 type Server struct {
 	q   *database.Queries
 	log *log.Logger
+
+	allowPrivateFetch bool
 }
 
 type tokenKey struct{}
 
 func New(q *database.Queries, logger *log.Logger) http.Handler {
-	s := &Server{q: q, log: logger}
+	return newServer(&Server{q: q, log: logger})
+}
+
+func newServer(s *Server) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /v1/healthz", s.healthz)
@@ -55,7 +64,16 @@ func New(q *database.Queries, logger *log.Logger) http.Handler {
 	mux.Handle("GET /v1/subscriptions/stats", s.authed(s.stats))
 	mux.Handle("GET /v1/unread", s.authed(s.unread))
 
-	return s.recoverer(mux)
+	return s.recoverer(s.publicFetchOnly(mux))
+}
+
+func (s *Server) publicFetchOnly(next http.Handler) http.Handler {
+	if s.allowPrivateFetch {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(fetch.PublicOnly(r.Context())))
+	})
 }
 
 func (s *Server) recoverer(next http.Handler) http.Handler {
@@ -122,6 +140,9 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, http.StatusNotFound, wire.CodeFeedNotFound, err.Error())
 	case errors.Is(err, store.ErrNotFollowed):
 		writeError(w, http.StatusConflict, wire.CodeNotFollowed, err.Error())
+	case errors.Is(err, fetch.ErrBlocked):
+		s.log.Printf("%s %s: %v", r.Method, r.URL.Path, err)
+		writeError(w, http.StatusUnprocessableEntity, wire.CodeBadRequest, blockedMessage)
 	case errors.Is(err, store.ErrNoMoreText):
 		writeError(w, http.StatusUnprocessableEntity, wire.CodeNoMoreText, err.Error())
 	case errors.Is(err, context.Canceled):

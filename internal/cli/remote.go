@@ -17,6 +17,25 @@ import (
 	"golang.org/x/term"
 )
 
+var defaultServer string
+
+func serverTarget(given string) string {
+	if given != "" {
+		return given
+	}
+
+	cfg, err := config.Read()
+	switch {
+	case err != nil:
+		return defaultServer
+	case cfg.ServerURL != "":
+		return cfg.ServerURL
+	case cfg.DBURL == "":
+		return defaultServer
+	}
+	return ""
+}
+
 func normalizeServerURL(raw string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Host == "" {

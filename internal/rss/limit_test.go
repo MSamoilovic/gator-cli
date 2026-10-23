@@ -44,7 +44,7 @@ func TestFetchFeedRefusesAnOversizedFeed(t *testing.T) {
 		io.Copy(w, io.LimitReader(endlessZeros{}, maxBody*2))
 	})
 
-	_, err := fetch(t, srv.URL)
+	_, err := get(t, srv.URL)
 	if !errors.Is(err, ErrBodyTooLarge) {
 		t.Fatalf("FetchFeed = %v, want ErrBodyTooLarge", err)
 	}
@@ -71,7 +71,7 @@ func TestFetchFeedStopsReadingAnEndlessBody(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	if _, err := fetch(t, srv.URL); !errors.Is(err, ErrBodyTooLarge) {
+	if _, err := get(t, srv.URL); !errors.Is(err, ErrBodyTooLarge) {
 		t.Fatalf("FetchFeed = %v, want ErrBodyTooLarge", err)
 	}
 
@@ -90,7 +90,7 @@ func TestFetchFeedStillAcceptsALargeButLegitimateFeed(t *testing.T) {
 
 	srv := serve(t, http.StatusOK, sb.String())
 
-	feed, err := fetch(t, srv.URL)
+	feed, err := get(t, srv.URL)
 	if err != nil {
 		t.Fatalf("a %d byte feed was rejected: %v", sb.Len(), err)
 	}

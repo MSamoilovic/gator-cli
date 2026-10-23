@@ -18,6 +18,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/store/local"
 	"github.com/MSamoilovic/gator-cli/internal/store/remote"
 	"github.com/MSamoilovic/gator-cli/internal/testdb"
+	"github.com/MSamoilovic/gator-cli/internal/wire"
 
 	"github.com/google/uuid"
 )
@@ -25,6 +26,13 @@ import (
 func serve(t *testing.T, db *testdb.DB) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(api.New(db.Queries, log.New(io.Discard, "", 0)))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func serveAllowingPrivateFetch(t *testing.T, db *testdb.DB) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(api.NewAllowingPrivateFetch(db.Queries, log.New(io.Discard, "", 0)))
 	t.Cleanup(srv.Close)
 	return srv
 }
@@ -463,7 +471,7 @@ func TestSubscriptionsFollowCategorizeAndUnfollow(t *testing.T) {
 
 func TestAddFeedFetchesOnTheServerAndNamesItFromTheTitle(t *testing.T) {
 	db := testdb.Open(t)
-	srv := serve(t, db)
+	srv := serveAllowingPrivateFetch(t, db)
 	rs := register(t, srv, "alice")
 
 	feedSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -529,5 +537,76 @@ func TestAnExpiredTokenReachesTheClientAsErrUnauthorized(t *testing.T) {
 		if !errors.Is(err, store.ErrUnauthorized) {
 			t.Errorf("%s error = %v, want it to match store.ErrUnauthorized so the TUI can say how to sign in", call.name, err)
 		}
+	}
+}
+
+func TestTheServerRefusesToFetchAPrivateAddress(t *testing.T) {
+	db := testdb.Open(t)
+	srv := serve(t, db)
+	reg, err := remote.Register(t.Context(), srv.URL, "attacker", "a@example.com", "correct horse battery")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var hits int
+	internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		io.WriteString(w, `<?xml version="1.0"?><rss version="2.0"><channel><title>Internal</title>`+
+			`<link>http://x</link><description>d</description></channel></rss>`)
+	}))
+	defer internal.Close()
+
+	res, body := raw(t, "POST", srv.URL+"/v1/subscriptions", reg.Token, map[string]string{"url": internal.URL})
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("POST /v1/subscriptions for %s = %d, want 422: %s", internal.URL, res.StatusCode, body)
+	}
+	if hits != 0 {
+		t.Errorf("the server fetched the private address %d times — measured against a real `gator serve`, "+
+			"this is what hands a stranger the VM's metadata service", hits)
+	}
+
+	var e wire.Error
+	if err := json.Unmarshal(body, &e); err != nil {
+		t.Fatalf("body = %s", body)
+	}
+	if strings.Contains(e.Error, internal.URL) || strings.Contains(e.Error, "127.0.0.1") {
+		t.Errorf("error %q echoes the address — the same message answers a redirect inward, "+
+			"and then it names the host's own network", e.Error)
+	}
+
+	if _, _, err := remote.New(srv.URL, reg.Token).AddFeed(t.Context(), "", internal.URL); err == nil {
+		t.Error("AddFeed through the remote store succeeded")
+	}
+}
+
+func TestTheServerRefusesToReadAnArticleAtAPrivateAddress(t *testing.T) {
+	db := testdb.Open(t)
+	srv := serve(t, db)
+	reg, err := remote.Register(t.Context(), srv.URL, "attacker", "a@example.com", "correct horse battery")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var hits int
+	internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		io.WriteString(w, "<html><body><article><p>AccessKeyId: ASIA-SECRET</p></article></body></html>")
+	}))
+	defer internal.Close()
+
+	owner := db.User(t, "owner")
+	feed := db.Feed(t, owner.ID, "Internal", "https://example.com/feed")
+	post := db.Post(t, feed.ID, "Instance credentials", internal.URL+"/latest/meta-data", time.Now())
+
+	res, body := raw(t, "GET", srv.URL+"/v1/posts/"+post.ID.String()+"/fulltext", reg.Token, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("GET fulltext of a post at %s = %d, want 422: %s", internal.URL, res.StatusCode, body)
+	}
+	if hits != 0 {
+		t.Errorf("the server read the private page %d times — a post link comes from whatever feed "+
+			"a stranger added, and the text comes back in the response", hits)
+	}
+	if strings.Contains(string(body), "ASIA-SECRET") {
+		t.Errorf("the response carried the private page's text: %s", body)
 	}
 }

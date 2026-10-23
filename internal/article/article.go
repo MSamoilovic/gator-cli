@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MSamoilovic/gator-cli/internal/fetch"
 	"github.com/MSamoilovic/gator-cli/internal/text"
 	"github.com/MSamoilovic/gator-cli/internal/useragent"
 
@@ -55,8 +56,7 @@ func Fetch(ctx context.Context, pageURL string) (Article, error) {
 	}
 	req.Header.Set("User-Agent", useragent.String)
 
-	client := http.Client{Timeout: fetchTimeout}
-	res, err := client.Do(req)
+	res, err := fetch.Client(fetchTimeout).Do(req)
 	if err != nil {
 		return Article{}, fmt.Errorf("fetching %s: %w", pageURL, err)
 	}
