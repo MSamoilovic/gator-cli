@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -32,8 +33,21 @@ var decoyHash = func() string {
 }()
 
 func (s *Server) register(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.InviteCode == "" {
+		writeError(w, http.StatusForbidden, wire.CodeUnauthorized, "this server is not accepting new accounts")
+		return
+	}
+
 	var req wire.RegisterRequest
 	if !decode(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Invite) == "" {
+		writeError(w, http.StatusForbidden, wire.CodeUnauthorized, "this server needs an invite code: gator register --invite=<code> <name>")
+		return
+	}
+	if !s.invited(req.Invite) {
+		writeError(w, http.StatusForbidden, wire.CodeUnauthorized, "that invite code is not valid")
 		return
 	}
 
@@ -77,6 +91,10 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.respondWithToken(w, r, user, http.StatusCreated)
+}
+
+func (s *Server) invited(given string) bool {
+	return subtle.ConstantTimeCompare([]byte(strings.TrimSpace(given)), []byte(s.cfg.InviteCode)) == 1
 }
 
 func (s *Server) issueToken(w http.ResponseWriter, r *http.Request) {

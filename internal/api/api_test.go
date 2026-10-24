@@ -23,23 +23,25 @@ import (
 	"github.com/google/uuid"
 )
 
+const invite = "let-me-in"
+
 func serve(t *testing.T, db *testdb.DB) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(api.New(db.Queries, log.New(io.Discard, "", 0)))
+	srv := httptest.NewServer(api.New(db.Queries, log.New(io.Discard, "", 0), api.Config{InviteCode: invite}))
 	t.Cleanup(srv.Close)
 	return srv
 }
 
 func serveAllowingPrivateFetch(t *testing.T, db *testdb.DB) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(api.NewAllowingPrivateFetch(db.Queries, log.New(io.Discard, "", 0)))
+	srv := httptest.NewServer(api.NewAllowingPrivateFetch(db.Queries, log.New(io.Discard, "", 0), api.Config{InviteCode: invite}))
 	t.Cleanup(srv.Close)
 	return srv
 }
 
 func register(t *testing.T, srv *httptest.Server, name string) *remote.Store {
 	t.Helper()
-	res, err := remote.Register(t.Context(), srv.URL, name, name+"@example.com", "correct horse battery")
+	res, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: name, Email: name + "@example.com", Password: "correct horse battery", Invite: invite})
 	if err != nil {
 		t.Fatalf("registering %s: %v", name, err)
 	}
@@ -119,7 +121,7 @@ func TestRegisterThenLoginReachesTheSameUserAndNeverLeaksTheHash(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
 
-	reg, err := remote.Register(t.Context(), srv.URL, "alice", "Alice@Example.com", "correct horse battery")
+	reg, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "alice", Email: "Alice@Example.com", Password: "correct horse battery", Invite: invite})
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -194,7 +196,7 @@ func TestRegisterRejectsWeakAndDuplicateAccounts(t *testing.T) {
 		"valid is created": {"bob", "bob@example.com", "correct horse battery", http.StatusCreated},
 	}
 	for name, c := range cases {
-		res, body := raw(t, "POST", srv.URL+"/v1/users", "", map[string]string{"name": c.name, "email": c.email, "password": c.password})
+		res, body := raw(t, "POST", srv.URL+"/v1/users", "", map[string]string{"name": c.name, "email": c.email, "password": c.password, "invite": invite})
 		if res.StatusCode != c.want {
 			t.Errorf("%s: status %d, want %d (%s)", name, res.StatusCode, c.want, body)
 		}
@@ -205,7 +207,7 @@ func TestLogoutRevokesOnlyThatToken(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
 
-	first, err := remote.Register(t.Context(), srv.URL, "alice", "alice@example.com", "correct horse battery")
+	first, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "alice", Email: "alice@example.com", Password: "correct horse battery", Invite: invite})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -543,7 +545,7 @@ func TestAnExpiredTokenReachesTheClientAsErrUnauthorized(t *testing.T) {
 func TestTheServerRefusesToFetchAPrivateAddress(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
-	reg, err := remote.Register(t.Context(), srv.URL, "attacker", "a@example.com", "correct horse battery")
+	reg, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "attacker", Email: "a@example.com", Password: "correct horse battery", Invite: invite})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -582,7 +584,7 @@ func TestTheServerRefusesToFetchAPrivateAddress(t *testing.T) {
 func TestTheServerRefusesToReadAnArticleAtAPrivateAddress(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
-	reg, err := remote.Register(t.Context(), srv.URL, "attacker", "a@example.com", "correct horse battery")
+	reg, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "attacker", Email: "a@example.com", Password: "correct horse battery", Invite: invite})
 	if err != nil {
 		t.Fatal(err)
 	}

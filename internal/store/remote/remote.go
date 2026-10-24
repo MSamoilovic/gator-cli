@@ -77,8 +77,8 @@ func Login(ctx context.Context, serverURL, login, password string) (wire.TokenRe
 	return exchange(ctx, serverURL, "/v1/tokens", wire.TokenRequest{Login: login, Password: password})
 }
 
-func Register(ctx context.Context, serverURL, name, email, password string) (wire.TokenResponse, error) {
-	return exchange(ctx, serverURL, "/v1/users", wire.RegisterRequest{Name: name, Email: email, Password: password})
+func Register(ctx context.Context, serverURL string, req wire.RegisterRequest) (wire.TokenResponse, error) {
+	return exchange(ctx, serverURL, "/v1/users", req)
 }
 
 func exchange(ctx context.Context, serverURL, path string, body any) (wire.TokenResponse, error) {
