@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -63,6 +64,19 @@ func loopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
+func serverInvite(given string) string {
+	if given = strings.TrimSpace(given); given != "" {
+		return given
+	}
+	if !isTerminal(os.Stdin) {
+		return ""
+	}
+
+	fmt.Print("Invite code (enter to skip): ")
+	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	return strings.TrimSpace(line)
+}
+
 func serverPassword(given string) (string, error) {
 	if given != "" {
 		return given, nil
@@ -100,7 +114,7 @@ func loginRemote(ctx context.Context, server, login, password string) error {
 	return saveSession(server, res)
 }
 
-func registerRemote(ctx context.Context, server, name, email, password string) error {
+func registerRemote(ctx context.Context, server, name, email, password, invite string) error {
 	server, err := normalizeServerURL(server)
 	if err != nil {
 		return err
@@ -113,7 +127,12 @@ func registerRemote(ctx context.Context, server, name, email, password string) e
 		return err
 	}
 
-	res, err := remote.Register(ctx, server, name, email, password)
+	res, err := remote.Register(ctx, server, wire.RegisterRequest{
+		Name:     name,
+		Email:    email,
+		Password: password,
+		Invite:   serverInvite(invite),
+	})
 	if err != nil {
 		return fmt.Errorf("can't register: %w", err)
 	}

@@ -60,6 +60,7 @@ type RegisterRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Invite   string `json:"invite,omitempty"`
 }
 
 type TokenRequest struct {

@@ -21,17 +21,22 @@ const (
 	blockedMessage = "that address is not on the public internet"
 )
 
+type Config struct {
+	InviteCode string
+}
+
 type Server struct {
 	q   *database.Queries
 	log *log.Logger
+	cfg Config
 
 	allowPrivateFetch bool
 }
 
 type tokenKey struct{}
 
-func New(q *database.Queries, logger *log.Logger) http.Handler {
-	return newServer(&Server{q: q, log: logger})
+func New(q *database.Queries, logger *log.Logger, cfg Config) http.Handler {
+	return newServer(&Server{q: q, log: logger, cfg: cfg})
 }
 
 func newServer(s *Server) http.Handler {
