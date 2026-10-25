@@ -17,7 +17,8 @@ SELECT
     (SELECT count(*) FROM feed_follows) AS feed_follows,
     (SELECT count(*) FROM bookmarks)    AS bookmarks,
     (SELECT count(*) FROM post_reads)   AS post_reads,
-    (SELECT count(*) FROM api_tokens)   AS api_tokens
+    (SELECT count(*) FROM api_tokens)   AS api_tokens,
+    (SELECT count(*) FROM invites)      AS invites
 `
 
 type CountAllRowsRow struct {
@@ -28,6 +29,7 @@ type CountAllRowsRow struct {
 	Bookmarks   int64
 	PostReads   int64
 	ApiTokens   int64
+	Invites     int64
 }
 
 func (q *Queries) CountAllRows(ctx context.Context) (CountAllRowsRow, error) {
@@ -41,12 +43,13 @@ func (q *Queries) CountAllRows(ctx context.Context) (CountAllRowsRow, error) {
 		&i.Bookmarks,
 		&i.PostReads,
 		&i.ApiTokens,
+		&i.Invites,
 	)
 	return i, err
 }
 
 const truncateAll = `-- name: TruncateAll :exec
-TRUNCATE users, feeds, posts, feed_follows, bookmarks, post_reads, api_tokens
+TRUNCATE users, feeds, posts, feed_follows, bookmarks, post_reads, api_tokens, invites
 `
 
 func (q *Queries) TruncateAll(ctx context.Context) error {

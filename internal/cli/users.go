@@ -104,12 +104,12 @@ func handlerRegister(ctx context.Context, s *state, cmd command) error {
 	emailFlag := fs.String("email", "", "email for a future server login (optional)")
 	passwordFlag := fs.String("password", "", "password for a future server login (optional)")
 	serverFlag := fs.String("server", "", "register on a gator server instead of the local database (email and password required)")
-	inviteFlag := fs.String("invite", "", "invite code the server asks for")
+	linkFlag := fs.String("link", "", "invite link the server was handed out with")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
-		return fmt.Errorf("usage: register [--email=...] [--password=...] [--invite=...] <username>")
+		return fmt.Errorf("usage: register [--email=...] [--password=...] [--link=...] <username>")
 	}
 	username := fs.Arg(0)
 
@@ -119,8 +119,12 @@ func handlerRegister(ctx context.Context, s *state, cmd command) error {
 		password = resolvePassword(password)
 	}
 
-	if server := serverTarget(*serverFlag); server != "" {
-		return registerRemote(ctx, server, username, email, password, *inviteFlag)
+	server, token, err := registrationTarget(*serverFlag, *linkFlag)
+	if err != nil {
+		return err
+	}
+	if server != "" {
+		return registerRemote(ctx, server, username, email, password, token)
 	}
 
 	s, closeDB, err := s.withDB()

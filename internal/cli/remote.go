@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/MSamoilovic/gator-cli/internal/config"
 	"github.com/MSamoilovic/gator-cli/internal/credentials"
+	"github.com/MSamoilovic/gator-cli/internal/invite"
 	"github.com/MSamoilovic/gator-cli/internal/store/remote"
 	"github.com/MSamoilovic/gator-cli/internal/wire"
 
@@ -64,17 +64,27 @@ func loopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-func serverInvite(given string) string {
-	if given = strings.TrimSpace(given); given != "" {
-		return given
-	}
-	if !isTerminal(os.Stdin) {
-		return ""
+func registrationTarget(serverFlag, link string) (server, token string, err error) {
+	if strings.TrimSpace(link) == "" {
+		return serverTarget(serverFlag), "", nil
 	}
 
-	fmt.Print("Invite code (enter to skip): ")
-	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	return strings.TrimSpace(line)
+	server, token, err = invite.Parse(link)
+	if err != nil {
+		return "", "", err
+	}
+	if strings.TrimSpace(serverFlag) == "" {
+		return server, token, nil
+	}
+
+	given, err := normalizeServerURL(serverFlag)
+	if err != nil {
+		return "", "", err
+	}
+	if given != server {
+		return "", "", fmt.Errorf("the invite link points at %s, but --server says %s", server, given)
+	}
+	return server, token, nil
 }
 
 func serverPassword(given string) (string, error) {
@@ -131,7 +141,7 @@ func registerRemote(ctx context.Context, server, name, email, password, invite s
 		Name:     name,
 		Email:    email,
 		Password: password,
-		Invite:   serverInvite(invite),
+		Invite:   invite,
 	})
 	if err != nil {
 		return fmt.Errorf("can't register: %w", err)
