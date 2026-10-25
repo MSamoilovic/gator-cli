@@ -79,6 +79,7 @@ func printCounts(w io.Writer, dbName string, c database.CountAllRowsRow) {
 		{"bookmarks", c.Bookmarks},
 		{"post_reads", c.PostReads},
 		{"api_tokens", c.ApiTokens},
+		{"invites", c.Invites},
 	} {
 		fmt.Fprintf(w, "  %-13s %d\n", row.name, row.n)
 	}

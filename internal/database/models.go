@@ -49,6 +49,16 @@ type FeedFollow struct {
 	Category  string
 }
 
+type Invite struct {
+	ID        uuid.UUID
+	TokenHash string
+	Note      string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+	ClaimedAt sql.NullTime
+	UserID    uuid.NullUUID
+}
+
 type Post struct {
 	ID          uuid.UUID
 	CreatedAt   time.Time

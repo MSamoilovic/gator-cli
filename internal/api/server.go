@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -21,28 +22,24 @@ const (
 	blockedMessage = "that address is not on the public internet"
 )
 
-type Config struct {
-	InviteCode string
-}
-
 type Server struct {
 	q   *database.Queries
 	log *log.Logger
-	cfg Config
 
 	allowPrivateFetch bool
 }
 
 type tokenKey struct{}
 
-func New(q *database.Queries, logger *log.Logger, cfg Config) http.Handler {
-	return newServer(&Server{q: q, log: logger, cfg: cfg})
+func New(q *database.Queries, logger *log.Logger) http.Handler {
+	return newServer(&Server{q: q, log: logger})
 }
 
 func newServer(s *Server) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /v1/healthz", s.healthz)
+	mux.HandleFunc("GET /join/{token}", s.joinPage)
 	mux.HandleFunc("POST /v1/users", s.register)
 	mux.HandleFunc("POST /v1/tokens", s.issueToken)
 	mux.Handle("DELETE /v1/tokens/current", s.authed(s.revokeToken))
@@ -133,6 +130,12 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
+}
+
+func writeText(w http.ResponseWriter, status int, body string) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(status)
+	io.WriteString(w, body)
 }
 
 func writeError(w http.ResponseWriter, status int, code, msg string) {

@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MSamoilovic/gator-cli/internal/auth"
 	"github.com/MSamoilovic/gator-cli/internal/database"
 
 	"github.com/google/uuid"
@@ -50,7 +51,9 @@ func Open(t *testing.T) *DB {
 	if err := db.TruncateAll(t.Context()); err != nil {
 		t.Fatalf("clearing tables before the test: %v", err)
 	}
-	t.Cleanup(func() { shared.Exec("TRUNCATE users, feeds, posts, feed_follows, bookmarks, post_reads, api_tokens") })
+	t.Cleanup(func() {
+		shared.Exec("TRUNCATE users, feeds, posts, feed_follows, bookmarks, post_reads, api_tokens, invites")
+	})
 
 	return db
 }
@@ -288,6 +291,23 @@ func (db *DB) MarkRead(t *testing.T, userID, postID uuid.UUID) {
 	}); err != nil {
 		t.Fatalf("marking read: %v", err)
 	}
+}
+
+func (db *DB) Invite(t *testing.T, expires time.Time) string {
+	t.Helper()
+	token, err := auth.GenerateInviteToken()
+	if err != nil {
+		t.Fatalf("generating an invite token: %v", err)
+	}
+	if _, err := db.CreateInvite(t.Context(), database.CreateInviteParams{
+		ID:        uuid.New(),
+		TokenHash: auth.HashToken(token),
+		CreatedAt: time.Now(),
+		ExpiresAt: expires,
+	}); err != nil {
+		t.Fatalf("creating an invite: %v", err)
+	}
+	return token
 }
 
 func (db *DB) Count(t *testing.T, query string, args ...any) int {

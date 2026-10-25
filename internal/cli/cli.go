@@ -83,6 +83,7 @@ func allCommands() []entry {
 		{group: "account", name: "register", args: "[flags] <username>", summary: "Create a new user and log in", run: handlerRegister, guest: true, noDB: true},
 		{group: "account", name: "login", args: "[flags] <username>", summary: "Log in as an existing user, or to a server with --server", run: handlerLogin, guest: true, noDB: true},
 		{group: "account", name: "logout", summary: "Disconnect from a server and go back to the local database", run: handlerLogout, guest: true, noDB: true},
+		{group: "account", name: "invite", args: "[flags]", summary: "Hand out a one-time registration link for this server", run: handlerInvite, localOnly: true},
 		{group: "account", name: "users", summary: "List all users", run: handlerUsers, guest: true, localOnly: true},
 		{group: "account", name: "reset", args: "[flags]", summary: "Delete every row in the database", run: handlerReset, hidden: true, localOnly: true},
 

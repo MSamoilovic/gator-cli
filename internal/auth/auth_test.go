@@ -64,3 +64,29 @@ func TestHashTokenIsDeterministicAndDistinct(t *testing.T) {
 		t.Error("two different tokens hashed to the same value")
 	}
 }
+
+func TestInviteTokensAreTheirOwnKind(t *testing.T) {
+	token, err := GenerateInviteToken()
+	if err != nil {
+		t.Fatalf("GenerateInviteToken: %v", err)
+	}
+	if !strings.HasPrefix(token, InvitePrefix) {
+		t.Errorf("invite token %q lacks prefix %q", token, InvitePrefix)
+	}
+
+	api, err := GenerateToken()
+	if err != nil {
+		t.Fatalf("GenerateToken: %v", err)
+	}
+	if strings.HasPrefix(api, InvitePrefix) {
+		t.Errorf("an API token %q reads as an invite; the two must not be confusable", api)
+	}
+
+	other, err := GenerateInviteToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token == other {
+		t.Error("two calls to GenerateInviteToken produced the same token")
+	}
+}

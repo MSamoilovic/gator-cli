@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	bcryptCost  = 12
-	TokenPrefix = "gat_"
-	tokenBytes  = 32
+	bcryptCost   = 12
+	TokenPrefix  = "gat_"
+	InvitePrefix = "gatinv_"
+	tokenBytes   = 32
 )
 
 func HashPassword(password string) (string, error) {
@@ -29,11 +30,19 @@ func VerifyPassword(hash, password string) bool {
 }
 
 func GenerateToken() (string, error) {
+	return randomToken(TokenPrefix)
+}
+
+func GenerateInviteToken() (string, error) {
+	return randomToken(InvitePrefix)
+}
+
+func randomToken(prefix string) (string, error) {
 	buf := make([]byte, tokenBytes)
 	if _, err := rand.Read(buf); err != nil {
 		return "", fmt.Errorf("generating token: %w", err)
 	}
-	return TokenPrefix + base64.RawURLEncoding.EncodeToString(buf), nil
+	return prefix + base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
 func HashToken(token string) string {

@@ -23,25 +23,28 @@ import (
 	"github.com/google/uuid"
 )
 
-const invite = "let-me-in"
-
 func serve(t *testing.T, db *testdb.DB) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(api.New(db.Queries, log.New(io.Discard, "", 0), api.Config{InviteCode: invite}))
+	srv := httptest.NewServer(api.New(db.Queries, log.New(io.Discard, "", 0)))
 	t.Cleanup(srv.Close)
 	return srv
 }
 
 func serveAllowingPrivateFetch(t *testing.T, db *testdb.DB) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(api.NewAllowingPrivateFetch(db.Queries, log.New(io.Discard, "", 0), api.Config{InviteCode: invite}))
+	srv := httptest.NewServer(api.NewAllowingPrivateFetch(db.Queries, log.New(io.Discard, "", 0)))
 	t.Cleanup(srv.Close)
 	return srv
 }
 
-func register(t *testing.T, srv *httptest.Server, name string) *remote.Store {
+func register(t *testing.T, db *testdb.DB, srv *httptest.Server, name string) *remote.Store {
 	t.Helper()
-	res, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: name, Email: name + "@example.com", Password: "correct horse battery", Invite: invite})
+	res, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{
+		Name:     name,
+		Email:    name + "@example.com",
+		Password: "correct horse battery",
+		Invite:   db.Invite(t, time.Now().Add(time.Hour)),
+	})
 	if err != nil {
 		t.Fatalf("registering %s: %v", name, err)
 	}
@@ -121,7 +124,7 @@ func TestRegisterThenLoginReachesTheSameUserAndNeverLeaksTheHash(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
 
-	reg, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "alice", Email: "Alice@Example.com", Password: "correct horse battery", Invite: invite})
+	reg, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "alice", Email: "Alice@Example.com", Password: "correct horse battery", Invite: db.Invite(t, time.Now().Add(time.Hour))})
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -151,7 +154,7 @@ func TestRegisterThenLoginReachesTheSameUserAndNeverLeaksTheHash(t *testing.T) {
 func TestLoginFailuresAreIndistinguishable(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
-	register(t, srv, "alice")
+	register(t, db, srv, "alice")
 	db.User(t, "localonly")
 
 	cases := map[string]struct{ login, password string }{
@@ -179,7 +182,7 @@ func TestLoginFailuresAreIndistinguishable(t *testing.T) {
 func TestRegisterRejectsWeakAndDuplicateAccounts(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
-	register(t, srv, "alice")
+	register(t, db, srv, "alice")
 
 	cases := map[string]struct {
 		name, email, password string
@@ -196,7 +199,7 @@ func TestRegisterRejectsWeakAndDuplicateAccounts(t *testing.T) {
 		"valid is created": {"bob", "bob@example.com", "correct horse battery", http.StatusCreated},
 	}
 	for name, c := range cases {
-		res, body := raw(t, "POST", srv.URL+"/v1/users", "", map[string]string{"name": c.name, "email": c.email, "password": c.password, "invite": invite})
+		res, body := raw(t, "POST", srv.URL+"/v1/users", "", map[string]string{"name": c.name, "email": c.email, "password": c.password, "invite": db.Invite(t, time.Now().Add(time.Hour))})
 		if res.StatusCode != c.want {
 			t.Errorf("%s: status %d, want %d (%s)", name, res.StatusCode, c.want, body)
 		}
@@ -207,7 +210,7 @@ func TestLogoutRevokesOnlyThatToken(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
 
-	first, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "alice", Email: "alice@example.com", Password: "correct horse battery", Invite: invite})
+	first, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "alice", Email: "alice@example.com", Password: "correct horse battery", Invite: db.Invite(t, time.Now().Add(time.Hour))})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +235,7 @@ func TestRemoteAndLocalStoresAgree(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
 
-	rs := register(t, srv, "alice")
+	rs := register(t, db, srv, "alice")
 	me, err := rs.Me(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -329,8 +332,8 @@ func TestOneUserNeverSeesAnothersState(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
 
-	alice := register(t, srv, "alice")
-	bob := register(t, srv, "bob")
+	alice := register(t, db, srv, "alice")
+	bob := register(t, db, srv, "bob")
 	aliceUser, _ := alice.Me(t.Context())
 
 	feed := db.Feed(t, aliceUser.ID, "Shared", "https://example.com/shared")
@@ -379,7 +382,7 @@ func TestOneUserNeverSeesAnothersState(t *testing.T) {
 func TestWritesRoundTripAndAreIdempotent(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
-	rs := register(t, srv, "alice")
+	rs := register(t, db, srv, "alice")
 	me, _ := rs.Me(t.Context())
 
 	feed := db.Feed(t, me.ID, "Blog", "https://example.com/feed")
@@ -428,7 +431,7 @@ func TestWritesRoundTripAndAreIdempotent(t *testing.T) {
 func TestSubscriptionsFollowCategorizeAndUnfollow(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
-	rs := register(t, srv, "alice")
+	rs := register(t, db, srv, "alice")
 	ctx := t.Context()
 
 	bob := db.User(t, "bob")
@@ -474,7 +477,7 @@ func TestSubscriptionsFollowCategorizeAndUnfollow(t *testing.T) {
 func TestAddFeedFetchesOnTheServerAndNamesItFromTheTitle(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serveAllowingPrivateFetch(t, db)
-	rs := register(t, srv, "alice")
+	rs := register(t, db, srv, "alice")
 
 	feedSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/rss+xml")
@@ -502,7 +505,7 @@ func TestAddFeedFetchesOnTheServerAndNamesItFromTheTitle(t *testing.T) {
 func TestMalformedInputIsABadRequestNotAnInternalError(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
-	rs := register(t, srv, "alice")
+	rs := register(t, db, srv, "alice")
 	_ = rs
 	res, _ := raw(t, "POST", srv.URL+"/v1/tokens", "", nil)
 	if res.StatusCode != http.StatusBadRequest {
@@ -514,7 +517,7 @@ func TestAnExpiredTokenReachesTheClientAsErrUnauthorized(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
 
-	good := register(t, srv, "alice")
+	good := register(t, db, srv, "alice")
 	if _, err := good.Subscriptions(t.Context()); err != nil {
 		t.Fatalf("a fresh token was refused: %v", err)
 	}
@@ -545,7 +548,7 @@ func TestAnExpiredTokenReachesTheClientAsErrUnauthorized(t *testing.T) {
 func TestTheServerRefusesToFetchAPrivateAddress(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
-	reg, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "attacker", Email: "a@example.com", Password: "correct horse battery", Invite: invite})
+	reg, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "attacker", Email: "a@example.com", Password: "correct horse battery", Invite: db.Invite(t, time.Now().Add(time.Hour))})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -584,7 +587,7 @@ func TestTheServerRefusesToFetchAPrivateAddress(t *testing.T) {
 func TestTheServerRefusesToReadAnArticleAtAPrivateAddress(t *testing.T) {
 	db := testdb.Open(t)
 	srv := serve(t, db)
-	reg, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "attacker", Email: "a@example.com", Password: "correct horse battery", Invite: invite})
+	reg, err := remote.Register(t.Context(), srv.URL, wire.RegisterRequest{Name: "attacker", Email: "a@example.com", Password: "correct horse battery", Invite: db.Invite(t, time.Now().Add(time.Hour))})
 	if err != nil {
 		t.Fatal(err)
 	}
