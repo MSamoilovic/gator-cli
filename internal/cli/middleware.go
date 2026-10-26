@@ -28,6 +28,8 @@ func signInError(s *state, err error) error {
 	}
 
 	switch {
+	case errors.Is(err, store.ErrNeverSynced):
+		return fmt.Errorf("never synced with %s — connect once so gator can work offline later", server)
 	case errors.Is(err, store.ErrUnauthorized):
 		return fmt.Errorf("not signed in to %s — run: gator login <your-name>", server)
 	case errors.Is(err, store.ErrUnreachable):

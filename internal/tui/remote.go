@@ -39,6 +39,8 @@ func (m model) explain(err error) string {
 		return "Signed out — run: gator login --server " + m.serverName()
 	case errors.Is(err, store.ErrPlanLimit):
 		return "Plan limit reached — " + err.Error()
+	case errors.Is(err, store.ErrNeverSynced):
+		return "Never synced with " + m.serverName() + " — connect once, then press r"
 	case errors.Is(err, store.ErrUnreachable):
 		return "Cannot reach " + m.serverName() + " — check the connection, then press r"
 	case errors.Is(err, errors.ErrUnsupported):

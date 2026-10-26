@@ -12,6 +12,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/store"
 	"github.com/MSamoilovic/gator-cli/internal/store/local"
+	"github.com/MSamoilovic/gator-cli/internal/store/offline"
 	"github.com/MSamoilovic/gator-cli/internal/store/remote"
 	"github.com/MSamoilovic/gator-cli/internal/theme"
 
@@ -146,8 +147,12 @@ func open(schema fs.FS) (*state, func() error, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("not logged in to %s (gator login --server %s <name>): %w", cfg.ServerURL, cfg.ServerURL, err)
 		}
+		st, err := offline.Open(remote.New(cfg.ServerURL, token), cfg.ServerURL)
+		if err != nil {
+			return nil, nil, err
+		}
 		return &state{
-			Store:  remote.New(cfg.ServerURL, token),
+			Store:  st,
 			Cfg:    &cfg,
 			Schema: schema,
 		}, func() error { return nil }, nil

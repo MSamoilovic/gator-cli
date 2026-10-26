@@ -62,6 +62,7 @@ var (
 	ErrUnauthorized = errors.New("not signed in to this server")
 	ErrPlanLimit    = errors.New("your plan does not allow that")
 	ErrUnreachable  = errors.New("cannot reach the server")
+	ErrNeverSynced  = errors.New("never synced with the server")
 )
 
 type Store interface {
