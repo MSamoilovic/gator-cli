@@ -615,3 +615,49 @@ func TestTheServerRefusesToReadAnArticleAtAPrivateAddress(t *testing.T) {
 		t.Errorf("the response carried the private page's text: %s", body)
 	}
 }
+
+func TestWritesAboutAPostPruneDeletedAreQuietlyIgnored(t *testing.T) {
+	db := testdb.Open(t)
+	srv := serve(t, db)
+	st := register(t, db, srv, "marko")
+
+	me, err := st.Me(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	feed := db.Feed(t, me.ID, "Example", "https://example.test/feed.xml")
+	db.Follow(t, me.ID, feed.ID)
+	alive := db.Post(t, feed.ID, "Still here", "https://example.test/1", time.Now())
+	gone := uuid.New()
+
+	if err := st.SetRead(t.Context(), gone, true); err != nil {
+		t.Fatalf("marking a pruned post read: %v", err)
+	}
+	if err := st.SetAllRead(t.Context(), []uuid.UUID{gone, alive.ID}); err != nil {
+		t.Fatalf("marking a batch with a pruned post read: %v", err)
+	}
+
+	read, err := st.ReadIDs(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(read) != 1 || read[0] != alive.ID {
+		t.Errorf("read ids = %v, want only %v", read, alive.ID)
+	}
+
+	created, err := st.Bookmark(t.Context(), gone)
+	if err != nil {
+		t.Fatalf("bookmarking a pruned post: %v", err)
+	}
+	if created {
+		t.Error("bookmarking a pruned post reported a new bookmark")
+	}
+
+	saved, err := st.BookmarkedIDs(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved) != 0 {
+		t.Errorf("bookmarked ids = %v, want none", saved)
+	}
+}

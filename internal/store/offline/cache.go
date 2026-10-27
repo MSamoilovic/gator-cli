@@ -88,3 +88,64 @@ func (snap *snapshot) mergePosts(posts []store.Post) {
 	}
 	snap.Posts = wire.FromPosts(merged)
 }
+
+func (snap *snapshot) apply(c change) {
+	switch c.Op {
+	case opRead:
+		snap.setRead(c.PostID, c.Value)
+	case opReadAll:
+		for _, id := range c.PostIDs {
+			snap.setRead(id, true)
+		}
+	case opBookmark:
+		snap.setSaved(c.PostID, c.Value)
+	case opCategorize:
+		for i := range snap.Subs {
+			if snap.Subs[i].FeedUrl == c.URL {
+				snap.Subs[i].Category = c.Category
+			}
+		}
+	}
+}
+
+func (snap *snapshot) setRead(id uuid.UUID, read bool) {
+	switch had := slices.Contains(snap.Read, id); {
+	case read && !had:
+		snap.Read = append(snap.Read, id)
+		snap.countUnread(id, -1)
+	case !read && had:
+		snap.Read = slices.DeleteFunc(snap.Read, func(x uuid.UUID) bool { return x == id })
+		snap.countUnread(id, 1)
+	}
+}
+
+func (snap *snapshot) setSaved(id uuid.UUID, saved bool) {
+	switch had := slices.Contains(snap.Saved, id); {
+	case saved && !had:
+		snap.Saved = append(snap.Saved, id)
+		if i := slices.IndexFunc(snap.Posts, func(p wire.Post) bool { return p.ID == id }); i >= 0 {
+			snap.Bookmarked = append(snap.Bookmarked, snap.Posts[i])
+		}
+	case !saved && had:
+		snap.Saved = slices.DeleteFunc(snap.Saved, func(x uuid.UUID) bool { return x == id })
+		snap.Bookmarked = slices.DeleteFunc(snap.Bookmarked, func(p wire.Post) bool { return p.ID == id })
+	}
+}
+
+func (snap *snapshot) countUnread(postID uuid.UUID, delta int64) {
+	i := slices.IndexFunc(snap.Posts, func(p wire.Post) bool { return p.ID == postID })
+	if i < 0 {
+		return
+	}
+
+	feedID := snap.Posts[i].FeedID
+	for j := range snap.Unread {
+		if snap.Unread[j].FeedID == feedID {
+			snap.Unread[j].Unread = max(snap.Unread[j].Unread+delta, 0)
+			return
+		}
+	}
+	if delta > 0 {
+		snap.Unread = append(snap.Unread, store.UnreadCount{FeedID: feedID, Unread: delta})
+	}
+}
