@@ -14,7 +14,8 @@ import (
 
 const createBookmark = `-- name: CreateBookmark :many
 INSERT INTO bookmarks (id, created_at, user_id, post_id)
-VALUES ($1, $2, $3, $4)
+SELECT $1::uuid, $2::timestamp, $3::uuid, posts.id
+FROM posts WHERE posts.id = $4::uuid
 ON CONFLICT (user_id, post_id) DO NOTHING
 RETURNING id, created_at, user_id, post_id
 `

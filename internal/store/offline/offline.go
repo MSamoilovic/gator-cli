@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -21,14 +22,18 @@ type Store struct {
 	server string
 	path   string
 
-	mu     sync.Mutex
-	snap   snapshot
-	online bool
+	mu       sync.Mutex
+	snap     snapshot
+	queue    *queue
+	online   bool
+	flushing bool
 }
 
 type State struct {
 	Online   bool
 	LastSync time.Time
+	Pending  int
+	Dropped  int
 }
 
 var _ store.Store = (*Store)(nil)
@@ -48,6 +53,7 @@ func Wrap(inner store.Store, server, dir string) *Store {
 		server: server,
 		path:   path,
 		snap:   load(path, server),
+		queue:  loadQueue(filepath.Join(dir, QueueFileName)),
 		online: true,
 	}
 }
@@ -56,7 +62,12 @@ func (s *Store) State() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return State{Online: s.online, LastSync: s.snap.SyncedAt}
+	return State{
+		Online:   s.online,
+		LastSync: s.snap.SyncedAt,
+		Pending:  len(s.queue.pending),
+		Dropped:  s.queue.dropped,
+	}
 }
 
 func (s *Store) answered(ctx context.Context, err error) bool {
@@ -67,9 +78,81 @@ func (s *Store) answered(ctx context.Context, err error) bool {
 	reached := !errors.Is(err, store.ErrUnreachable)
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	owed := reached && err == nil && len(s.queue.pending) > 0 && !s.flushing
 	s.online = reached
+	s.flushing = s.flushing || owed
+	s.mu.Unlock()
+
+	if owed {
+		s.flush(ctx)
+
+		s.mu.Lock()
+		s.flushing = false
+		s.mu.Unlock()
+	}
 	return reached
+}
+
+func (s *Store) flush(ctx context.Context) {
+	s.mu.Lock()
+	pending := slices.Clone(s.queue.pending)
+	s.mu.Unlock()
+
+	done := 0
+	for _, c := range pending {
+		if ctx.Err() != nil {
+			break
+		}
+		err := s.send(ctx, c)
+		if err != nil && !gone(err) {
+			if errors.Is(err, store.ErrUnreachable) {
+				s.mu.Lock()
+				s.online = false
+				s.mu.Unlock()
+			}
+			break
+		}
+		done++
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_ = s.queue.sent(done)
+}
+
+func (s *Store) send(ctx context.Context, c change) error {
+	switch c.Op {
+	case opRead:
+		return s.inner.SetRead(ctx, c.PostID, c.Value)
+	case opReadAll:
+		return s.inner.SetAllRead(ctx, c.PostIDs)
+	case opBookmark:
+		if !c.Value {
+			return s.inner.Unbookmark(ctx, c.PostID)
+		}
+		_, err := s.inner.Bookmark(ctx, c.PostID)
+		return err
+	case opCategorize:
+		_, err := s.inner.Categorize(ctx, c.URL, c.Category)
+		return err
+	}
+	return nil
+}
+
+func gone(err error) bool {
+	return errors.Is(err, store.ErrFeedNotFound) || errors.Is(err, store.ErrNotFollowed)
+}
+
+func (s *Store) enqueue(c change) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.queue.add(c); err != nil {
+		return fmt.Errorf("saving that change until %s answers: %w", s.server, err)
+	}
+	s.snap.apply(c)
+	_ = s.snap.save(s.path)
+	return nil
 }
 
 func (s *Store) update(fn func(*snapshot)) {
@@ -214,26 +297,39 @@ func (s *Store) Stats(ctx context.Context, since time.Time) ([]store.FeedStat, e
 
 func (s *Store) SetRead(ctx context.Context, postID uuid.UUID, read bool) error {
 	err := s.inner.SetRead(ctx, postID, read)
-	s.answered(ctx, err)
-	return err
+	if s.answered(ctx, err) {
+		return err
+	}
+	return s.enqueue(change{Op: opRead, PostID: postID, Value: read, At: time.Now()})
 }
 
 func (s *Store) SetAllRead(ctx context.Context, postIDs []uuid.UUID) error {
 	err := s.inner.SetAllRead(ctx, postIDs)
-	s.answered(ctx, err)
-	return err
+	if s.answered(ctx, err) {
+		return err
+	}
+	return s.enqueue(change{Op: opReadAll, PostIDs: postIDs, At: time.Now()})
 }
 
 func (s *Store) Bookmark(ctx context.Context, postID uuid.UUID) (bool, error) {
 	created, err := s.inner.Bookmark(ctx, postID)
-	s.answered(ctx, err)
-	return created, err
+	if s.answered(ctx, err) {
+		return created, err
+	}
+
+	saved := slices.Contains(s.cached().Saved, postID)
+	if err := s.enqueue(change{Op: opBookmark, PostID: postID, Value: true, At: time.Now()}); err != nil {
+		return false, err
+	}
+	return !saved, nil
 }
 
 func (s *Store) Unbookmark(ctx context.Context, postID uuid.UUID) error {
 	err := s.inner.Unbookmark(ctx, postID)
-	s.answered(ctx, err)
-	return err
+	if s.answered(ctx, err) {
+		return err
+	}
+	return s.enqueue(change{Op: opBookmark, PostID: postID, At: time.Now()})
 }
 
 func (s *Store) AddFeed(ctx context.Context, name, url string) (store.Feed, bool, error) {
@@ -266,8 +362,20 @@ func (s *Store) Unfollow(ctx context.Context, feedID uuid.UUID) error {
 
 func (s *Store) Categorize(ctx context.Context, url, category string) (store.Feed, error) {
 	feed, err := s.inner.Categorize(ctx, url, category)
-	s.answered(ctx, err)
-	return feed, err
+	if s.answered(ctx, err) {
+		return feed, err
+	}
+
+	subs := s.cached().Subs
+	i := slices.IndexFunc(subs, func(sub store.Subscription) bool { return sub.FeedUrl == url })
+	if i < 0 {
+		return store.Feed{Url: url, Name: url}, fmt.Errorf("%s: %w", url, store.ErrNotFollowed)
+	}
+
+	if err := s.enqueue(change{Op: opCategorize, URL: url, Category: category, At: time.Now()}); err != nil {
+		return store.Feed{}, err
+	}
+	return store.Feed{ID: subs[i].FeedID, Name: subs[i].FeedName, Url: url}, nil
 }
 
 func (s *Store) Refresh(ctx context.Context, onProgress func(feeds.Progress)) (store.RefreshResult, error) {

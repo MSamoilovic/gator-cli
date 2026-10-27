@@ -1,6 +1,7 @@
 -- name: CreateBookmark :many
 INSERT INTO bookmarks (id, created_at, user_id, post_id)
-VALUES ($1, $2, $3, $4)
+SELECT @id::uuid, @created_at::timestamp, @user_id::uuid, posts.id
+FROM posts WHERE posts.id = @post_id::uuid
 ON CONFLICT (user_id, post_id) DO NOTHING
 RETURNING *;
 

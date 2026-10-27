@@ -83,18 +83,19 @@ func (q *Queries) GetUnreadCountsForUser(ctx context.Context, userID uuid.UUID) 
 
 const markPostRead = `-- name: MarkPostRead :exec
 INSERT INTO post_reads (user_id, post_id, read_at)
-VALUES ($1, $2, $3)
+SELECT $1::uuid, posts.id, $2::timestamp
+FROM posts WHERE posts.id = $3::uuid
 ON CONFLICT (user_id, post_id) DO NOTHING
 `
 
 type MarkPostReadParams struct {
 	UserID uuid.UUID
-	PostID uuid.UUID
 	ReadAt time.Time
+	PostID uuid.UUID
 }
 
 func (q *Queries) MarkPostRead(ctx context.Context, arg MarkPostReadParams) error {
-	_, err := q.db.ExecContext(ctx, markPostRead, arg.UserID, arg.PostID, arg.ReadAt)
+	_, err := q.db.ExecContext(ctx, markPostRead, arg.UserID, arg.ReadAt, arg.PostID)
 	return err
 }
 
@@ -115,17 +116,18 @@ func (q *Queries) MarkPostUnread(ctx context.Context, arg MarkPostUnreadParams) 
 
 const markPostsRead = `-- name: MarkPostsRead :exec
 INSERT INTO post_reads (user_id, post_id, read_at)
-SELECT $1, unnest($2::uuid[]), $3
+SELECT $1::uuid, posts.id, $2::timestamp
+FROM posts WHERE posts.id = ANY($3::uuid[])
 ON CONFLICT (user_id, post_id) DO NOTHING
 `
 
 type MarkPostsReadParams struct {
 	UserID  uuid.UUID
-	PostIds []uuid.UUID
 	ReadAt  time.Time
+	PostIds []uuid.UUID
 }
 
 func (q *Queries) MarkPostsRead(ctx context.Context, arg MarkPostsReadParams) error {
-	_, err := q.db.ExecContext(ctx, markPostsRead, arg.UserID, pq.Array(arg.PostIds), arg.ReadAt)
+	_, err := q.db.ExecContext(ctx, markPostsRead, arg.UserID, arg.ReadAt, pq.Array(arg.PostIds))
 	return err
 }

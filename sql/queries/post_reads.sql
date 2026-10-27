@@ -1,6 +1,7 @@
 -- name: MarkPostRead :exec
 INSERT INTO post_reads (user_id, post_id, read_at)
-VALUES ($1, $2, $3)
+SELECT @user_id::uuid, posts.id, @read_at::timestamp
+FROM posts WHERE posts.id = @post_id::uuid
 ON CONFLICT (user_id, post_id) DO NOTHING;
 
 -- name: MarkPostUnread :exec
@@ -9,7 +10,8 @@ WHERE user_id = $1 AND post_id = $2;
 
 -- name: MarkPostsRead :exec
 INSERT INTO post_reads (user_id, post_id, read_at)
-SELECT @user_id, unnest(@post_ids::uuid[]), @read_at
+SELECT @user_id::uuid, posts.id, @read_at::timestamp
+FROM posts WHERE posts.id = ANY(@post_ids::uuid[])
 ON CONFLICT (user_id, post_id) DO NOTHING;
 
 -- name: GetReadPostIDs :many
