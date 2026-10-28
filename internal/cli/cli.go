@@ -38,10 +38,11 @@ type entry struct {
 	run     handlerFunc
 	runAuth func(context.Context, *state, command, store.User) error
 
-	guest     bool
-	hidden    bool
-	noDB      bool
-	localOnly bool
+	guest      bool
+	hidden     bool
+	noDB       bool
+	localOnly  bool
+	remoteOnly bool
 }
 
 func (e entry) needsLogin() bool { return e.runAuth != nil }
@@ -83,6 +84,7 @@ func allCommands() []entry {
 
 		{group: "account", name: "register", args: "[flags] <username>", summary: "Create a new user and log in", run: handlerRegister, guest: true, noDB: true},
 		{group: "account", name: "login", args: "[flags] <username>", summary: "Log in as an existing user, or to a server with --server", run: handlerLogin, guest: true, noDB: true},
+		{group: "account", name: "sync", summary: "Send queued changes and refill the offline cache", run: handlerSync, remoteOnly: true},
 		{group: "account", name: "logout", summary: "Disconnect from a server and go back to the local database", run: handlerLogout, guest: true, noDB: true},
 		{group: "account", name: "invite", args: "[flags]", summary: "Hand out a one-time registration link for this server", run: handlerInvite, localOnly: true},
 		{group: "account", name: "users", summary: "List all users", run: handlerUsers, guest: true, localOnly: true},
@@ -199,20 +201,28 @@ func connect(dbURL string) (*sql.DB, error) {
 func defaultCommands() commands {
 	cmds := commands{registeredCommands: make(map[string]handlerFunc)}
 	for _, e := range allCommands() {
-		cmds.register(e.name, guardLocal(e))
+		cmds.register(e.name, guardMode(e))
 	}
 	return cmds
 }
 
-func guardLocal(e entry) handlerFunc {
+func guardMode(e entry) handlerFunc {
 	h := e.handler()
-	if !e.localOnly {
-		return h
-	}
-	return func(ctx context.Context, s *state, cmd command) error {
-		if s.Db == nil && s.Cfg != nil && s.Cfg.ServerURL != "" {
-			return fmt.Errorf("%s works on the database itself, not through %s (gator logout to go back to local)", e.name, s.Cfg.ServerURL)
+	switch {
+	case e.localOnly:
+		return func(ctx context.Context, s *state, cmd command) error {
+			if s.Db == nil && s.Cfg != nil && s.Cfg.ServerURL != "" {
+				return fmt.Errorf("%s works on the database itself, not through %s (gator logout to go back to local)", e.name, s.Cfg.ServerURL)
+			}
+			return h(ctx, s, cmd)
 		}
-		return h(ctx, s, cmd)
+	case e.remoteOnly:
+		return func(ctx context.Context, s *state, cmd command) error {
+			if s.Cfg == nil || s.Cfg.ServerURL == "" {
+				return fmt.Errorf("%s is for a server; this install reads the database directly (gator login --server <url> to use one)", e.name)
+			}
+			return h(ctx, s, cmd)
+		}
 	}
+	return h
 }

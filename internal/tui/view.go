@@ -185,11 +185,45 @@ func (m model) footerTags() []string {
 		return []string{user}
 	}
 
-	tags := []string{user + " · " + serverHost(m.server)}
-	if host := hostWithoutPort(serverHost(m.server)); host != serverHost(m.server) {
-		tags = append(tags, user+" · "+host)
+	state := m.syncState()
+	lost, waiting := "", ""
+	if state.Dropped > 0 {
+		lost = strconv.Itoa(state.Dropped) + " lost"
 	}
-	return append(tags, user+" "+remoteMark, user)
+	if state.Pending > 0 {
+		waiting = strconv.Itoa(state.Pending) + " " + remoteMark
+	}
+
+	var tags []string
+	head := user + " · offline"
+	if state.Online {
+		head = user + " · " + serverHost(m.server)
+	}
+	switch {
+	case lost != "":
+		tags = append(tags, head+" · "+lost)
+	case waiting != "":
+		tags = append(tags, head+" · "+waiting)
+	case !state.Online && !state.LastSync.IsZero():
+		tags = append(tags, head+" · sync "+state.LastSync.Format("15:04"))
+	}
+	tags = append(tags, head)
+
+	if host := serverHost(m.server); state.Online && hostWithoutPort(host) != host {
+		tags = append(tags, user+" · "+hostWithoutPort(host))
+	}
+	switch {
+	case lost != "":
+		tags = append(tags, user+" · "+lost, user+" · "+strconv.Itoa(state.Dropped)+" "+brokenMark)
+	case waiting != "":
+		tags = append(tags, user+" · "+waiting)
+	}
+
+	mark := remoteMark
+	if !state.Online || lost != "" {
+		mark = brokenMark
+	}
+	return append(tags, user+" "+mark, user)
 }
 
 func (m *model) resize(w, h int) {

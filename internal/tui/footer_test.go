@@ -1,8 +1,12 @@
 package tui
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/MSamoilovic/gator-cli/internal/store"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -118,5 +122,136 @@ func TestAnAnonymousSessionGetsNoTagAtAll(t *testing.T) {
 	}
 	if got := m.userTagged("help"); got != "help" {
 		t.Errorf("userTagged = %q, want the line untouched", got)
+	}
+}
+
+type fakeSyncer struct{ state store.SyncState }
+
+func (f fakeSyncer) State() store.SyncState { return f.state }
+
+func (f fakeSyncer) Sync(context.Context) (store.SyncResult, error) {
+	return store.SyncResult{}, nil
+}
+
+func syncing(t *testing.T, width int, state store.SyncState) model {
+	t.Helper()
+	m := onServer(t, "http://localhost:8099", width)
+	m.sync = fakeSyncer{state: state}
+	return m
+}
+
+func TestAWideTerminalSaysTheSessionIsOfflineAndHowOldTheCacheIs(t *testing.T) {
+	m := syncing(t, 120, store.SyncState{LastSync: time.Date(2026, 10, 28, 14, 32, 0, 0, time.Local)})
+
+	footer := m.footer()
+	if !strings.Contains(footer, "offline") {
+		t.Errorf("footer = %q, want it to say the session is offline", footer)
+	}
+	if !strings.Contains(footer, "sync 14:32") {
+		t.Errorf("footer = %q, want the time the cache was last filled — offline it is the only thing that dates what you see", footer)
+	}
+	if strings.Contains(footer, "localhost") {
+		t.Error("the footer names the server while nothing can reach it")
+	}
+}
+
+func TestAtEightyColumnsOfflineShrinksToTheWarningMark(t *testing.T) {
+	m := syncing(t, 80, store.SyncState{})
+
+	footer := m.footer()
+	if strings.Contains(footer, "offline") {
+		t.Errorf("footer = %q — %q is 16 columns and the post list leaves 13, so the word cannot be there",
+			footer, "@marko · offline")
+	}
+	if !strings.Contains(footer, brokenMark) {
+		t.Errorf("footer = %q, want %q as the narrow stand-in — dropping to the bare user tag would hide being offline", footer, brokenMark)
+	}
+	if !strings.Contains(footer, "@marko") {
+		t.Error("the mark cost the user tag")
+	}
+}
+
+func TestQueuedWritesAreCountedInTheFooterAtEightyColumns(t *testing.T) {
+	m := syncing(t, 80, store.SyncState{Pending: 3})
+
+	if got, want := m.footer(), "@marko · 3 "+remoteMark; !strings.Contains(got, want) {
+		t.Errorf("footer = %q, want %q — 12 columns fits the 13 the post list leaves", got, want)
+	}
+}
+
+func TestLostWritesOutrankBeingOfflineInTheFooter(t *testing.T) {
+	m := syncing(t, 120, store.SyncState{Pending: 3, Dropped: 2})
+
+	footer := m.footer()
+	if !strings.Contains(footer, "2 lost") {
+		t.Errorf("footer = %q, want the overflowed changes named — a silent loss is worse than an admitted one", footer)
+	}
+
+	narrow := syncing(t, 80, store.SyncState{Pending: 3, Dropped: 2})
+	if got, want := narrow.footer(), "@marko · 2 "+brokenMark; !strings.Contains(got, want) {
+		t.Errorf("footer = %q, want %q: %q is 15 columns and the post list leaves 13, so the count "+
+			"keeps the loud mark instead of the word", got, want, "@marko · 2 lost")
+	}
+	if strings.Contains(narrow.footer(), remoteMark) {
+		t.Error("the waiting count took the slot a lost write had earned")
+	}
+}
+
+func TestAnOnlineSessionWithWritesWaitingNamesTheServerAndTheCount(t *testing.T) {
+	m := syncing(t, 120, store.SyncState{Online: true, Pending: 2})
+
+	footer := m.footer()
+	for _, want := range []string{"localhost:8099", "2 " + remoteMark} {
+		if !strings.Contains(footer, want) {
+			t.Errorf("footer = %q, want %q", footer, want)
+		}
+	}
+	if strings.Contains(footer, brokenMark) {
+		t.Error("a reachable server is marked as broken")
+	}
+}
+
+func TestEveryTagLadderNarrowsAtEveryRungInEveryState(t *testing.T) {
+	states := map[string]store.SyncState{
+		"online":                {Online: true},
+		"online, 2 waiting":     {Online: true, Pending: 2},
+		"online, 2 lost":        {Online: true, Dropped: 2},
+		"offline":               {},
+		"offline, synced once":  {LastSync: time.Now()},
+		"offline, 3 waiting":    {Pending: 3},
+		"offline, 3 and 2 lost": {Pending: 3, Dropped: 2},
+	}
+
+	for name, state := range states {
+		m := syncing(t, 120, state)
+		tags := m.footerTags()
+		for i := 1; i < len(tags); i++ {
+			if lipgloss.Width(tags[i]) >= lipgloss.Width(tags[i-1]) {
+				t.Errorf("%s: tag %d (%q) is not narrower than tag %d (%q), so the fallback never helps",
+					name, i, tags[i], i-1, tags[i-1])
+			}
+		}
+		if got, want := tags[len(tags)-1], "@marko"; got != want {
+			t.Errorf("%s: last resort tag = %q, want the bare %q", name, got, want)
+		}
+	}
+}
+
+func TestEveryTagVariantLeavesTheNarrowestFooterIntact(t *testing.T) {
+	states := []store.SyncState{
+		{Online: true}, {Online: true, Pending: 2}, {Online: true, Dropped: 2},
+		{}, {LastSync: time.Now()}, {Pending: 3}, {Pending: 3, Dropped: 2},
+	}
+
+	for _, state := range states {
+		for _, width := range []int{60, 80, 100, 120} {
+			m := syncing(t, width, state)
+			m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+			for _, line := range strings.Split(m.View(), "\n") {
+				if got := lipgloss.Width(line); got > width {
+					t.Fatalf("state %+v at %d columns renders %d: %q", state, width, got, line)
+				}
+			}
+		}
 	}
 }

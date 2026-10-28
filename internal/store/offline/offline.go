@@ -29,13 +29,6 @@ type Store struct {
 	flushing bool
 }
 
-type State struct {
-	Online   bool
-	LastSync time.Time
-	Pending  int
-	Dropped  int
-}
-
 var _ store.Store = (*Store)(nil)
 
 func Open(inner store.Store, server string) (*Store, error) {
@@ -58,16 +51,58 @@ func Wrap(inner store.Store, server, dir string) *Store {
 	}
 }
 
-func (s *Store) State() State {
+func (s *Store) State() store.SyncState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return State{
+	return store.SyncState{
 		Online:   s.online,
 		LastSync: s.snap.SyncedAt,
 		Pending:  len(s.queue.pending),
-		Dropped:  s.queue.dropped,
+		Dropped:  s.snap.Dropped,
 	}
+}
+
+func (s *Store) Sync(ctx context.Context) (store.SyncResult, error) {
+	res := store.SyncResult{Sent: s.drain(ctx)}
+
+	state := s.State()
+	res.Pending, res.Dropped = state.Pending, state.Dropped
+
+	if _, err := s.Me(ctx); err != nil {
+		return res, err
+	}
+	subs, err := s.Subscriptions(ctx)
+	if err != nil {
+		return res, err
+	}
+	if _, err := s.Posts(ctx, store.PostQuery{Limit: maxPosts}); err != nil {
+		return res, err
+	}
+	if _, err := s.BookmarkedPosts(ctx); err != nil {
+		return res, err
+	}
+	if _, err := s.BookmarkedIDs(ctx); err != nil {
+		return res, err
+	}
+	if _, err := s.ReadIDs(ctx); err != nil {
+		return res, err
+	}
+	if _, err := s.UnreadCounts(ctx); err != nil {
+		return res, err
+	}
+
+	if !s.State().Online {
+		return res, fmt.Errorf("cannot reach %s: %w", s.server, store.ErrUnreachable)
+	}
+
+	s.mu.Lock()
+	res.Feeds, res.Posts = len(subs), len(s.snap.Posts)
+	s.snap.Dropped = 0
+	_ = s.snap.save(s.path)
+	s.mu.Unlock()
+
+	return res, nil
 }
 
 func (s *Store) answered(ctx context.Context, err error) bool {
@@ -78,22 +113,34 @@ func (s *Store) answered(ctx context.Context, err error) bool {
 	reached := !errors.Is(err, store.ErrUnreachable)
 
 	s.mu.Lock()
-	owed := reached && err == nil && len(s.queue.pending) > 0 && !s.flushing
 	s.online = reached
-	s.flushing = s.flushing || owed
 	s.mu.Unlock()
 
-	if owed {
-		s.flush(ctx)
-
-		s.mu.Lock()
-		s.flushing = false
-		s.mu.Unlock()
+	if reached && err == nil {
+		s.drain(ctx)
 	}
 	return reached
 }
 
-func (s *Store) flush(ctx context.Context) {
+func (s *Store) drain(ctx context.Context) int {
+	s.mu.Lock()
+	owed := len(s.queue.pending) > 0 && !s.flushing
+	s.flushing = s.flushing || owed
+	s.mu.Unlock()
+
+	if !owed {
+		return 0
+	}
+
+	done := s.flush(ctx)
+
+	s.mu.Lock()
+	s.flushing = false
+	s.mu.Unlock()
+	return done
+}
+
+func (s *Store) flush(ctx context.Context) int {
 	s.mu.Lock()
 	pending := slices.Clone(s.queue.pending)
 	s.mu.Unlock()
@@ -118,6 +165,7 @@ func (s *Store) flush(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_ = s.queue.sent(done)
+	return done
 }
 
 func (s *Store) send(ctx context.Context, c change) error {
@@ -147,9 +195,11 @@ func (s *Store) enqueue(c change) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.queue.add(c); err != nil {
+	dropped, err := s.queue.add(c)
+	if err != nil {
 		return fmt.Errorf("saving that change until %s answers: %w", s.server, err)
 	}
+	s.snap.Dropped += dropped
 	s.snap.apply(c)
 	_ = s.snap.save(s.path)
 	return nil

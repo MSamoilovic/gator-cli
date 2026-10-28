@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MSamoilovic/gator-cli/internal/config"
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/menu"
 )
@@ -221,4 +222,33 @@ func namesOf(items []menu.Item) map[string]bool {
 		names[it.Name] = true
 	}
 	return names
+}
+
+func TestTheMenuOffersOnlyTheCommandsThisInstallCanRun(t *testing.T) {
+	items := offered(true, true)
+
+	local := reachable(&state{Cfg: &config.Config{DBURL: "postgres://localhost/gator"}}, items)
+	remote := reachable(&state{Cfg: &config.Config{ServerURL: "https://reader.example.test"}}, items)
+
+	has := func(items []menu.Item, name string) bool {
+		for _, it := range items {
+			if it.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+
+	if has(local, "sync") {
+		t.Error("a local install is offered sync, which has no server to sync with")
+	}
+	if !has(local, "agg") {
+		t.Error("a local install is not offered agg")
+	}
+	if !has(remote, "sync") {
+		t.Error("a server install is not offered sync")
+	}
+	if has(remote, "agg") {
+		t.Error("a server install is offered agg, which works on the database itself")
+	}
 }
