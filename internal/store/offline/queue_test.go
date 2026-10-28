@@ -198,7 +198,7 @@ func TestTheSameChangeReplayedTwiceLeavesOneState(t *testing.T) {
 	twice := change{Op: opRead, PostID: one.ID, Value: true, At: time.Now()}
 	q := loadQueue(filepath.Join(dir, QueueFileName))
 	for range 2 {
-		if err := q.add(twice); err != nil {
+		if _, err := q.add(twice); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -90,6 +90,7 @@ func (f listFilter) params() postFilter {
 type model struct {
 	ctx      context.Context
 	store    store.Store
+	sync     store.Syncer
 	userName string
 	server   string
 
@@ -189,9 +190,12 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 	ti := textinput.New()
 	ti.CharLimit = 500
 
+	syncer, _ := st.(store.Syncer)
+
 	m := model{
 		ctx:         ctx,
 		store:       st,
+		sync:        syncer,
 		userName:    user.Name,
 		server:      server,
 		keys:        defaultKeyMap(),

@@ -26,6 +26,13 @@ func hostWithoutPort(host string) string {
 	return name
 }
 
+func (m model) syncState() store.SyncState {
+	if m.sync == nil {
+		return store.SyncState{Online: true}
+	}
+	return m.sync.State()
+}
+
 func (m model) serverName() string {
 	if m.server == "" {
 		return "the server"

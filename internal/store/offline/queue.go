@@ -36,7 +36,6 @@ type change struct {
 type queue struct {
 	path    string
 	pending []change
-	dropped int
 }
 
 func loadQueue(path string) *queue {
@@ -59,33 +58,32 @@ func loadQueue(path string) *queue {
 	return q
 }
 
-func (q *queue) add(c change) error {
+func (q *queue) add(c change) (int, error) {
 	if len(q.pending)+1 > maxQueued {
 		dropped := len(q.pending) + 1 - maxQueued
 		q.pending = append(q.pending[dropped:], c)
-		q.dropped += dropped
-		return q.rewrite()
+		return dropped, q.rewrite()
 	}
 
 	line, err := json.Marshal(c)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	f, err := os.OpenFile(q.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if _, err := f.Write(append(line, '\n')); err != nil {
 		f.Close()
-		return err
+		return 0, err
 	}
 	if err := f.Close(); err != nil {
-		return err
+		return 0, err
 	}
 
 	q.pending = append(q.pending, c)
-	return nil
+	return 0, nil
 }
 
 func (q *queue) sent(n int) error {

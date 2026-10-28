@@ -28,6 +28,7 @@ type snapshot struct {
 	Unread     []store.UnreadCount  `json:"unread,omitempty"`
 	Read       []uuid.UUID          `json:"read_ids,omitempty"`
 	Saved      []uuid.UUID          `json:"bookmark_ids,omitempty"`
+	Dropped    int                  `json:"dropped,omitempty"`
 }
 
 func load(path, server string) snapshot {

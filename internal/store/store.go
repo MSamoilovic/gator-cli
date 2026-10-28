@@ -48,6 +48,26 @@ type PostQuery struct {
 	Offset   int32
 }
 
+type SyncState struct {
+	Online   bool
+	LastSync time.Time
+	Pending  int
+	Dropped  int
+}
+
+type SyncResult struct {
+	Sent    int
+	Pending int
+	Dropped int
+	Posts   int
+	Feeds   int
+}
+
+type Syncer interface {
+	State() SyncState
+	Sync(ctx context.Context) (SyncResult, error)
+}
+
 type RefreshResult struct {
 	Feeds     int
 	Saved     int

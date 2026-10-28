@@ -44,12 +44,12 @@ func runMenu(ctx context.Context, schema fs.FS, cmds commands) error {
 }
 
 func reachable(s *state, items []menu.Item) []menu.Item {
-	if s.Cfg == nil || s.Cfg.ServerURL == "" {
-		return items
-	}
+	remote := s.Cfg != nil && s.Cfg.ServerURL != ""
+
 	out := make([]menu.Item, 0, len(items))
 	for _, it := range items {
-		if e, ok := lookup(it.Name); ok && e.localOnly {
+		e, ok := lookup(it.Name)
+		if ok && (e.localOnly && remote || e.remoteOnly && !remote) {
 			continue
 		}
 		out = append(out, it)
