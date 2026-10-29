@@ -29,7 +29,7 @@ func handlerDiscover(ctx context.Context, s *state, cmd command, user store.User
 	switch args := fs.Args(); len(args) {
 	case 0:
 		if !*noTUI && stdoutIsTerminal() {
-			return tui.RunCatalog(ctx, s.Store, user, s.Cfg.ServerURL)
+			return readerChoice(tui.RunCatalog(ctx, s.Store, user, s.Cfg.ServerURL, readerMenu(s)))
 		}
 		return listCategories(ctx, s)
 	case 1:

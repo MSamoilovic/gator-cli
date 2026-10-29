@@ -1,6 +1,8 @@
 package menu
 
 import (
+	"fmt"
+	"io"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -20,6 +22,7 @@ type Item struct {
 type Config struct {
 	Title    string
 	Greeting string
+	Hint     string
 	Items    []Item
 }
 
@@ -28,18 +31,39 @@ type Choice struct {
 	Args []string
 }
 
+const nameCols = 12
+
 func (i Item) needsArgs() bool { return strings.Contains(i.Args, "<") }
 
 func (i Item) Title() string {
-	if i.Args == "" {
+	if i.Summary == "" {
 		return i.Name
 	}
-	return i.Name + " " + i.Args
+	return fmt.Sprintf("%-*s %s", nameCols, i.Name, i.Summary)
 }
 
-func (i Item) Description() string { return i.Summary }
+func (i Item) Description() string { return "" }
 
-func (i Item) FilterValue() string { return i.Name + " " + i.Group + " " + i.Summary }
+func (i Item) FilterValue() string { return i.Title() }
+
+type header string
+
+func (h header) Title() string       { return string(h) }
+func (h header) Description() string { return "" }
+func (h header) FilterValue() string { return "" }
+
+func rows(items []Item) []list.Item {
+	out := make([]list.Item, 0, len(items))
+	group := ""
+	for _, it := range items {
+		if it.Group != group {
+			group = it.Group
+			out = append(out, header(group))
+		}
+		out = append(out, it)
+	}
+	return out
+}
 
 const (
 	listHint     = "↑↓ move · ⏎ run · / filter · q quit"
@@ -52,20 +76,43 @@ var (
 	accent        = lipgloss.AdaptiveColor{Light: "#5A3FD6", Dark: "#7D56F4"}
 	hintStyle     = lipgloss.NewStyle().Foreground(muted).Padding(0, 2)
 	greetingStyle = lipgloss.NewStyle().Foreground(accent).Bold(true).Padding(0, 2)
+	headerStyle   = lipgloss.NewStyle().Foreground(muted).Bold(true).Padding(0, 0, 0, 2)
 )
 
-type model struct {
+type delegate struct {
+	list.DefaultDelegate
+}
+
+func newDelegate() delegate {
+	d := list.NewDefaultDelegate()
+	d.ShowDescription = false
+	d.SetSpacing(0)
+	return delegate{DefaultDelegate: d}
+}
+
+func (d delegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	if h, ok := item.(header); ok {
+		fmt.Fprint(w, headerStyle.Render(string(h)))
+		return
+	}
+	d.DefaultDelegate.Render(w, m, index, item)
+}
+
+type Model struct {
 	list     list.Model
 	prompt   textinput.Model
 	keys     keyMap
 	greeting string
+	hint     string
 
+	width   int
 	asking  bool
 	pending Item
 	status  string
 
-	choice Choice
-	chosen bool
+	choice    Choice
+	chosen    bool
+	cancelled bool
 }
 
 type keyMap struct {
@@ -80,33 +127,32 @@ func newKeyMap() keyMap {
 	}
 }
 
-func newModel(cfg Config) model {
-	items := make([]list.Item, len(cfg.Items))
-	for i, it := range cfg.Items {
-		items[i] = it
-	}
-
-	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
+func New(cfg Config) Model {
+	l := list.New(rows(cfg.Items), newDelegate(), 0, 0)
 	l.Title = cfg.Title
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
 
-	return model{
+	hint := cfg.Hint
+	if hint == "" {
+		hint = listHint
+	}
+
+	m := Model{
 		list:     l,
 		prompt:   textinput.New(),
 		keys:     newKeyMap(),
 		greeting: cfg.Greeting,
-		status:   listHint,
+		hint:     hint,
+		status:   hint,
 	}
+	return m.onItem(false)
 }
 
-func (m model) Init() tea.Cmd { return nil }
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, msg.Height-footerHeight-m.greetingHeight())
-		m.prompt.Width = max(msg.Width-len(m.prompt.Prompt)-1, 1)
+		m.SetSize(msg.Width, msg.Height)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -121,18 +167,49 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m model) greetingHeight() int {
+func (m *Model) SetSize(width, height int) {
+	m.width = width
+	m.list.SetSize(width, max(height-footerHeight-m.greetingHeight(), 1))
+	m.prompt.Width = max(width-len(m.prompt.Prompt)-1, 1)
+}
+
+func (m Model) Chosen() (Choice, bool) { return m.choice, m.chosen }
+
+func (m Model) Cancelled() bool { return m.cancelled }
+
+func (m Model) Done() bool { return m.chosen || m.cancelled }
+
+func (m Model) greetingHeight() int {
 	if m.greeting == "" {
 		return 0
 	}
 	return 2
 }
 
-func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) onItem(up bool) Model {
+	for range m.list.VisibleItems() {
+		if _, ok := m.list.SelectedItem().(header); !ok {
+			return m
+		}
+		before := m.list.Index()
+		if up {
+			m.list.CursorUp()
+		} else {
+			m.list.CursorDown()
+		}
+		if m.list.Index() == before {
+			up = !up
+		}
+	}
+	return m
+}
+
+func (m Model) updateList(msg tea.KeyMsg) (Model, tea.Cmd) {
 	if m.list.FilterState() != list.Filtering {
 		switch {
 		case msg.Type == tea.KeyCtrlC, key.Matches(msg, m.keys.Quit):
-			return m, tea.Quit
+			m.cancelled = true
+			return m, nil
 
 		case key.Matches(msg, m.keys.Select):
 			item, ok := m.list.SelectedItem().(Item)
@@ -146,15 +223,18 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	up := key.Matches(msg, m.list.KeyMap.CursorUp)
+
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	return m.onItem(up), cmd
 }
 
-func (m model) updatePrompt(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updatePrompt(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC:
-		return m, tea.Quit
+		m.cancelled = true
+		return m, nil
 
 	case tea.KeyEsc:
 		return m.cancel(), nil
@@ -173,7 +253,7 @@ func (m model) updatePrompt(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m model) ask(item Item) (model, tea.Cmd) {
+func (m Model) ask(item Item) (Model, tea.Cmd) {
 	m.asking = true
 	m.pending = item
 	m.prompt.Prompt = "gator " + item.Name + " "
@@ -184,41 +264,64 @@ func (m model) ask(item Item) (model, tea.Cmd) {
 	return m, m.prompt.Focus()
 }
 
-func (m model) cancel() model {
+func (m Model) cancel() Model {
 	m.asking = false
 	m.prompt.Blur()
-	m.status = listHint
+	m.status = m.hint
 	return m
 }
 
-func (m model) choose(item Item, args []string) (tea.Model, tea.Cmd) {
+func (m Model) choose(item Item, args []string) (Model, tea.Cmd) {
 	m.choice = Choice{Name: item.Name, Args: args}
 	m.chosen = true
-	return m, tea.Quit
+	return m, nil
 }
 
-func (m model) View() string {
+func (m Model) View() string {
 	var b strings.Builder
 	if m.greeting != "" {
-		b.WriteString(greetingStyle.Render(m.greeting) + "\n\n")
+		b.WriteString(m.bounded(greetingStyle.Render(m.greeting)) + "\n\n")
 	}
 	b.WriteString(m.list.View() + "\n")
 	if m.asking {
-		b.WriteString(m.prompt.View() + "\n")
+		b.WriteString(m.bounded(m.prompt.View()) + "\n")
 	}
-	b.WriteString(hintStyle.Render(m.status))
+	b.WriteString(m.bounded(hintStyle.Render(m.status)))
 	return b.String()
 }
 
+func (m Model) bounded(line string) string {
+	if m.width <= 0 {
+		return line
+	}
+	return lipgloss.NewStyle().MaxWidth(m.width).Render(line)
+}
+
+type program struct {
+	Model
+}
+
+func (p program) Init() tea.Cmd { return nil }
+
+func (p program) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	next, cmd := p.Model.Update(msg)
+	p.Model = next
+	if next.Done() {
+		return p, tea.Quit
+	}
+	return p, cmd
+}
+
 func Select(cfg Config) (Choice, bool, error) {
-	final, err := tea.NewProgram(newModel(cfg), tea.WithAltScreen()).Run()
+	final, err := tea.NewProgram(program{Model: New(cfg)}, tea.WithAltScreen()).Run()
 	if err != nil {
 		return Choice{}, false, err
 	}
 
-	m, ok := final.(model)
-	if !ok || !m.chosen {
+	p, ok := final.(program)
+	if !ok {
 		return Choice{}, false, nil
 	}
-	return m.choice, true, nil
+	choice, chosen := p.Chosen()
+	return choice, chosen, nil
 }

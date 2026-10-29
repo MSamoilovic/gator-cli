@@ -1,10 +1,13 @@
 package menu
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 var testConfig = Config{
@@ -17,17 +20,16 @@ var testConfig = Config{
 	},
 }
 
-func newTestModel(t *testing.T) model {
+func newTestModel(t *testing.T) Model {
 	t.Helper()
-	next, _ := newModel(testConfig).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	return next.(model)
+	m, _ := New(testConfig).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	return m
 }
 
-func press(t *testing.T, m model, msgs ...tea.Msg) model {
+func press(t *testing.T, m Model, msgs ...tea.Msg) Model {
 	t.Helper()
 	for _, msg := range msgs {
-		next, _ := m.Update(msg)
-		m = next.(model)
+		m, _ = m.Update(msg)
 	}
 	return m
 }
@@ -185,20 +187,43 @@ func TestItemNeedsArgs(t *testing.T) {
 	}
 }
 
-func TestItemTitleShowsArgs(t *testing.T) {
-	if got := (Item{Name: "login", Args: "<username>"}).Title(); got != "login <username>" {
-		t.Errorf("Title() = %q", got)
+func TestItemRowIsTheNameThenTheSummary(t *testing.T) {
+	got := Item{Name: "login", Args: "<username>", Summary: "Log in"}.Title()
+	if strings.Contains(got, "<username>") {
+		t.Errorf("Title() = %q — the prompt asks for the arguments, the row does not show them", got)
+	}
+	if want := "login        Log in"; got != want {
+		t.Errorf("Title() = %q, want %q", got, want)
 	}
 	if got := (Item{Name: "users"}).Title(); got != "users" {
-		t.Errorf("Title() = %q, want no trailing space", got)
+		t.Errorf("Title() = %q, want no padding when there is nothing to pad for", got)
 	}
 }
 
-func TestFilterValueCoversGroupAndSummary(t *testing.T) {
-	got := Item{Name: "import", Group: "feeds", Summary: "Follow everything in an OPML file"}.FilterValue()
-	for _, want := range []string{"import", "feeds", "OPML"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("FilterValue() = %q, want it to contain %q", got, want)
+func TestEverySummaryStartsInTheSameColumn(t *testing.T) {
+	first := -1
+	for _, name := range []string{"tui", "unbookmark", "agg", "categorize"} {
+		title := Item{Name: name, Summary: "x"}.Title()
+		at := strings.Index(title, "x")
+		if first == -1 {
+			first = at
+			continue
+		}
+		if at != first {
+			t.Errorf("%q puts its summary at column %d, want %d", name, at, first)
+		}
+	}
+}
+
+func TestFilterValueIsTheRowItself(t *testing.T) {
+	it := Item{Name: "import", Group: "feeds", Summary: "Follow everything in an OPML file"}
+	if it.FilterValue() != it.Title() {
+		t.Errorf("FilterValue() = %q, Title() = %q — list highlights matches of the first inside "+
+			"the second, so they must be the same text", it.FilterValue(), it.Title())
+	}
+	for _, want := range []string{"import", "OPML"} {
+		if !strings.Contains(it.FilterValue(), want) {
+			t.Errorf("FilterValue() = %q, want it to contain %q", it.FilterValue(), want)
 		}
 	}
 }
@@ -212,8 +237,7 @@ func TestViewShowsGreeting(t *testing.T) {
 func TestViewWithoutGreetingLeavesNoBlankGap(t *testing.T) {
 	cfg := testConfig
 	cfg.Greeting = ""
-	next, _ := newModel(cfg).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m := next.(model)
+	m, _ := New(cfg).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 
 	if m.greetingHeight() != 0 {
 		t.Errorf("greetingHeight() = %d with no greeting, want 0", m.greetingHeight())
@@ -231,5 +255,143 @@ func TestViewShowsPromptOnlyWhileAsking(t *testing.T) {
 
 	if m = press(t, m, hit(tea.KeyDown), hit(tea.KeyEnter)); !strings.Contains(m.View(), "gator login") {
 		t.Error("the argument prompt is not visible while asking")
+	}
+}
+
+func realConfig() Config {
+	groups := []struct {
+		name  string
+		count int
+	}{{"reading", 7}, {"feeds", 10}, {"aggregation", 5}, {"account", 5}, {"setup", 2}, {"other", 2}}
+
+	var items []Item
+	for _, g := range groups {
+		for i := range g.count {
+			items = append(items, Item{
+				Group:   g.name,
+				Name:    fmt.Sprintf("%s%d", g.name[:3], i),
+				Summary: fmt.Sprintf("summary number %d of the lot", i),
+			})
+		}
+	}
+	return Config{Title: "gator", Greeting: "Hello, marko — what would you like to do?", Items: items}
+}
+
+func TestEachGroupIsAnnouncedExactlyOnce(t *testing.T) {
+	m, _ := New(realConfig()).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	headers := 0
+	for _, row := range m.list.Items() {
+		if _, ok := row.(header); ok {
+			headers++
+		}
+	}
+	if want := 6; headers != want {
+		t.Errorf("%d group rows, want %d — one per group", headers, want)
+	}
+	if got := len(m.list.Items()); got != 31+6 {
+		t.Errorf("%d rows, want 31 commands plus 6 group rows", got)
+	}
+}
+
+func TestTheCursorNeverRestsOnAGroupRow(t *testing.T) {
+	m, _ := New(realConfig()).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	if _, ok := m.list.SelectedItem().(header); ok {
+		t.Fatal("the menu opens with a group row selected, so ⏎ would do nothing")
+	}
+
+	for i := range m.list.Items() {
+		m = press(t, m, hit(tea.KeyDown))
+		if _, ok := m.list.SelectedItem().(header); ok {
+			t.Fatalf("%d presses of ↓ landed on group row %q", i+1, m.list.SelectedItem().(header))
+		}
+	}
+	for i := range m.list.Items() {
+		m = press(t, m, hit(tea.KeyUp))
+		if _, ok := m.list.SelectedItem().(header); ok {
+			t.Fatalf("%d presses of ↑ landed on group row %q", i+1, m.list.SelectedItem().(header))
+		}
+	}
+}
+
+func TestEveryCommandIsStillReachableWithTheArrowsAlone(t *testing.T) {
+	m, _ := New(realConfig()).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	seen := map[string]bool{}
+	for range m.list.Items() {
+		if it, ok := m.list.SelectedItem().(Item); ok {
+			seen[it.Name] = true
+		}
+		m = press(t, m, hit(tea.KeyDown))
+	}
+	if got, want := len(seen), 31; got != want {
+		t.Errorf("↓ alone reached %d of %d commands", got, want)
+	}
+}
+
+func TestFilteringHidesTheGroupRows(t *testing.T) {
+	var (
+		targets  []string
+		isHeader = map[int]bool{}
+	)
+	for i, row := range rows(realConfig().Items) {
+		targets = append(targets, row.FilterValue())
+		if _, ok := row.(header); ok {
+			isHeader[i] = true
+		}
+	}
+
+	ranks := list.DefaultFilter("agg3", targets)
+	if len(ranks) == 0 {
+		t.Fatal("agg3 matched nothing, so the assertion below proves nothing")
+	}
+	for _, rank := range ranks {
+		if isHeader[rank.Index] {
+			t.Errorf("group row %q ranked as a match, so it would sit in a filtered list",
+				targets[rank.Index])
+		}
+	}
+}
+
+func TestADenseRowShowsMostOfTheMenuAtEightyColumns(t *testing.T) {
+	m, _ := New(realConfig()).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	if got, want := m.list.Paginator.PerPage, 14; got < want {
+		t.Errorf("%d rows fit an 80x24 terminal, want at least %d — the two-line delegate showed "+
+			"5 of 31 commands across 7 pages", got, want)
+	}
+
+	view := m.View()
+	for _, line := range strings.Split(view, "\n") {
+		if lipgloss.Width(line) > 80 {
+			t.Errorf("line is %d columns wide: %q", lipgloss.Width(line), line)
+		}
+	}
+	if !strings.Contains(view, "reading") {
+		t.Error("the view names no group — no command is called that, so only a group row can say it")
+	}
+}
+
+func TestNothingTheMenuDrawsOutgrowsTheTerminal(t *testing.T) {
+	cfg := realConfig()
+	cfg.Hint = "↑↓ move · ⏎ run it and leave the reader · / filter · esc back"
+	cfg.Greeting = "@marko · offline · sync 14:32 — a greeting long enough to be a problem"
+	cfg.Items = append(cfg.Items, Item{Group: "other", Name: "categorize", Args: "<url> <folder>",
+		Summary: "Move a feed into a folder"})
+
+	for _, width := range []int{40, 60, 80, 120} {
+		m, _ := New(cfg).Update(tea.WindowSizeMsg{Width: width, Height: 24})
+
+		m = press(t, m, hit(tea.KeyEnd), hit(tea.KeyEnter))
+		if !m.asking {
+			t.Fatalf("at %d columns the argument prompt did not open, so it is not being measured", width)
+		}
+
+		for _, line := range strings.Split(m.View(), "\n") {
+			if got := lipgloss.Width(line); got > width {
+				t.Errorf("at %d columns the menu draws a line of %d: %q", width, got, line)
+			}
+		}
 	}
 }
