@@ -18,6 +18,8 @@ func (m model) View() string {
 		return m.catalogView()
 	case m.screen == screenPalette:
 		return m.paletteView()
+	case m.screen == screenMenu:
+		return m.menuView()
 	case m.screen == screenDetail:
 		return m.detailView()
 	default:
@@ -253,6 +255,10 @@ func (m *model) resize(w, h int) {
 	m.paletteList.SetSize(w, panelHeight)
 	m.list.SetSize(max(postsListWidth, 1), panelHeight)
 	m.prompt.Width = max(w-len(m.prompt.Prompt)-1, 1)
+
+	if m.screen == screenMenu {
+		m.menu.SetSize(w, h)
+	}
 
 	m.viewport.Width = w
 	m.fitDetail()

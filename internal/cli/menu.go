@@ -14,7 +14,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/store"
 )
 
-func runMenu(ctx context.Context, schema fs.FS, cmds commands) error {
+func runHome(ctx context.Context, schema fs.FS, cmds commands) error {
 	if !interactive() {
 		printUsage(os.Stderr)
 		return errors.New("no command given")
@@ -28,11 +28,17 @@ func runMenu(ctx context.Context, schema fs.FS, cmds commands) error {
 	}
 
 	user, loggedIn := currentUser(ctx, s)
+	if dbErr == nil && loggedIn {
+		return chain(ctx, cmds, s, command{Name: "tui"})
+	}
+	return runMenu(ctx, cmds, s, user, loggedIn, dbErr == nil)
+}
 
+func runMenu(ctx context.Context, cmds commands, s *state, user store.User, loggedIn, configured bool) error {
 	choice, ok, err := menu.Select(menu.Config{
 		Title:    "gator",
-		Greeting: greeting(user, loggedIn, dbErr == nil),
-		Items:    reachable(s, offered(loggedIn, dbErr == nil)),
+		Greeting: greeting(user, loggedIn, configured),
+		Items:    reachable(s, offered(loggedIn, configured)),
 	})
 	if err != nil {
 		return fmt.Errorf("opening the command menu: %w", err)
@@ -40,7 +46,7 @@ func runMenu(ctx context.Context, schema fs.FS, cmds commands) error {
 	if !ok {
 		return nil
 	}
-	return cmds.run(ctx, s, command{Name: choice.Name, Args: choice.Args})
+	return chain(ctx, cmds, s, command{Name: choice.Name, Args: choice.Args})
 }
 
 func reachable(s *state, items []menu.Item) []menu.Item {

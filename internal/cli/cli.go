@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/fs"
 	"time"
@@ -43,6 +44,7 @@ type entry struct {
 	noDB       bool
 	localOnly  bool
 	remoteOnly bool
+	inReader   bool
 }
 
 func (e entry) needsLogin() bool { return e.runAuth != nil }
@@ -56,22 +58,22 @@ func (e entry) handler() handlerFunc {
 
 func allCommands() []entry {
 	return []entry{
-		{group: "reading", name: "tui", summary: "Open the interactive reader", runAuth: handlerTUI},
-		{group: "reading", name: "browse", args: "[flags]", summary: "Read posts; --no-tui prints them instead", runAuth: handlerBrowse},
-		{group: "reading", name: "search", args: "<query>", summary: "Search post titles and bodies", runAuth: handlerSearch},
-		{group: "reading", name: "article", args: "<post_url>", summary: "Fetch the full text of a post the feed only teased", runAuth: handlerArticle},
-		{group: "reading", name: "bookmarks", summary: "List saved posts", runAuth: handlerBookmarks},
-		{group: "reading", name: "bookmark", args: "<url>", summary: "Save a post", runAuth: handlerBookmark},
-		{group: "reading", name: "unbookmark", args: "<url>", summary: "Remove a saved post", runAuth: handlerUnbookmark},
+		{group: "reading", name: "tui", summary: "Open the interactive reader", runAuth: handlerTUI, inReader: true},
+		{group: "reading", name: "browse", args: "[flags]", summary: "Read posts; --no-tui prints them instead", runAuth: handlerBrowse, inReader: true},
+		{group: "reading", name: "search", args: "<query>", summary: "Search post titles and bodies", runAuth: handlerSearch, inReader: true},
+		{group: "reading", name: "article", args: "<post_url>", summary: "Fetch the full text of a post the feed only teased", runAuth: handlerArticle, inReader: true},
+		{group: "reading", name: "bookmarks", summary: "List saved posts", runAuth: handlerBookmarks, inReader: true},
+		{group: "reading", name: "bookmark", args: "<url>", summary: "Save a post", runAuth: handlerBookmark, inReader: true},
+		{group: "reading", name: "unbookmark", args: "<url>", summary: "Remove a saved post", runAuth: handlerUnbookmark, inReader: true},
 
-		{group: "feeds", name: "discover", args: "[category]", summary: "Pick feeds from the built-in catalog", runAuth: handlerDiscover},
+		{group: "feeds", name: "discover", args: "[category]", summary: "Pick feeds from the built-in catalog", runAuth: handlerDiscover, inReader: true},
 		{group: "feeds", name: "following", summary: "List the feeds you follow, grouped by folder", runAuth: handlerFollowing},
-		{group: "feeds", name: "addfeed", args: "[name] <url>", summary: "Add a feed and follow it", runAuth: handlerAddFeed},
+		{group: "feeds", name: "addfeed", args: "[name] <url>", summary: "Add a feed and follow it", runAuth: handlerAddFeed, inReader: true},
 		{group: "feeds", name: "feeds", summary: "List every feed in the database", run: handlerFeeds, localOnly: true},
 		{group: "feeds", name: "stats", args: "[flags]", summary: "Which feeds you actually read, and which just arrive", runAuth: handlerStats},
-		{group: "feeds", name: "follow", args: "<url>", summary: "Follow a feed someone else added", runAuth: handlerFollow},
-		{group: "feeds", name: "unfollow", args: "<url>", summary: "Stop following a feed", runAuth: handlerUnfollow},
-		{group: "feeds", name: "categorize", args: "<url> <folder>", summary: "Move a feed into a folder", runAuth: handlerCategorize},
+		{group: "feeds", name: "follow", args: "<url>", summary: "Follow a feed someone else added", runAuth: handlerFollow, inReader: true},
+		{group: "feeds", name: "unfollow", args: "<url>", summary: "Stop following a feed", runAuth: handlerUnfollow, inReader: true},
+		{group: "feeds", name: "categorize", args: "<url> <folder>", summary: "Move a feed into a folder", runAuth: handlerCategorize, inReader: true},
 		{group: "feeds", name: "import", args: "<file>", summary: "Follow everything in an OPML file (- for stdin)", runAuth: handlerImport},
 		{group: "feeds", name: "export", args: "[file]", summary: "Write your subscriptions out as OPML", runAuth: handlerExport},
 
@@ -103,7 +105,7 @@ func Run(schema fs.FS, args []string) error {
 	cmds := defaultCommands()
 
 	if len(args) == 0 {
-		return runMenu(ctx, schema, cmds)
+		return runHome(ctx, schema, cmds)
 	}
 
 	e, ok := lookup(args[0])
@@ -113,7 +115,7 @@ func Run(schema fs.FS, args []string) error {
 
 	cmd := command{Name: args[0], Args: args[1:]}
 	if e.noDB {
-		return cmds.run(ctx, &state{Schema: schema}, cmd)
+		return chain(ctx, cmds, &state{Schema: schema}, cmd)
 	}
 
 	s, closeDB, err := open(schema)
@@ -122,7 +124,19 @@ func Run(schema fs.FS, args []string) error {
 	}
 	defer closeDB()
 
-	return cmds.run(ctx, s, cmd)
+	return chain(ctx, cmds, s, cmd)
+}
+
+func chain(ctx context.Context, cmds commands, s *state, cmd command) error {
+	for {
+		err := cmds.run(ctx, s, cmd)
+
+		var next runNext
+		if !errors.As(err, &next) {
+			return err
+		}
+		cmd = next.cmd
+	}
 }
 
 func lookup(name string) (entry, bool) {

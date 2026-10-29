@@ -171,6 +171,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateCatalog(msg)
 		case m.screen == screenPalette:
 			return m.updatePalette(msg)
+		case m.screen == screenMenu:
+			return m.updateMenu(msg)
 		case m.screen == screenDetail:
 			return m.updateDetail(msg)
 		case m.focus == focusFeeds:
@@ -180,10 +182,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if m.screen == screenPalette {
+	switch m.screen {
+	case screenPalette:
 		var cmd tea.Cmd
 		m.paletteList, cmd = m.paletteList.Update(msg)
 		return m, cmd
+	case screenMenu:
+		return m.updateMenu(msg)
 	}
 
 	var cmd tea.Cmd

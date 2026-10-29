@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/database"
+	"github.com/MSamoilovic/gator-cli/internal/menu"
 	"github.com/MSamoilovic/gator-cli/internal/store"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -54,6 +55,7 @@ const (
 	screenDetail
 	screenCatalog
 	screenPalette
+	screenMenu
 )
 
 type listSource int
@@ -112,6 +114,11 @@ type model struct {
 	picked    map[string]bool
 	expanded  map[string]bool
 	feeds     []database.GetFeedFollowsForUserRow
+
+	commands []menu.Item
+	menu     menu.Model
+	choice   menu.Choice
+	chose    bool
 
 	source listSource
 	filter listFilter

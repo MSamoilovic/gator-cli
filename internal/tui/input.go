@@ -198,6 +198,9 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Palette):
 		return m.openPalette()
 
+	case key.Matches(msg, m.keys.Menu):
+		return m.openMenu()
+
 	case key.Matches(msg, m.keys.Folder):
 		return m.jumpToFolder(folderKey(msg))
 
@@ -245,6 +248,8 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.focusFeedPanel()
 		case key.Matches(msg, m.keys.Palette):
 			return m.openPalette()
+		case key.Matches(msg, m.keys.Menu):
+			return m.openMenu()
 		case key.Matches(msg, m.keys.Folder):
 			return m.jumpToFolder(folderKey(msg))
 		case key.Matches(msg, m.keys.FoldAll):

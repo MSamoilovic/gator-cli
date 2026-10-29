@@ -32,6 +32,7 @@ type keyMap struct {
 	Filter   key.Binding
 	Tab      key.Binding
 	Palette  key.Binding
+	Menu     key.Binding
 	Folder   key.Binding
 	StepFold key.Binding
 	FoldAll  key.Binding
@@ -158,6 +159,10 @@ func defaultKeyMap() keyMap {
 			key.WithKeys(":", "ctrl+k"),
 			key.WithHelp(":", "commands"),
 		),
+		Menu: key.NewBinding(
+			key.WithKeys("m"),
+			key.WithHelp("m", "menu"),
+		),
 		Folder: key.NewBinding(
 			key.WithKeys("1", "2", "3", "4", "5", "6", "7", "8", "9"),
 			key.WithHelp("1-9", "folder"),
@@ -196,12 +201,12 @@ func (k keyMap) fullHelp(remote bool) [][]key.Binding {
 		{k.Open, k.Copy, k.FullText, k.Next, k.Prev, k.Unread, k.Bookmark},
 		{k.Saved, k.History, k.OnlyNew, k.AllRead, k.Sort, k.Since, k.Filter},
 		{k.Search, k.Palette, k.Reload, fetch, k.AddFeed, k.Unfollow, k.Catalog},
-		{k.Folder, k.StepFold, k.FoldAll, k.Pager},
+		{k.Folder, k.StepFold, k.FoldAll, k.Pager, k.Menu},
 	}
 }
 
 func (k keyMap) listHelp(withFeeds, inDerivedView bool) []key.Binding {
-	b := []key.Binding{k.Read, k.Open, k.Bookmark, k.Palette}
+	b := []key.Binding{k.Read, k.Bookmark, k.Palette, k.Menu}
 	switch {
 	case inDerivedView:
 		b = append(b, k.Back)
@@ -212,7 +217,7 @@ func (k keyMap) listHelp(withFeeds, inDerivedView bool) []key.Binding {
 }
 
 func (k keyMap) feedsHelp() []key.Binding {
-	return []key.Binding{k.Select, k.Palette, k.AddFeed, k.Tab, k.Help, k.Quit}
+	return []key.Binding{k.Select, k.Palette, k.Menu, k.AddFeed, k.Tab, k.Help, k.Quit}
 }
 
 func (k keyMap) catalogHelp() []key.Binding {
@@ -232,7 +237,7 @@ func (k keyMap) all() []key.Binding {
 		k.Up, k.Down, k.Read, k.Select, k.Open, k.Bookmark, k.Saved, k.History,
 		k.Sort, k.Reload, k.Fetch, k.AddFeed, k.Catalog, k.Toggle, k.Unfollow,
 		k.Unread, k.AllRead, k.OnlyNew, k.Since, k.Copy, k.Pager, k.FullText, k.Next,
-		k.Prev, k.Search, k.Filter, k.Tab, k.Palette, k.Folder, k.StepFold,
+		k.Prev, k.Search, k.Filter, k.Tab, k.Palette, k.Menu, k.Folder, k.StepFold,
 		k.FoldAll, k.Back, k.Help, k.Quit,
 	}
 }
