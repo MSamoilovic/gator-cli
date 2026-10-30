@@ -15,6 +15,7 @@ before:
 
 builds:
   - binary: gator
+    main: ./cmd/gator
     env:
       - CGO_ENABLED=0
     goos:
