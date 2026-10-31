@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"github.com/MSamoilovic/gator-cli/internal/theme"
+
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -39,7 +41,7 @@ func (d density) flipped() density {
 }
 
 func postDelegate(d density) list.DefaultDelegate {
-	del := list.NewDefaultDelegate()
+	del := theme.Delegate()
 	if d == densityCompact {
 		del.ShowDescription = false
 		del.SetSpacing(0)
