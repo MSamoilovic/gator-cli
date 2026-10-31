@@ -7,6 +7,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/menu"
 	"github.com/MSamoilovic/gator-cli/internal/store"
+	"github.com/MSamoilovic/gator-cli/internal/theme"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
@@ -159,8 +160,9 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 	l.Title = postsTitle
 	l.SetStatusBarItemName("post", "posts")
 	l.SetShowHelp(false)
+	theme.Style(&l)
 
-	feedDelegate := list.NewDefaultDelegate()
+	feedDelegate := theme.Delegate()
 	feedDelegate.ShowDescription = false
 	feedDelegate.SetSpacing(0)
 
@@ -169,8 +171,9 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 	fl.SetShowStatusBar(false)
 	fl.SetFilteringEnabled(false)
 	fl.SetShowHelp(false)
+	theme.Style(&fl)
 
-	catalogDelegate := list.NewDefaultDelegate()
+	catalogDelegate := theme.Delegate()
 	catalogDelegate.ShowDescription = false
 	catalogDelegate.SetSpacing(0)
 
@@ -179,8 +182,9 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 	cl.SetShowStatusBar(false)
 	cl.SetFilteringEnabled(false)
 	cl.SetShowHelp(false)
+	theme.Style(&cl)
 
-	paletteDelegate := list.NewDefaultDelegate()
+	paletteDelegate := theme.Delegate()
 	paletteDelegate.ShowDescription = false
 	paletteDelegate.SetSpacing(0)
 
@@ -188,6 +192,7 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 	pl.Title = paletteTitle
 	pl.SetShowStatusBar(false)
 	pl.SetShowHelp(false)
+	theme.Style(&pl)
 	pl.DisableQuitKeybindings()
 
 	sp := spinner.New()

@@ -22,7 +22,7 @@ brew install --cask MSamoilovic/tap/gator
 From source, if you have Go:
 
 ```bash
-go install github.com/MSamoilovic/gator-cli@latest
+go install github.com/MSamoilovic/gator-cli/cmd/gator@latest
 ```
 
 Or download an archive for your platform from the

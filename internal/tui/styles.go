@@ -1,11 +1,15 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/MSamoilovic/gator-cli/internal/theme"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 var (
-	accent   = lipgloss.AdaptiveColor{Light: "#5A3FD6", Dark: "#7D56F4"}
-	onAccent = lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#FFFDF5"}
-	muted    = lipgloss.AdaptiveColor{Light: "#5C5C5C", Dark: "#9B9B9B"}
+	accent   = theme.Accent
+	onAccent = theme.OnAccent
+	muted    = theme.Muted
 
 	focusedTitleStyle = lipgloss.NewStyle().
 				Bold(true).

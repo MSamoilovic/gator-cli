@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/MSamoilovic/gator-cli/internal/theme"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -72,8 +74,8 @@ const (
 )
 
 var (
-	muted         = lipgloss.AdaptiveColor{Light: "#5C5C5C", Dark: "#9B9B9B"}
-	accent        = lipgloss.AdaptiveColor{Light: "#5A3FD6", Dark: "#7D56F4"}
+	muted         = theme.Muted
+	accent        = theme.Accent
 	hintStyle     = lipgloss.NewStyle().Foreground(muted).Padding(0, 2)
 	greetingStyle = lipgloss.NewStyle().Foreground(accent).Bold(true).Padding(0, 2)
 	headerStyle   = lipgloss.NewStyle().Foreground(muted).Bold(true).Padding(0, 0, 0, 2)
@@ -84,7 +86,7 @@ type delegate struct {
 }
 
 func newDelegate() delegate {
-	d := list.NewDefaultDelegate()
+	d := theme.Delegate()
 	d.ShowDescription = false
 	d.SetSpacing(0)
 	return delegate{DefaultDelegate: d}
@@ -132,6 +134,7 @@ func New(cfg Config) Model {
 	l.Title = cfg.Title
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
+	theme.Style(&l)
 
 	hint := cfg.Hint
 	if hint == "" {
