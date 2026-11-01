@@ -26,6 +26,8 @@ func panelTitles(m model) []string {
 			titles[i] = v.Title()
 		case feedItem:
 			titles[i] = v.Title()
+		case viewItem:
+			titles[i] = v.Title()
 		}
 	}
 	return titles
@@ -39,8 +41,8 @@ func TestPanelStaysFlatWithoutCategories(t *testing.T) {
 			t.Fatalf("uncategorised feeds produced a %q header", fol.name)
 		}
 	}
-	if got, want := len(m.feedList.Items()), 3; got != want {
-		t.Errorf("panel has %d rows, want %d", got, want)
+	if got, want := len(m.feedList.Items()), 4; got != want {
+		t.Errorf("panel has %d rows, want %d (two views and two feeds)", got, want)
 	}
 }
 
@@ -53,7 +55,8 @@ func TestPanelStartsWithEveryFolderClosed(t *testing.T) {
 
 	got := panelTitles(m)
 	want := []string{
-		allFeedsLabel,
+		activeMark + " " + timelineLabel,
+		feedIndent + byFeedLabel,
 		"1 " + folderClosed + " Comics",
 		"2 " + folderClosed + " Tech",
 		"3 " + folderClosed + " " + rootFolder,
@@ -77,6 +80,7 @@ func TestEnterOnHeaderTogglesTheFolder(t *testing.T) {
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
 	if !m.expanded["Comics"] {
@@ -85,8 +89,8 @@ func TestEnterOnHeaderTogglesTheFolder(t *testing.T) {
 	if !strings.Contains(strings.Join(panelTitles(m), "\n"), "XKCD") {
 		t.Error("opening did not bring the feeds in")
 	}
-	if !strings.HasPrefix(panelTitles(m)[1], "1 "+folderOpen) {
-		t.Errorf("header did not switch to the open arrow: %q", panelTitles(m)[1])
+	if !strings.HasPrefix(panelTitles(m)[2], "1 "+folderOpen) {
+		t.Errorf("header did not switch to the open arrow: %q", panelTitles(m)[2])
 	}
 
 	if fol, ok := m.feedList.SelectedItem().(folderItem); !ok || fol.name != "Comics" {
@@ -229,6 +233,7 @@ func TestSelectingAFeedInsideAFolderStillFilters(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")), feed)
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})

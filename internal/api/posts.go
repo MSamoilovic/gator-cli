@@ -13,7 +13,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const maxPostLimit = 1000
+const (
+	maxPostLimit = 1000
+	maxPerFeed   = 50
+)
 
 func (s *Server) posts(w http.ResponseWriter, r *http.Request, st store.Store) {
 	q, err := postQuery(r)
@@ -68,7 +71,15 @@ func postQuery(r *http.Request) (store.PostQuery, error) {
 	if err != nil {
 		return q, err
 	}
-	q.Limit, q.Offset = min(limit, maxPostLimit), offset
+	perFeed, err := intParam(v.Get("per_feed"), "per_feed")
+	if err != nil {
+		return q, err
+	}
+	if perFeed > maxPerFeed {
+		return q, errors.New("per_feed must be at most " + strconv.Itoa(maxPerFeed))
+	}
+
+	q.Limit, q.Offset, q.PerFeed = min(limit, maxPostLimit), offset, perFeed
 	return q, nil
 }
 

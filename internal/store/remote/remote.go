@@ -183,6 +183,9 @@ func (s *Store) Posts(ctx context.Context, q store.PostQuery) ([]store.Post, err
 	if q.Offset > 0 {
 		set("offset", strconv.Itoa(int(q.Offset)))
 	}
+	if q.PerFeed > 0 {
+		set("per_feed", strconv.Itoa(int(q.PerFeed)))
+	}
 
 	return s.posts(ctx, "/v1/posts", v)
 }

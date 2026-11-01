@@ -80,6 +80,7 @@ func (e errMsg) Error() string { return e.err.Error() }
 
 const (
 	pageSize      = 50
+	digestPerFeed = 20
 	statusTimeout = 3 * time.Second
 )
 
@@ -88,6 +89,7 @@ type postFilter struct {
 	sortDir string
 	read    store.ReadState
 	since   time.Time
+	perFeed int32
 }
 
 func loadPosts(ctx context.Context, st store.Store, f postFilter, offset int32) tea.Cmd {
@@ -97,6 +99,7 @@ func loadPosts(ctx context.Context, st store.Store, f postFilter, offset int32) 
 			SortDir: f.sortDir,
 			Read:    f.read,
 			Since:   f.since,
+			PerFeed: f.perFeed,
 			Limit:   pageSize,
 			Offset:  offset,
 		})

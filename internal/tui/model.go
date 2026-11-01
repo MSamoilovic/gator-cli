@@ -22,13 +22,15 @@ const (
 	feedPanelWidth   = 26
 	panelGutter      = 1
 	minWidthForFeeds = 60
-	allFeedsLabel    = "All feeds"
+	timelineLabel    = "Timeline"
+	byFeedLabel      = "By feed"
 	postsTitle       = "Posts"
 	bookmarksTitle   = "Bookmarks"
 	readTitle        = "Read"
 
 	sortDesc = "desc"
 	sortAsc  = "asc"
+	sortFeed = "feed"
 
 	loadMoreThreshold = 5
 )
@@ -83,6 +85,9 @@ func (f listFilter) params() postFilter {
 		feedID:  f.feedID,
 		sortDir: f.sortDir,
 		read:    f.read,
+	}
+	if f.sortDir == sortFeed {
+		p.sortDir, p.perFeed = sortDesc, digestPerFeed
 	}
 	if f.since > 0 {
 		p.since = time.Now().Add(-f.since)

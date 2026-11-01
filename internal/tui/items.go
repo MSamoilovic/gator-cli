@@ -14,6 +14,7 @@ import (
 
 const (
 	unreadMark = "●"
+	activeMark = "▪"
 	savedMark  = "★"
 	undatedAge = "-"
 	ageCols    = 3
@@ -45,6 +46,15 @@ func (i postItem) Description() string { return i.feedNames[i.post.FeedID] }
 
 func (i postItem) FilterValue() string { return i.Title() }
 
+type feedHeader struct {
+	feedID    uuid.UUID
+	feedNames map[uuid.UUID]string
+}
+
+func (h feedHeader) label() string { return h.feedNames[h.feedID] }
+
+func (h feedHeader) FilterValue() string { return "" }
+
 func relativeAge(published sql.NullTime, now time.Time) string {
 	return fmt.Sprintf("%*s", ageCols, ageLabel(published, now))
 }
@@ -75,6 +85,23 @@ func ageLabel(published sql.NullTime, now time.Time) string {
 }
 
 const brokenMark = "⚠"
+
+type viewItem struct {
+	mode   string
+	label  string
+	active bool
+}
+
+func (i viewItem) Title() string {
+	if i.active {
+		return activeMark + " " + i.label
+	}
+	return feedIndent + i.label
+}
+
+func (i viewItem) Description() string { return "" }
+
+func (i viewItem) FilterValue() string { return i.label }
 
 type feedItem struct {
 	id       uuid.UUID

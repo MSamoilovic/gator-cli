@@ -215,6 +215,10 @@ func (m model) updateFeeds(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.toggleFolder(fol.name)
 		}
 
+		if v, ok := m.feedList.SelectedItem().(viewItem); ok {
+			return m.showEveryFeed(v.mode)
+		}
+
 		item, ok := m.feedList.SelectedItem().(feedItem)
 		if !ok {
 			return m, nil
@@ -288,8 +292,34 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+	was := m.list.Index()
 	m.list, cmd = m.list.Update(msg)
+	m.skipHeaders(m.list.Index() < was)
 	return m, tea.Batch(cmd, m.maybeLoadMore())
+}
+
+func (m *model) skipHeaders(up bool) {
+	step := 1
+	if up {
+		step = -1
+	}
+	if landed, ok := m.firstPost(m.list.Index(), step); ok {
+		m.list.Select(landed)
+		return
+	}
+	if landed, ok := m.firstPost(m.list.Index(), -step); ok {
+		m.list.Select(landed)
+	}
+}
+
+func (m model) firstPost(from, step int) (int, bool) {
+	items := m.list.Items()
+	for i := from; i >= 0 && i < len(items); i += step {
+		if _, isHeader := items[i].(feedHeader); !isHeader {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 func (m *model) openPost(post database.Post) tea.Cmd {
@@ -306,8 +336,8 @@ func (m *model) openPost(post database.Post) tea.Cmd {
 }
 
 func (m *model) stepPost(delta int) tea.Cmd {
-	next := m.list.Index() + delta
-	if next < 0 || next >= len(m.list.Items()) {
+	next, ok := m.firstPost(m.list.Index()+delta, delta)
+	if !ok {
 		return nil
 	}
 	m.list.Select(next)

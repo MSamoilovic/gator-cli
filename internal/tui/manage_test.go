@@ -12,6 +12,7 @@ func feedsFocused(t *testing.T, m model) model {
 	t.Helper()
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	return m
 }
 

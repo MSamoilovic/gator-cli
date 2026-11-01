@@ -41,12 +41,16 @@ func (snap snapshot) selectPosts(q store.PostQuery) []store.Post {
 		out = append(out, p)
 	}
 
-	slices.SortStableFunc(out, func(a, b store.Post) int {
-		if strings.EqualFold(q.SortDir, "asc") {
-			return postTime(a).Compare(postTime(b))
-		}
-		return postTime(b).Compare(postTime(a))
-	})
+	if q.PerFeed > 0 {
+		out = digest(out, names, q.PerFeed)
+	} else {
+		slices.SortStableFunc(out, func(a, b store.Post) int {
+			if strings.EqualFold(q.SortDir, "asc") {
+				return postTime(a).Compare(postTime(b))
+			}
+			return postTime(b).Compare(postTime(a))
+		})
+	}
 
 	if int(q.Offset) >= len(out) {
 		return nil
@@ -56,6 +60,35 @@ func (snap snapshot) selectPosts(q store.PostQuery) []store.Post {
 		out = out[:q.Limit]
 	}
 	return out
+}
+
+func digest(posts []store.Post, names map[uuid.UUID]string, perFeed int32) []store.Post {
+	fresh := make(map[uuid.UUID]time.Time, len(names))
+	for _, p := range posts {
+		if t := postTime(p); t.After(fresh[p.FeedID]) {
+			fresh[p.FeedID] = t
+		}
+	}
+
+	slices.SortStableFunc(posts, func(a, b store.Post) int {
+		if c := fresh[b.FeedID].Compare(fresh[a.FeedID]); c != 0 {
+			return c
+		}
+		if c := strings.Compare(names[a.FeedID], names[b.FeedID]); c != 0 {
+			return c
+		}
+		return postTime(b).Compare(postTime(a))
+	})
+
+	kept := make([]store.Post, 0, len(posts))
+	seen := make(map[uuid.UUID]int32, len(fresh))
+	for _, p := range posts {
+		if seen[p.FeedID] < perFeed {
+			seen[p.FeedID]++
+			kept = append(kept, p)
+		}
+	}
+	return kept
 }
 
 func mentions(p store.Post, needle string) bool {

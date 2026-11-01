@@ -119,6 +119,91 @@ func (q *Queries) GetPostByUrl(ctx context.Context, url string) (Post, error) {
 	return i, err
 }
 
+const getPostDigestForUser = `-- name: GetPostDigestForUser :many
+SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM posts
+JOIN (
+  SELECT posts.id,
+         feeds.name AS feed_label,
+         row_number() OVER (
+           PARTITION BY posts.feed_id
+           ORDER BY COALESCE(posts.published_at, posts.created_at) DESC
+         ) AS per_feed_rank,
+         max(COALESCE(posts.published_at, posts.created_at)) OVER (
+           PARTITION BY posts.feed_id
+         ) AS feed_fresh
+  FROM posts
+  JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
+  JOIN feeds ON posts.feed_id = feeds.id
+  LEFT JOIN post_reads
+      ON post_reads.post_id = posts.id
+     AND post_reads.user_id = feed_follows.user_id
+  WHERE feed_follows.user_id = $1
+    AND ($2::text = '' OR feeds.name ILIKE '%' || $2::text || '%')
+    AND ($3::uuid = '00000000-0000-0000-0000-000000000000'::uuid OR posts.feed_id = $3::uuid)
+    AND ($4::text NOT IN ('unread', 'read')
+         OR ($4::text = 'unread' AND post_reads.post_id IS NULL)
+         OR ($4::text = 'read' AND post_reads.post_id IS NOT NULL))
+    AND ($5::timestamp = '0001-01-01 00:00:00'::timestamp OR COALESCE(posts.published_at, posts.created_at) >= $5::timestamp)
+) grouped ON grouped.id = posts.id
+WHERE grouped.per_feed_rank <= $6::int
+ORDER BY grouped.feed_fresh DESC, grouped.feed_label, COALESCE(posts.published_at, posts.created_at) DESC
+LIMIT $8
+OFFSET $7
+`
+
+type GetPostDigestForUserParams struct {
+	UserID     uuid.UUID
+	FeedName   string
+	FeedID     uuid.UUID
+	ReadFilter string
+	Since      time.Time
+	PerFeed    int32
+	PostOffset int32
+	PostLimit  int32
+}
+
+func (q *Queries) GetPostDigestForUser(ctx context.Context, arg GetPostDigestForUserParams) ([]Post, error) {
+	rows, err := q.db.QueryContext(ctx, getPostDigestForUser,
+		arg.UserID,
+		arg.FeedName,
+		arg.FeedID,
+		arg.ReadFilter,
+		arg.Since,
+		arg.PerFeed,
+		arg.PostOffset,
+		arg.PostLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Post
+	for rows.Next() {
+		var i Post
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Title,
+			&i.Url,
+			&i.Description,
+			&i.PublishedAt,
+			&i.FeedID,
+			&i.FullText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPostsForUserFiltered = `-- name: GetPostsForUserFiltered :many
 SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM posts
 JOIN feed_follows ON posts.feed_id = feed_follows.feed_id

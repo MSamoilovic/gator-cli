@@ -65,6 +65,12 @@ func (m *model) setPostsTitle() {
 	case store.ReadUnread:
 		m.list.Title += " · unread"
 	}
+	if m.filter.sortDir == sortFeed {
+		m.list.Title += " · by feed"
+		m.list.SetStatusBarItemName("row", "rows")
+	} else {
+		m.list.SetStatusBarItemName("post", "posts")
+	}
 	if label := sinceLabel(m.filter.since); label != "" {
 		m.list.Title += " · " + label
 	}
