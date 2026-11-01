@@ -44,6 +44,7 @@ type PostQuery struct {
 	Read     ReadState
 	Since    time.Time
 	SortDir  string
+	PerFeed  int32
 	Limit    int32
 	Offset   int32
 }

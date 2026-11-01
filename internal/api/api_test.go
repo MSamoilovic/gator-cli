@@ -275,6 +275,8 @@ func TestRemoteAndLocalStoresAgree(t *testing.T) {
 		"paged":          {Limit: 1, Offset: 1},
 		"search":         {Limit: 50, Query: "async"},
 		"search nothing": {Limit: 50, Query: "zzzz-no-match"},
+		"digest":         {Limit: 50, PerFeed: 1},
+		"digest unread":  {Limit: 50, PerFeed: 2, Read: store.ReadUnread},
 	}
 	for name, q := range queries {
 		want, err := ls.Posts(t.Context(), q)

@@ -467,3 +467,85 @@ func TestStatsCountPostsWithoutAPublishDate(t *testing.T) {
 	}
 	t.Fatal("Go Blog is missing from the stats rows")
 }
+
+func digest(userID uuid.UUID, perFeed int32) database.GetPostDigestForUserParams {
+	return database.GetPostDigestForUserParams{
+		UserID:    userID,
+		FeedID:    noFeed,
+		PerFeed:   perFeed,
+		PostLimit: 100,
+	}
+}
+
+func TestTheDigestKeepsOnlyTheNewestFewOfEachFeed(t *testing.T) {
+	f := seed(t)
+	f.db.Post(t, f.goFeed.ID, "Third Go post", "https://go.test/3", time.Now().Add(-48*time.Hour))
+
+	posts, err := f.db.GetPostDigestForUser(t.Context(), digest(f.alice.ID, 2))
+	if err != nil {
+		t.Fatalf("GetPostDigestForUser: %v", err)
+	}
+
+	got := titles(posts)
+	want := []string{"Newer Go post", "Third Go post", "Match report"}
+	if !equal(got, want) {
+		t.Errorf("digest = %v, want %v — the two newest of Go Blog and then Sport Desk; "+
+			"Older Go post is the third and must fall out", got, want)
+	}
+}
+
+func TestTheDigestLeadsWithTheFeedThatPublishedLast(t *testing.T) {
+	f := seed(t)
+
+	posts, err := f.db.GetPostDigestForUser(t.Context(), digest(f.alice.ID, 1))
+	if err != nil {
+		t.Fatalf("GetPostDigestForUser: %v", err)
+	}
+
+	got := titles(posts)
+	want := []string{"Newer Go post", "Match report"}
+	if !equal(got, want) {
+		t.Errorf("digest = %v, want %v — Go Blog published an hour ago, Sport Desk two", got, want)
+	}
+}
+
+func TestTheDigestRanksWhatSurvivedTheFilterRatherThanTheWholeFeed(t *testing.T) {
+	f := seed(t)
+	f.db.MarkRead(t, f.alice.ID, f.newGo.ID)
+
+	params := digest(f.alice.ID, 1)
+	params.ReadFilter = "unread"
+
+	posts, err := f.db.GetPostDigestForUser(t.Context(), params)
+	if err != nil {
+		t.Fatalf("GetPostDigestForUser: %v", err)
+	}
+
+	got := titles(posts)
+	want := []string{"Match report", "Older Go post"}
+	if !equal(got, want) {
+		t.Errorf("digest = %v, want %v — the Go Blog slot must go to its newest *unread* post, "+
+			"not disappear because its newest post was read", got, want)
+	}
+}
+
+func TestTheDigestAndThePlainListAgreeOnWhichPostsExist(t *testing.T) {
+	f := seed(t)
+
+	plain, err := f.db.GetPostsForUserFiltered(t.Context(), allPosts(f.alice.ID))
+	if err != nil {
+		t.Fatalf("GetPostsForUserFiltered: %v", err)
+	}
+	grouped, err := f.db.GetPostDigestForUser(t.Context(), digest(f.alice.ID, 100))
+	if err != nil {
+		t.Fatalf("GetPostDigestForUser: %v", err)
+	}
+
+	a, b := titles(plain), titles(grouped)
+	slices.Sort(a)
+	slices.Sort(b)
+	if !equal(a, b) {
+		t.Errorf("the two queries disagree on the post set: %v vs %v — their filter clauses are "+
+			"written out twice and have drifted", a, b)
+	}
+}

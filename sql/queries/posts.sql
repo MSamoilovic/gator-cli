@@ -40,6 +40,37 @@ ORDER BY
 LIMIT @post_limit
 OFFSET @post_offset;
 
+-- name: GetPostDigestForUser :many
+SELECT posts.* FROM posts
+JOIN (
+  SELECT posts.id,
+         feeds.name AS feed_label,
+         row_number() OVER (
+           PARTITION BY posts.feed_id
+           ORDER BY COALESCE(posts.published_at, posts.created_at) DESC
+         ) AS per_feed_rank,
+         max(COALESCE(posts.published_at, posts.created_at)) OVER (
+           PARTITION BY posts.feed_id
+         ) AS feed_fresh
+  FROM posts
+  JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
+  JOIN feeds ON posts.feed_id = feeds.id
+  LEFT JOIN post_reads
+      ON post_reads.post_id = posts.id
+     AND post_reads.user_id = feed_follows.user_id
+  WHERE feed_follows.user_id = @user_id
+    AND (@feed_name::text = '' OR feeds.name ILIKE '%' || @feed_name::text || '%')
+    AND (@feed_id::uuid = '00000000-0000-0000-0000-000000000000'::uuid OR posts.feed_id = @feed_id::uuid)
+    AND (@read_filter::text NOT IN ('unread', 'read')
+         OR (@read_filter::text = 'unread' AND post_reads.post_id IS NULL)
+         OR (@read_filter::text = 'read' AND post_reads.post_id IS NOT NULL))
+    AND (@since::timestamp = '0001-01-01 00:00:00'::timestamp OR COALESCE(posts.published_at, posts.created_at) >= @since::timestamp)
+) grouped ON grouped.id = posts.id
+WHERE grouped.per_feed_rank <= @per_feed::int
+ORDER BY grouped.feed_fresh DESC, grouped.feed_label, COALESCE(posts.published_at, posts.created_at) DESC
+LIMIT @post_limit
+OFFSET @post_offset;
+
 -- name: SetPostFullText :exec
 UPDATE posts
 SET full_text = $2, updated_at = NOW()

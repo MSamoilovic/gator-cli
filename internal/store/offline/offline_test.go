@@ -230,6 +230,9 @@ func TestOfflinePostsHonourTheQuery(t *testing.T) {
 		{"read only", store.PostQuery{Read: store.ReadOnly}, []string{"stale"}},
 		{"last day", store.PostQuery{Since: now.Add(-24 * time.Hour)}, []string{"fresh", "other"}},
 		{"body search", store.PostQuery{Query: "body of fre"}, []string{"fresh"}},
+		{"digest, newest of each feed", store.PostQuery{PerFeed: 1}, []string{"fresh", "other"}},
+		{"digest, two of each feed", store.PostQuery{PerFeed: 2}, []string{"fresh", "stale", "other", "edge"}},
+		{"digest of the unread only", store.PostQuery{PerFeed: 2, Read: store.ReadUnread}, []string{"fresh", "other", "edge"}},
 		{"second page", store.PostQuery{Limit: 2, Offset: 2}, []string{"edge", "stale"}},
 		{"past the end", store.PostQuery{Limit: 2, Offset: 9}, nil},
 	}

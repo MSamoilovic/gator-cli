@@ -21,21 +21,24 @@ func withFeeds(t *testing.T, m model, feeds ...database.GetFeedFollowsForUserRow
 	return m
 }
 
-func TestFeedsLoadedKeepsAllFeedsFirst(t *testing.T) {
+func TestTheFeedPaneOffersBothViewsBeforeAnyFeed(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")), testFeed("BBC Sport"), testFeed("CBR"))
 
 	items := m.feedList.Items()
-	if got, want := len(items), 3; got != want {
-		t.Fatalf("feed items = %d, want %d", got, want)
+	if got, want := len(items), 4; got != want {
+		t.Fatalf("feed items = %d, want %d (two views and two feeds)", got, want)
 	}
-	if got, want := items[0].(feedItem).name, allFeedsLabel; got != want {
+	if got, want := items[0].(viewItem).label, timelineLabel; got != want {
 		t.Errorf("first item = %q, want %q", got, want)
 	}
-	if items[0].(feedItem).id != uuid.Nil {
-		t.Error("All feeds entry must carry the nil UUID")
-	}
-	if got, want := items[1].(feedItem).name, "BBC Sport"; got != want {
+	if got, want := items[1].(viewItem).label, byFeedLabel; got != want {
 		t.Errorf("second item = %q, want %q", got, want)
+	}
+	if !items[0].(viewItem).active || items[1].(viewItem).active {
+		t.Error("the pane does not mark which of the two views the list is showing")
+	}
+	if got, want := items[2].(feedItem).name, "BBC Sport"; got != want {
+		t.Errorf("third item = %q, want %q", got, want)
 	}
 }
 
@@ -62,6 +65,7 @@ func TestSelectingFeedFiltersPosts(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")), feed)
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, cmd := step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
@@ -92,7 +96,7 @@ func TestSelectingAllFeedsClearsFilter(t *testing.T) {
 	m, cmd := step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
 	if cmd == nil {
-		t.Fatal("selecting All feeds did not trigger a reload")
+		t.Fatal("selecting Timeline did not trigger a reload")
 	}
 	if m.filter.feedID != uuid.Nil {
 		t.Errorf("feedID = %v, want nil UUID", m.filter.feedID)
@@ -148,7 +152,7 @@ func TestNarrowTerminalHidesFeedPanel(t *testing.T) {
 	if m.focus != focusPosts {
 		t.Error("focus must fall back to posts when the feed panel is hidden")
 	}
-	if strings.Contains(m.View(), allFeedsLabel) {
+	if strings.Contains(m.View(), timelineLabel) {
 		t.Error("feed panel still rendered on a narrow terminal")
 	}
 
@@ -171,7 +175,7 @@ func TestPanelsFitTerminal(t *testing.T) {
 			t.Fatalf("line wider than terminal: %d columns", w)
 		}
 	}
-	if !strings.Contains(view, allFeedsLabel) {
+	if !strings.Contains(view, timelineLabel) {
 		t.Error("feed panel missing from the view")
 	}
 	if !strings.Contains(view, "Prvi") {
@@ -204,10 +208,10 @@ func TestFeedPanelMarksBrokenFeeds(t *testing.T) {
 	m := withFeeds(t, ready(t, testPost("Prvi")), healthy, broken)
 
 	items := m.feedList.Items()
-	if got := items[1].(feedItem).Title(); strings.Contains(got, brokenMark) {
+	if got := items[2].(feedItem).Title(); strings.Contains(got, brokenMark) {
 		t.Errorf("healthy feed carries the broken mark: %q", got)
 	}
-	if got := items[2].(feedItem).Title(); !strings.Contains(got, brokenMark) {
+	if got := items[3].(feedItem).Title(); !strings.Contains(got, brokenMark) {
 		t.Errorf("failing feed = %q, want it marked with %q", got, brokenMark)
 	}
 
@@ -221,7 +225,7 @@ func TestBrokenMarkAndUnreadCountCoexist(t *testing.T) {
 	broken.FeedFailures = 1
 
 	m := withFeeds(t, ready(t, testPost("Prvi")), broken)
-	item := m.feedList.Items()[1].(feedItem)
+	item := m.feedList.Items()[2].(feedItem)
 	m.unread[item.id] = 4
 
 	got := item.Title()

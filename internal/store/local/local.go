@@ -67,6 +67,19 @@ func (s *Store) Posts(ctx context.Context, q store.PostQuery) ([]store.Post, err
 		})
 	}
 
+	if q.PerFeed > 0 {
+		return s.q.GetPostDigestForUser(ctx, database.GetPostDigestForUserParams{
+			UserID:     user.ID,
+			FeedID:     q.FeedID,
+			FeedName:   q.FeedName,
+			ReadFilter: string(q.Read),
+			Since:      q.Since,
+			PerFeed:    q.PerFeed,
+			PostLimit:  q.Limit,
+			PostOffset: q.Offset,
+		})
+	}
+
 	return s.q.GetPostsForUserFiltered(ctx, database.GetPostsForUserFilteredParams{
 		UserID:     user.ID,
 		FeedID:     q.FeedID,

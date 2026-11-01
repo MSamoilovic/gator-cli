@@ -80,13 +80,19 @@ func (m model) toggleSort() (tea.Model, tea.Cmd) {
 		return m.refuseDerived("Sorting")
 	}
 
-	label := "oldest first"
-	if m.filter.sortDir == sortAsc {
+	var label string
+	switch m.filter.sortDir {
+	case sortDesc:
+		m.filter.sortDir, label = sortAsc, "oldest first"
+	case sortAsc:
+		m.filter.sortDir, label = sortFeed, "by feed"
+	default:
 		m.filter.sortDir, label = sortDesc, "newest first"
-	} else {
-		m.filter.sortDir = sortAsc
 	}
-	return m.statusAndReload("Sorted " + label)
+	m.setPostsTitle()
+	next, cmd := m.statusAndReload("Sorted " + label)
+	m = next.(model)
+	return m, tea.Batch(cmd, m.feedList.SetItems(m.feedItems()))
 }
 
 func (m model) cycleTimeRange() (tea.Model, tea.Cmd) {
@@ -125,6 +131,26 @@ func (m model) setReadState(want store.ReadState, label string) (tea.Model, tea.
 	}
 	m.setPostsTitle()
 	return m.statusAndReload(label)
+}
+
+func (m model) showEveryFeed(mode string) (tea.Model, tea.Cmd) {
+	switch {
+	case mode == sortFeed:
+		m.filter.sortDir = sortFeed
+	case m.filter.sortDir == sortFeed:
+		m.filter.sortDir = sortDesc
+	}
+
+	m.filter.feedID = uuid.Nil
+	m.filter.feedName = ""
+	m.filter.query = ""
+	m.source = sourceFeeds
+	m.setPostsTitle()
+	m.focus = focusPosts
+	m.applyFocus()
+
+	cmd := m.feedList.SetItems(m.feedItems())
+	return m, tea.Batch(cmd, m.startLoad())
 }
 
 func (m model) openSelected() (tea.Model, tea.Cmd) {

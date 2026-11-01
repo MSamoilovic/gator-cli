@@ -75,7 +75,7 @@ func TestFolderByNumber(t *testing.T) {
 func TestFolderNumbersStopAtNine(t *testing.T) {
 	m := manyFolders(t, "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k")
 
-	titles := panelTitles(m)[1:]
+	titles := panelTitles(m)[2:]
 	if got, want := len(titles), 11; got != want {
 		t.Fatalf("panel has %d folders, want %d", got, want)
 	}
@@ -202,7 +202,7 @@ func TestBracketsDoNotStepOntoFeedsOrAllFeeds(t *testing.T) {
 
 	m = typing(t, m, "[")
 	if fol, ok := m.feedList.SelectedItem().(folderItem); !ok || fol.name != "Comics" {
-		t.Errorf("[ = %v, want it to stay rather than land on %q", m.feedList.SelectedItem(), allFeedsLabel)
+		t.Errorf("[ = %v, want it to stay rather than land on %q", m.feedList.SelectedItem(), timelineLabel)
 	}
 }
 
