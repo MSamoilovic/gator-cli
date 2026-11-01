@@ -87,7 +87,7 @@ func TestUnreadCountFollowsReadState(t *testing.T) {
 		counts: []database.GetUnreadCountsForUserRow{{FeedID: feed.FeedID, Unread: 3}},
 	})
 
-	if got := m.feedList.Items()[1].(feedItem).Title(); !strings.Contains(got, "(3)") {
+	if got := m.feedList.Items()[2].(feedItem).Title(); !strings.Contains(got, "(3)") {
 		t.Fatalf("feed title = %q, want the unread count", got)
 	}
 

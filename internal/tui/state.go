@@ -59,7 +59,7 @@ func loadState() uiState {
 }
 
 func (s uiState) sanitized() uiState {
-	if s.SortDir != sortAsc && s.SortDir != sortDesc {
+	if s.SortDir != sortAsc && s.SortDir != sortDesc && s.SortDir != sortFeed {
 		s.SortDir = sortDesc
 	}
 	if _, err := uuid.Parse(s.FeedID); err != nil {

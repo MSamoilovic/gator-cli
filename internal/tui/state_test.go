@@ -156,6 +156,7 @@ func TestSnapshotCapturesCurrentView(t *testing.T) {
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 	m, _ = step(t, m, press("S"))
 	m, _ = step(t, m, press("U"))
@@ -239,8 +240,8 @@ func TestStoredFeedIsSelectedInThePanel(t *testing.T) {
 	m, _ := step(t, newModel(t.Context(), nil, testUser(), saved, ""), tea.WindowSizeMsg{Width: 80, Height: 24})
 	m, _ = step(t, m, feedsLoadedMsg{feeds: []database.GetFeedFollowsForUserRow{first, second}})
 
-	if got, want := m.feedList.Index(), 2; got != want {
-		t.Errorf("feed cursor = %d, want %d (All feeds, BBC Sport, CBR)", got, want)
+	if got, want := m.feedList.Index(), 3; got != want {
+		t.Errorf("feed cursor = %d, want %d (Timeline, By feed, BBC Sport, CBR)", got, want)
 	}
 	if m.filter.feedID != second.FeedID {
 		t.Error("stored feed was dropped")

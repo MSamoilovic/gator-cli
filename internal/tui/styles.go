@@ -6,6 +6,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const headerIndent = 2
+
 var (
 	accent   = theme.Accent
 	onAccent = theme.OnAccent
@@ -24,6 +26,11 @@ var (
 	spinnerStyle = lipgloss.NewStyle().Foreground(accent)
 
 	userTagStyle = lipgloss.NewStyle().Foreground(muted)
+
+	feedHeaderStyle = lipgloss.NewStyle().
+			Foreground(muted).
+			Bold(true).
+			Padding(0, 0, 0, headerIndent)
 
 	emptyStateStyle = lipgloss.NewStyle().
 			Foreground(muted).

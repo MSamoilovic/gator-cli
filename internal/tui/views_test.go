@@ -43,6 +43,7 @@ func TestEscapeLeavesBookmarksView(t *testing.T) {
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
 	m, _ = step(t, m, press("B"))
@@ -130,11 +131,25 @@ func TestSortToggles(t *testing.T) {
 	}
 
 	m, _ = step(t, m, press("S"))
-	if got, want := m.filter.sortDir, sortDesc; got != want {
+	if got, want := m.filter.sortDir, sortFeed; got != want {
 		t.Errorf("sort = %q, want %q", got, want)
+	}
+	if !strings.Contains(m.status, "by feed") {
+		t.Errorf("status = %q, want it to name the new order", m.status)
+	}
+	if !strings.Contains(m.list.Title, "by feed") {
+		t.Errorf("title = %q, want the grouping named, because the status expires after 3s", m.list.Title)
+	}
+
+	m, _ = step(t, m, press("S"))
+	if got, want := m.filter.sortDir, sortDesc; got != want {
+		t.Errorf("sort = %q, want %q — S must come back round to where it started", got, want)
 	}
 	if !strings.Contains(m.status, "newest first") {
 		t.Errorf("status = %q, want it to name the new order", m.status)
+	}
+	if strings.Contains(m.list.Title, "by feed") {
+		t.Errorf("title = %q, want the grouping gone from it", m.list.Title)
 	}
 }
 
@@ -184,6 +199,7 @@ func TestFeedSwitchLeavesBookmarksView(t *testing.T) {
 
 	m, _ = step(t, m, press("B"))
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 

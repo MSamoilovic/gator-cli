@@ -105,6 +105,7 @@ func TestReloadKeepsFeedAndSort(t *testing.T) {
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 	m, _ = step(t, m, press("S"))
 

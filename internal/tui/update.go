@@ -205,10 +205,7 @@ func (m model) postsLoaded(msg postsLoadedMsg) (tea.Model, tea.Cmd) {
 	m.loadingMore = false
 	m.hasMore = msg.paged && len(msg.posts) == pageSize
 
-	items := make([]list.Item, len(msg.posts))
-	for i, p := range msg.posts {
-		items[i] = postItem{post: p, bookmarks: m.bookmarks, reads: m.reads, feedNames: m.feedNames}
-	}
+	items := m.postItems(msg.posts)
 
 	if msg.paged && msg.offset > 0 {
 		return m, m.list.SetItems(append(m.list.Items(), items...))
@@ -216,7 +213,24 @@ func (m model) postsLoaded(msg postsLoadedMsg) (tea.Model, tea.Cmd) {
 
 	m.offset = 0
 	m.list.ResetSelected()
-	return m, m.list.SetItems(items)
+	cmd := m.list.SetItems(items)
+	m.skipHeaders(false)
+	return m, cmd
+}
+
+func (m model) postItems(posts []database.Post) []list.Item {
+	grouped := m.filter.sortDir == sortFeed && m.source == sourceFeeds
+
+	items := make([]list.Item, 0, len(posts)+1)
+	var current uuid.UUID
+	for _, p := range posts {
+		if grouped && (len(items) == 0 || p.FeedID != current) {
+			current = p.FeedID
+			items = append(items, feedHeader{feedID: p.FeedID, feedNames: m.feedNames})
+		}
+		items = append(items, postItem{post: p, bookmarks: m.bookmarks, reads: m.reads, feedNames: m.feedNames})
+	}
+	return items
 }
 
 func (m model) fullTextLoaded(msg fullTextMsg) (tea.Model, tea.Cmd) {
@@ -267,8 +281,10 @@ func (m model) selectStoredFeed(cmd tea.Cmd) (tea.Model, tea.Cmd) {
 }
 
 func (m model) feedItems() []list.Item {
-	items := make([]list.Item, 0, len(m.feeds)+1)
-	items = append(items, feedItem{id: uuid.Nil, name: allFeedsLabel, unread: m.unread})
+	items := make([]list.Item, 0, len(m.feeds)+2)
+	items = append(items,
+		viewItem{mode: sortDesc, label: timelineLabel, active: m.filter.sortDir != sortFeed},
+		viewItem{mode: sortFeed, label: byFeedLabel, active: m.filter.sortDir == sortFeed})
 
 	if !hasFolders(m.feeds) {
 		for _, f := range m.feeds {

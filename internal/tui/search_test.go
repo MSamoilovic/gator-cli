@@ -87,6 +87,7 @@ func TestEscapeLeavesSearchResults(t *testing.T) {
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
 	m, _ = step(t, m, press("s"))
@@ -128,6 +129,7 @@ func TestSelectingFeedClearsSearch(t *testing.T) {
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyDown})
 	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
 
