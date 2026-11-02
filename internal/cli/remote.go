@@ -189,6 +189,7 @@ func handlerLogout(ctx context.Context, _ *state, _ command) error {
 
 	server := cfg.ServerURL
 	cfg.ServerURL = ""
+	cfg.CurrentUserName = ""
 	if err := cfg.Write(); err != nil {
 		return fmt.Errorf("saving config: %w", err)
 	}
