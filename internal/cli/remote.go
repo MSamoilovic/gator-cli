@@ -175,7 +175,16 @@ func handlerLogout(ctx context.Context, _ *state, _ command) error {
 		return fmt.Errorf("reading config: %w", err)
 	}
 	if cfg.ServerURL == "" {
-		return errors.New("not connected to a server")
+		if cfg.CurrentUserName == "" {
+			return errors.New("not logged in")
+		}
+		name := cfg.CurrentUserName
+		cfg.CurrentUserName = ""
+		if err := cfg.Write(); err != nil {
+			return fmt.Errorf("saving config: %w", err)
+		}
+		fmt.Printf("Logged out %s\n", name)
+		return nil
 	}
 
 	if token, err := credentials.Load(cfg.ServerURL); err == nil {
