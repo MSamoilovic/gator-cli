@@ -96,7 +96,6 @@ instead, so a script that forgets the command still fails.
 ```bash
 gator register <username>   # create a new user and log in
 gator login <username>      # log in as an existing user
-gator users                 # list all users
 ```
 
 ### Using a server (extra)
@@ -131,7 +130,7 @@ password over plain `http://` unless the server is on the loopback address.
 
 Once logged in, `tui`, `browse`, `search`, `bookmark`, `follow`, `addfeed`,
 `import`, `export`, `stats` and the rest work as before. Commands that operate
-on the database itself — `agg`, `supervise`, `prune`, `feeds`, `users`,
+on the database itself — `agg`, `supervise`, `prune`, `feeds`,
 `migrate`, `reset` and `serve` — are refused until you `logout`.
 
 > **Not ready for strangers.** `addfeed` makes the server fetch whatever URL it

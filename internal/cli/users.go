@@ -83,22 +83,6 @@ func printNextStep(ctx context.Context, s *state, user database.User) {
 	fmt.Printf("Following %d feeds — open the reader with: gator tui\n", len(follows))
 }
 
-func handlerUsers(ctx context.Context, s *state, _ command) error {
-	users, err := s.Db.GetUsers(ctx)
-	if err != nil {
-		return fmt.Errorf("error fetching users: %v", err)
-	}
-
-	for _, u := range users {
-		if u.Name == s.Cfg.CurrentUserName {
-			fmt.Printf("* %s (current)\n", u.Name)
-		} else {
-			fmt.Printf("* %s\n", u.Name)
-		}
-	}
-	return nil
-}
-
 func handlerRegister(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
 	emailFlag := fs.String("email", "", "email for a future server login (optional)")
