@@ -5,7 +5,8 @@ import (
 )
 
 type runNext struct {
-	cmd command
+	cmd    command
+	reopen bool
 }
 
 func (runNext) Error() string { return "another command was picked" }

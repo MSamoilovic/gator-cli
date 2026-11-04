@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -89,5 +92,18 @@ func TestSetupCommandsAreReachableWithoutAConfig(t *testing.T) {
 	}
 	if e.needsLogin() {
 		t.Error("migrate requires a logged-in user, but the schema is not per-user")
+	}
+}
+
+func TestInitRefusesAUserWithoutAPasswordAndWritesNothing(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	err := handlerInit(t.Context(), &state{}, command{Name: "init", Args: []string{"--db-url=postgres://unused/db", "--user=pera"}})
+	if err == nil || !strings.Contains(err.Error(), "password is required") {
+		t.Fatalf("init --user without a password: err = %v, want a password-is-required error", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(home, ".gatorconfig.json")); !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("a config was left behind: %v", statErr)
 	}
 }

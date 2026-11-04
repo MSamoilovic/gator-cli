@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -86,7 +87,7 @@ func printNextStep(ctx context.Context, s *state, user database.User) {
 func handlerRegister(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
 	emailFlag := fs.String("email", "", "email for a future server login (optional)")
-	passwordFlag := fs.String("password", "", "password for a future server login (optional)")
+	passwordFlag := fs.String("password", "", "password (required; asked for when omitted)")
 	serverFlag := fs.String("server", "", "register on a gator server instead of the local database (email and password required)")
 	linkFlag := fs.String("link", "", "invite link the server was handed out with")
 	if err := fs.Parse(cmd.Args); err != nil {
@@ -101,6 +102,9 @@ func handlerRegister(ctx context.Context, s *state, cmd command) error {
 	if isTerminal(os.Stdin) {
 		email = resolveEmail(email, os.Stdin)
 		password = resolvePassword(password)
+	}
+	if password == "" {
+		return errors.New("a password is required (pass --password, or run from a terminal)")
 	}
 
 	server, token, err := registrationTarget(*serverFlag, *linkFlag)
@@ -117,13 +121,9 @@ func handlerRegister(ctx context.Context, s *state, cmd command) error {
 	}
 	defer closeDB()
 
-	passwordHash := ""
-	if password != "" {
-		hash, err := auth.HashPassword(password)
-		if err != nil {
-			return fmt.Errorf("can't register: %w", err)
-		}
-		passwordHash = hash
+	passwordHash, err := auth.HashPassword(password)
+	if err != nil {
+		return fmt.Errorf("can't register: %w", err)
 	}
 
 	params := database.CreateUserWithCredentialsParams{
@@ -143,6 +143,9 @@ func handlerRegister(ctx context.Context, s *state, cmd command) error {
 		return fmt.Errorf("error setting username: %v", err)
 	}
 	fmt.Printf("User %s created\n", s.Cfg.CurrentUserName)
+	if interactive() {
+		return runNext{cmd: command{Name: "discover"}, reopen: true}
+	}
 	printNextStep(ctx, s, dbUser)
 
 	return nil
@@ -163,7 +166,7 @@ func resolvePassword(given string) string {
 		return given
 	}
 
-	fmt.Print("Password (optional, enter to skip): ")
+	fmt.Print("Password: ")
 	pw, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Println()
 	if err != nil {
