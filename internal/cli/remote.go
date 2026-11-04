@@ -121,7 +121,11 @@ func loginRemote(ctx context.Context, server, login, password string) error {
 	if err != nil {
 		return fmt.Errorf("can't log in: %w", err)
 	}
-	return saveSession(server, res)
+	if err := saveSession(server, res); err != nil {
+		return err
+	}
+	fmt.Println("Open the reader with: gator tui")
+	return nil
 }
 
 func registerRemote(ctx context.Context, server, name, email, password, invite string) error {
@@ -146,7 +150,14 @@ func registerRemote(ctx context.Context, server, name, email, password, invite s
 	if err != nil {
 		return fmt.Errorf("can't register: %w", err)
 	}
-	return saveSession(server, res)
+	if err := saveSession(server, res); err != nil {
+		return err
+	}
+	if interactive() {
+		return runNext{cmd: command{Name: "discover"}, reopen: true}
+	}
+	fmt.Println("Pick some feeds with: gator discover")
+	return nil
 }
 
 func saveSession(server string, res wire.TokenResponse) error {
@@ -165,7 +176,6 @@ func saveSession(server string, res wire.TokenResponse) error {
 	}
 
 	fmt.Printf("Logged in to %s as %s\n", server, res.User.Name)
-	fmt.Println("Open the reader with: gator tui")
 	return nil
 }
 

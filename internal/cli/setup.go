@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MSamoilovic/gator-cli/internal/auth"
 	"github.com/MSamoilovic/gator-cli/internal/config"
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/migrate"
@@ -24,12 +25,13 @@ func handlerInit(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	dbURL := fs.String("db-url", "", "PostgreSQL connection string")
 	username := fs.String("user", "", "username to create and log in as")
+	passwordFlag := fs.String("password", "", "password for --user (required with --user; asked for when omitted)")
 	force := fs.Bool("force", false, "overwrite an existing config")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
 	}
 	if fs.NArg() != 0 {
-		return errors.New("usage: init [--db-url url] [--user name] [--force]")
+		return errors.New("usage: init [--db-url url] [--user name] [--password pw] [--force]")
 	}
 
 	if existing, err := config.Read(); err == nil && !*force {
@@ -41,6 +43,22 @@ func handlerInit(ctx context.Context, s *state, cmd command) error {
 		return errors.New("no --db-url given and no terminal to ask on")
 	}
 	url := resolveDBURL(*dbURL, os.Stdin, os.Stdout)
+
+	passwordHash := ""
+	if *username != "" {
+		password := *passwordFlag
+		if isTerminal(os.Stdin) {
+			password = resolvePassword(password)
+		}
+		if password == "" {
+			return errors.New("a password is required with --user (pass --password, or run from a terminal)")
+		}
+		hash, err := auth.HashPassword(password)
+		if err != nil {
+			return fmt.Errorf("can't create %q: %w", *username, err)
+		}
+		passwordHash = hash
+	}
 
 	db, err := connect(url)
 	if err != nil {
@@ -67,11 +85,12 @@ func handlerInit(ctx context.Context, s *state, cmd command) error {
 		return nil
 	}
 
-	user, err := database.New(db).CreateUser(ctx, database.CreateUserParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Name:      *username,
+	user, err := database.New(db).CreateUserWithCredentials(ctx, database.CreateUserWithCredentialsParams{
+		ID:           uuid.New(),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+		Name:         *username,
+		PasswordHash: passwordHash,
 	})
 	if err != nil {
 		return fmt.Errorf("creating user %q: %w", *username, err)

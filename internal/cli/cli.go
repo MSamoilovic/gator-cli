@@ -135,6 +135,15 @@ func chain(ctx context.Context, cmds commands, s *state, cmd command) error {
 			return err
 		}
 		cmd = next.cmd
+
+		if next.reopen {
+			reopened, closeDB, err := open(s.Schema)
+			if err != nil {
+				return err
+			}
+			defer closeDB()
+			s = reopened
+		}
 	}
 }
 

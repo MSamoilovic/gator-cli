@@ -55,7 +55,7 @@ ALTER USER postgres PASSWORD 'postgres';
 ### 3. Initialise gator
 
 ```bash
-gator init --user <your-name>
+gator init --user <your-name>   # asks for a password
 ```
 
 `init` asks for the connection string (or pass `--db-url`), proves it works,
@@ -94,7 +94,7 @@ instead, so a script that forgets the command still fails.
 ### Register and log in
 
 ```bash
-gator register <username>   # create a new user and log in
+gator register <username>   # create a new user (asks for a password), log in, and open the feed picker
 gator login <username>      # log in as an existing user
 ```
 
