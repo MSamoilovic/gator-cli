@@ -96,6 +96,8 @@ func offered(loggedIn, configured bool) []menu.Item {
 			continue
 		case !loggedIn && !e.guest:
 			continue
+		case loggedIn && e.guestOnly:
+			continue
 		}
 		items = append(items, menu.Item{
 			Name:    e.name,
