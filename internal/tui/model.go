@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/MSamoilovic/gator-cli/internal/catalog"
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/menu"
 	"github.com/MSamoilovic/gator-cli/internal/store"
@@ -57,6 +58,7 @@ const (
 	screenList screenMode = iota
 	screenDetail
 	screenCatalog
+	screenCatalogFeeds
 	screenPalette
 	screenMenu
 )
@@ -102,16 +104,18 @@ type model struct {
 	userName string
 	server   string
 
-	keys        keyMap
-	help        help.Model
-	list        list.Model
-	feedList    list.Model
-	catalogList list.Model
-	paletteList list.Model
-	viewport    viewport.Model
-	spinner     spinner.Model
-	prompt      textinput.Model
-	selected    database.Post
+	keys         keyMap
+	help         help.Model
+	list         list.Model
+	feedList     list.Model
+	catalogList  list.Model
+	catalogFeeds list.Model
+	catalogOpen  catalog.Category
+	paletteList  list.Model
+	viewport     viewport.Model
+	spinner      spinner.Model
+	prompt       textinput.Model
+	selected     database.Post
 
 	bookmarks map[uuid.UUID]bool
 	reads     map[uuid.UUID]bool
@@ -189,6 +193,12 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 	cl.SetShowHelp(false)
 	theme.Style(&cl)
 
+	cf := list.New(nil, catalogDelegate, 0, 0)
+	cf.SetShowStatusBar(false)
+	cf.SetFilteringEnabled(false)
+	cf.SetShowHelp(false)
+	theme.Style(&cf)
+
 	paletteDelegate := theme.Delegate()
 	paletteDelegate.ShowDescription = false
 	paletteDelegate.SetSpacing(0)
@@ -210,27 +220,28 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 	syncer, _ := st.(store.Syncer)
 
 	m := model{
-		ctx:         ctx,
-		store:       st,
-		sync:        syncer,
-		userName:    user.Name,
-		server:      server,
-		keys:        defaultKeyMap(),
-		help:        help.New(),
-		list:        l,
-		feedList:    fl,
-		catalogList: cl,
-		paletteList: pl,
-		viewport:    viewport.New(0, 0),
-		spinner:     sp,
-		prompt:      ti,
-		density:     dens,
-		bookmarks:   make(map[uuid.UUID]bool),
-		reads:       make(map[uuid.UUID]bool),
-		unread:      make(map[uuid.UUID]int),
-		feedNames:   make(map[uuid.UUID]string),
-		picked:      make(map[string]bool),
-		expanded:    expandedSet(saved.Expanded),
+		ctx:          ctx,
+		store:        st,
+		sync:         syncer,
+		userName:     user.Name,
+		server:       server,
+		keys:         defaultKeyMap(),
+		help:         help.New(),
+		list:         l,
+		feedList:     fl,
+		catalogList:  cl,
+		catalogFeeds: cf,
+		paletteList:  pl,
+		viewport:     viewport.New(0, 0),
+		spinner:      sp,
+		prompt:       ti,
+		density:      dens,
+		bookmarks:    make(map[uuid.UUID]bool),
+		reads:        make(map[uuid.UUID]bool),
+		unread:       make(map[uuid.UUID]int),
+		feedNames:    make(map[uuid.UUID]string),
+		picked:       make(map[string]bool),
+		expanded:     expandedSet(saved.Expanded),
 		filter: listFilter{
 			feedID:   saved.feedUUID(),
 			feedName: saved.FeedName,

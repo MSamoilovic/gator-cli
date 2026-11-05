@@ -169,6 +169,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateInput(msg)
 		case m.screen == screenCatalog:
 			return m.updateCatalog(msg)
+		case m.screen == screenCatalogFeeds:
+			return m.updateCatalogFeeds(msg)
 		case m.screen == screenPalette:
 			return m.updatePalette(msg)
 		case m.screen == screenMenu:

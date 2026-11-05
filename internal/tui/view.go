@@ -16,6 +16,8 @@ func (m model) View() string {
 		return "\n  " + m.spinner.View() + " Loading posts...\n"
 	case m.screen == screenCatalog:
 		return m.catalogView()
+	case m.screen == screenCatalogFeeds:
+		return m.catalogFeedsView()
 	case m.screen == screenPalette:
 		return m.paletteView()
 	case m.screen == screenMenu:
@@ -116,6 +118,8 @@ func (m model) currentBindings() []key.Binding {
 	switch {
 	case m.screen == screenCatalog:
 		return m.keys.catalogHelp()
+	case m.screen == screenCatalogFeeds:
+		return m.keys.catalogFeedsHelp()
 	case m.screen == screenPalette:
 		return m.keys.paletteHelp()
 	case m.screen == screenDetail:
@@ -252,6 +256,7 @@ func (m *model) resize(w, h int) {
 	panelHeight := m.panelHeight()
 	m.feedList.SetSize(max(feedListWidth, 1), panelHeight)
 	m.catalogList.SetSize(w, panelHeight)
+	m.catalogFeeds.SetSize(w, panelHeight)
 	m.paletteList.SetSize(w, panelHeight)
 	m.list.SetSize(max(postsListWidth, 1), panelHeight)
 	m.prompt.Width = max(w-len(m.prompt.Prompt)-1, 1)

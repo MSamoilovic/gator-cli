@@ -181,21 +181,64 @@ func (i folderItem) FilterValue() string { return i.name }
 type catalogItem struct {
 	cat      catalog.Category
 	picked   map[string]bool
-	followed int
+	followed map[string]bool
+}
+
+func (i catalogItem) counts() (total, followed, picked int) {
+	for _, f := range i.cat.Feeds {
+		total++
+		switch {
+		case i.followed[f.URL]:
+			followed++
+		case i.picked[f.URL]:
+			picked++
+		}
+	}
+	return total, followed, picked
 }
 
 func (i catalogItem) Title() string {
+	total, followed, picked := i.counts()
+
 	box := "[ ]"
-	if i.picked[i.cat.ID] {
+	switch open := total - followed; {
+	case open == 0:
+		box = "[✓]"
+	case picked == open:
 		box = "[x]"
+	case picked > 0:
+		box = "[-]"
 	}
 
-	counts := strconv.Itoa(len(i.cat.Feeds)) + " feeds"
-	if i.followed > 0 {
-		counts += ", " + strconv.Itoa(i.followed) + " followed"
+	counts := strconv.Itoa(total) + " feeds"
+	if followed > 0 {
+		counts += ", " + strconv.Itoa(followed) + " followed"
+	}
+	if picked > 0 {
+		counts += ", " + strconv.Itoa(picked) + " picked"
 	}
 	return fmt.Sprintf("%s %-22s %s", box, i.cat.Label, counts)
 }
 
 func (i catalogItem) Description() string { return "" }
 func (i catalogItem) FilterValue() string { return i.cat.Label }
+
+type catalogFeedItem struct {
+	feed     catalog.Feed
+	picked   map[string]bool
+	followed map[string]bool
+}
+
+func (i catalogFeedItem) Title() string {
+	box := "[ ]"
+	switch {
+	case i.followed[i.feed.URL]:
+		box = "[✓]"
+	case i.picked[i.feed.URL]:
+		box = "[x]"
+	}
+	return fmt.Sprintf("%s %-32s %s", box, i.feed.Name, hostOf(i.feed.URL))
+}
+
+func (i catalogFeedItem) Description() string { return "" }
+func (i catalogFeedItem) FilterValue() string { return i.feed.Name }

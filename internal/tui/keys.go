@@ -18,6 +18,7 @@ type keyMap struct {
 	AddFeed  key.Binding
 	Catalog  key.Binding
 	Toggle   key.Binding
+	Confirm  key.Binding
 	Unfollow key.Binding
 	Unread   key.Binding
 	AllRead  key.Binding
@@ -102,6 +103,10 @@ func defaultKeyMap() keyMap {
 		Toggle: key.NewBinding(
 			key.WithKeys(" "),
 			key.WithHelp("space", "pick"),
+		),
+		Confirm: key.NewBinding(
+			key.WithKeys("a"),
+			key.WithHelp("a", "follow"),
 		),
 		Unfollow: key.NewBinding(
 			key.WithKeys("d"),
@@ -221,7 +226,11 @@ func (k keyMap) feedsHelp() []key.Binding {
 }
 
 func (k keyMap) catalogHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Toggle, k.Select, k.Back, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.Toggle, k.Select, k.Confirm, k.Back, k.Quit}
+}
+
+func (k keyMap) catalogFeedsHelp() []key.Binding {
+	return []key.Binding{k.Up, k.Down, k.Toggle, k.Confirm, k.Back, k.Quit}
 }
 
 func (k keyMap) detailHelp() []key.Binding {
@@ -235,7 +244,7 @@ func (k keyMap) paletteHelp() []key.Binding {
 func (k keyMap) all() []key.Binding {
 	return []key.Binding{
 		k.Up, k.Down, k.Read, k.Select, k.Open, k.Bookmark, k.Saved, k.History,
-		k.Sort, k.Reload, k.Fetch, k.AddFeed, k.Catalog, k.Toggle, k.Unfollow,
+		k.Sort, k.Reload, k.Fetch, k.AddFeed, k.Catalog, k.Toggle, k.Confirm, k.Unfollow,
 		k.Unread, k.AllRead, k.OnlyNew, k.Since, k.Copy, k.Pager, k.FullText, k.Next,
 		k.Prev, k.Search, k.Filter, k.Tab, k.Palette, k.Menu, k.Folder, k.StepFold,
 		k.FoldAll, k.Back, k.Help, k.Quit,
