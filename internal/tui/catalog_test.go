@@ -65,23 +65,25 @@ func TestSpaceTogglesCategory(t *testing.T) {
 	}
 
 	m, _ = step(t, m, press(" "))
-	if !m.picked[first.ID] {
-		t.Errorf("space did not pick %q", first.ID)
+	for _, f := range first.Feeds {
+		if !m.picked[f.URL] {
+			t.Errorf("space on a category did not pick %q", f.URL)
+		}
 	}
 	if !strings.Contains(m.View(), "[x] "+first.Label) {
 		t.Errorf("picked category has no [x] marker:\n%s", m.View())
 	}
 
 	m, _ = step(t, m, press(" "))
-	if m.picked[first.ID] {
-		t.Errorf("second space did not unpick %q", first.ID)
+	if len(m.picked) != 0 {
+		t.Errorf("second space left %d feeds picked", len(m.picked))
 	}
 }
 
-func TestEnterWithNothingPickedStaysInCatalog(t *testing.T) {
+func TestAddWithNothingPickedStaysInCatalog(t *testing.T) {
 	m := openPicker(t)
 
-	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	m, _ = step(t, m, press("a"))
 
 	if m.screen != screenCatalog {
 		t.Error("empty confirmation left the catalog")
@@ -91,11 +93,11 @@ func TestEnterWithNothingPickedStaysInCatalog(t *testing.T) {
 	}
 }
 
-func TestEnterAddsPickedCategoriesAndLeavesCatalog(t *testing.T) {
+func TestAddAddsPickedFeedsAndLeavesCatalog(t *testing.T) {
 	m := openPicker(t)
 
 	m, _ = step(t, m, press(" "))
-	m, cmd := step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	m, cmd := step(t, m, press("a"))
 
 	if m.screen != screenList {
 		t.Error("confirming did not return to the list")
@@ -136,7 +138,7 @@ func TestReopeningCatalogClearsPicks(t *testing.T) {
 		m, _ = step(t, m, cmd())
 	}
 
-	if m.picked[first.ID] {
+	if m.picked[first.Feeds[0].URL] {
 		t.Error("reopening the catalog kept the previous picks")
 	}
 }
@@ -153,8 +155,8 @@ func TestCatalogCountsFeedsYouAlreadyFollow(t *testing.T) {
 	if !ok {
 		t.Fatal("first catalog item is not a catalogItem")
 	}
-	if got, want := item.followed, 1; got != want {
-		t.Errorf("followed count = %d, want %d", got, want)
+	if _, got, _ := item.counts(); got != 1 {
+		t.Errorf("followed count = %d, want 1", got)
 	}
 	if !strings.Contains(m.View(), "1 followed") {
 		t.Errorf("view does not report the followed feed:\n%s", m.View())
@@ -244,8 +246,8 @@ func TestCatalogOpensAfterFeedsLoadWhenAskedTo(t *testing.T) {
 	if !ok {
 		t.Fatal("first catalog item is not a catalogItem")
 	}
-	if got, want := item.followed, 1; got != want {
-		t.Errorf("followed count = %d, want %d — the catalog opened too early", got, want)
+	if _, got, _ := item.counts(); got != 1 {
+		t.Errorf("followed count = %d, want 1 — the catalog opened too early", got)
 	}
 }
 
@@ -262,5 +264,102 @@ func TestEmptyStatePointsAtCatalog(t *testing.T) {
 
 	if got := m.View(); !strings.Contains(got, "c to pick from the catalog") {
 		t.Errorf("empty state does not mention the catalog:\n%s", got)
+	}
+}
+
+func openFirstCategory(t *testing.T, feeds ...database.GetFeedFollowsForUserRow) model {
+	t.Helper()
+
+	m := openPicker(t, feeds...)
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	if m.screen != screenCatalogFeeds {
+		t.Fatal("enter did not open the category")
+	}
+	return m
+}
+
+func TestEnterOpensTheFeedsOfACategory(t *testing.T) {
+	first := firstCategory(t)
+	m := openFirstCategory(t)
+
+	if got, want := len(m.catalogFeeds.Items()), len(first.Feeds); got != want {
+		t.Fatalf("category shows %d feeds, want %d", got, want)
+	}
+	view := m.View()
+	if !strings.Contains(view, first.Label) || !strings.Contains(view, first.Feeds[0].Name) {
+		t.Errorf("category screen shows neither the category nor its first feed:\n%s", view)
+	}
+}
+
+func TestASingleFeedCanBePickedOnItsOwn(t *testing.T) {
+	first := firstCategory(t)
+	m := openFirstCategory(t)
+
+	m, _ = step(t, m, press(" "))
+	if !m.picked[first.Feeds[0].URL] {
+		t.Fatal("space did not pick the first feed")
+	}
+	if len(m.picked) != 1 {
+		t.Errorf("picked %d feeds, want only the one under the cursor", len(m.picked))
+	}
+
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m.screen != screenCatalog {
+		t.Fatal("esc did not return to the categories")
+	}
+	if len(first.Feeds) > 1 && !strings.Contains(m.View(), "[-] "+first.Label) {
+		t.Errorf("a partly picked category has no [-] marker:\n%s", m.View())
+	}
+}
+
+func TestAddFromACategoryAddsOnlyWhatWasPicked(t *testing.T) {
+	m := openFirstCategory(t)
+
+	m, _ = step(t, m, press(" "))
+	m, cmd := step(t, m, press("a"))
+
+	if m.screen != screenList {
+		t.Error("adding did not return to the list")
+	}
+	if cmd == nil || !strings.Contains(m.status, "Adding 1 feeds") {
+		t.Errorf("status = %q, want exactly one feed being added", m.status)
+	}
+}
+
+func TestAFollowedFeedCannotBePickedAndIsLeftOutOfACategoryToggle(t *testing.T) {
+	first := firstCategory(t)
+	followed := testFeed(first.Feeds[0].Name)
+	followed.FeedUrl = first.Feeds[0].URL
+
+	m := openFirstCategory(t, followed)
+	m, _ = step(t, m, press(" "))
+	if m.picked[first.Feeds[0].URL] {
+		t.Error("an already followed feed was picked")
+	}
+	if !strings.Contains(m.status, "Already following") {
+		t.Errorf("status = %q, want a note that the feed is already followed", m.status)
+	}
+
+	m, _ = step(t, m, tea.KeyMsg{Type: tea.KeyEsc})
+	m, _ = step(t, m, press(" "))
+	if m.picked[first.Feeds[0].URL] {
+		t.Error("toggling the category picked a feed that is already followed")
+	}
+	if got, want := len(m.picked), len(first.Feeds)-1; got != want {
+		t.Errorf("category toggle picked %d feeds, want %d", got, want)
+	}
+}
+
+func TestCategoryScreenFitsTerminal(t *testing.T) {
+	m := openFirstCategory(t)
+
+	view := m.View()
+	if got, want := strings.Count(view, "\n")+1, 24; got != want {
+		t.Errorf("category view = %d lines, want %d", got, want)
+	}
+	for _, line := range strings.Split(view, "\n") {
+		if w := lipgloss.Width(line); w > 80 {
+			t.Errorf("line wider than terminal: %d columns: %q", w, line)
+		}
 	}
 }

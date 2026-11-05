@@ -264,7 +264,7 @@ func TestEveryBoundKeyAppearsInTheFullHelp(t *testing.T) {
 	m := manyFolders(t, "Comics")
 	full := m.help.FullHelpView(m.keys.fullHelp(m.remote()))
 
-	onlyOnTheCatalogScreen := map[string]bool{"⏎ select": true, "space pick": true}
+	onlyOnTheCatalogScreen := map[string]bool{"⏎ select": true, "space pick": true, "a follow": true}
 	catalog := m.help.ShortHelpView(m.keys.catalogHelp())
 
 	var missing []string

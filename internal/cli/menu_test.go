@@ -102,7 +102,7 @@ func TestLoggedInUserIsOfferedEverythingVisible(t *testing.T) {
 	names := offeredNames(true)
 
 	for _, e := range allCommands() {
-		if e.hidden {
+		if e.hidden || e.guestOnly {
 			continue
 		}
 		if !names[e.name] {
@@ -250,5 +250,22 @@ func TestTheMenuOffersOnlyTheCommandsThisInstallCanRun(t *testing.T) {
 	}
 	if has(remote, "agg") {
 		t.Error("a server install is offered agg, which works on the database itself")
+	}
+}
+
+func TestALoggedInUserIsNotOfferedRegisterOrLogin(t *testing.T) {
+	names := map[string]bool{}
+	for _, it := range offered(true, true) {
+		names[it.Name] = true
+	}
+	for _, gone := range []string{"register", "login"} {
+		if names[gone] {
+			t.Errorf("a logged-in user is offered %q", gone)
+		}
+	}
+	for _, want := range []string{"logout", "invite"} {
+		if !names[want] {
+			t.Errorf("a logged-in user is not offered %q", want)
+		}
 	}
 }

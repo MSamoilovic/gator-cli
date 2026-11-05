@@ -46,7 +46,7 @@ func TestEveryCommandIsEitherInTheReaderOrInItsMenu(t *testing.T) {
 	}
 
 	items := readerMenu(&state{Cfg: &config.Config{}})
-	if got, want := len(items), 18; got != want {
+	if got, want := len(items), 16; got != want {
 		t.Errorf("the reader's menu offers %d commands, want %d", got, want)
 	}
 }

@@ -40,6 +40,7 @@ type entry struct {
 	runAuth func(context.Context, *state, command, store.User) error
 
 	guest      bool
+	guestOnly  bool
 	hidden     bool
 	noDB       bool
 	localOnly  bool
@@ -84,8 +85,8 @@ func allCommands() []entry {
 
 		{group: "aggregation", name: "serve", args: "[flags]", summary: "Serve the HTTP API so gator works from other machines", run: handlerServe, localOnly: true},
 
-		{group: "account", name: "register", args: "[flags] <username>", summary: "Create a new user and log in", run: handlerRegister, guest: true, noDB: true},
-		{group: "account", name: "login", args: "[flags] <username>", summary: "Log in as an existing user, or to a server with --server", run: handlerLogin, guest: true, noDB: true},
+		{group: "account", name: "register", args: "[flags] <username>", summary: "Create a new user and log in", run: handlerRegister, guest: true, guestOnly: true, noDB: true},
+		{group: "account", name: "login", args: "[flags] <username>", summary: "Log in as an existing user, or to a server with --server", run: handlerLogin, guest: true, guestOnly: true, noDB: true},
 		{group: "account", name: "sync", summary: "Send queued changes and refill the offline cache", run: handlerSync, remoteOnly: true},
 		{group: "account", name: "logout", summary: "Disconnect from a server and go back to the local database", run: handlerLogout, noDB: true},
 		{group: "account", name: "invite", args: "[flags]", summary: "Hand out a one-time registration link for this server", run: handlerInvite, localOnly: true},
