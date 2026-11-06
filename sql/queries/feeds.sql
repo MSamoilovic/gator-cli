@@ -41,6 +41,12 @@ LIMIT 1;
 SELECT * FROM feeds
 ORDER BY last_fetched_at ASC NULLS FIRST;
 
+-- name: GetFeedsToFetchForUser :many
+SELECT feeds.* FROM feeds
+JOIN feed_follows ON feed_follows.feed_id = feeds.id
+WHERE feed_follows.user_id = $1
+ORDER BY feeds.last_fetched_at ASC NULLS FIRST;
+
 -- name: MarkFeedFailed :exec
 -- failure_count raste po uzastopnim neuspesima; resetuje ga tek uspeh.
 UPDATE feeds
