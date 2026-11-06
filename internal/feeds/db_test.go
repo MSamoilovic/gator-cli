@@ -283,6 +283,44 @@ func TestScrapeAllPicksUpEveryFeed(t *testing.T) {
 	}
 }
 
+func TestScrapeFollowedFetchesOnlyWhatThatUserFollows(t *testing.T) {
+	db := testdb.Open(t)
+	alice := db.User(t, "alice")
+	bob := db.User(t, "bob")
+	srv := feedServer(t, liveFeed)
+
+	mine := db.Feed(t, alice.ID, "Mine", srv.URL+"/mine")
+	both := db.Feed(t, alice.ID, "Both", srv.URL+"/both")
+	theirs := db.Feed(t, bob.ID, "Theirs", srv.URL+"/theirs")
+	db.Feed(t, alice.ID, "Nobody", srv.URL+"/nobody")
+
+	db.Follow(t, alice.ID, mine.ID)
+	db.Follow(t, alice.ID, both.ID)
+	db.Follow(t, bob.ID, both.ID)
+	db.Follow(t, bob.ID, theirs.ID)
+
+	var seen []Progress
+	results, err := ScrapeFollowed(t.Context(), db.Queries, alice.ID, Policy{}, func(p Progress) { seen = append(seen, p) })
+	if err != nil {
+		t.Fatalf("ScrapeFollowed: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("ScrapeFollowed returned %d results, want 2 — only Mine and Both are followed by alice", len(results))
+	}
+	for _, p := range seen {
+		if p.Total != 2 {
+			t.Errorf("progress reported Total = %d, want 2", p.Total)
+		}
+	}
+
+	for name, want := range map[string]int{"Mine": 1, "Both": 1, "Theirs": 0, "Nobody": 0} {
+		got := db.Count(t, "SELECT count(*) FROM feeds WHERE name = $1 AND last_fetched_at IS NOT NULL", name)
+		if got != want {
+			t.Errorf("feed %q fetched = %d, want %d", name, got, want)
+		}
+	}
+}
+
 func TestScrapeAllBoundsHowManyFeedsItFetchesAtOnce(t *testing.T) {
 	db := testdb.Open(t)
 	user := db.User(t, "alice")

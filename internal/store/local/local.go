@@ -346,7 +346,12 @@ func followsFeed(rows []store.Subscription, feedID uuid.UUID) bool {
 }
 
 func (s *Store) Refresh(ctx context.Context, onProgress func(feeds.Progress)) (store.RefreshResult, error) {
-	results, err := feeds.ScrapeAll(ctx, s.q, feeds.DefaultPolicy(), onProgress)
+	user, err := s.resolve(ctx)
+	if err != nil {
+		return store.RefreshResult{}, err
+	}
+
+	results, err := feeds.ScrapeFollowed(ctx, s.q, user.ID, feeds.DefaultPolicy(), onProgress)
 	if err != nil {
 		return store.RefreshResult{}, err
 	}

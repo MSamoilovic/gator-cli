@@ -180,7 +180,18 @@ func ScrapeAll(ctx context.Context, q *database.Queries, p Policy, onProgress fu
 	if err != nil {
 		return nil, fmt.Errorf("getting feeds: %w", err)
 	}
+	return scrape(ctx, q, feeds, p, onProgress), nil
+}
 
+func ScrapeFollowed(ctx context.Context, q *database.Queries, userID uuid.UUID, p Policy, onProgress func(Progress)) ([]Result, error) {
+	feeds, err := q.GetFeedsToFetchForUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("getting followed feeds: %w", err)
+	}
+	return scrape(ctx, q, feeds, p, onProgress), nil
+}
+
+func scrape(ctx context.Context, q *database.Queries, feeds []database.Feed, p Policy, onProgress func(Progress)) []Result {
 	var (
 		mu      sync.Mutex
 		results = make([]Result, 0, len(feeds))
@@ -208,7 +219,7 @@ func ScrapeAll(ctx context.Context, q *database.Queries, p Policy, onProgress fu
 	}
 	wg.Wait()
 
-	return results, nil
+	return results
 }
 
 func rememberMove(ctx context.Context, q *database.Queries, feed database.Feed, url string) (string, error) {

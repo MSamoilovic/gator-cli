@@ -238,6 +238,48 @@ func (q *Queries) GetFeedsToFetch(ctx context.Context) ([]Feed, error) {
 	return items, nil
 }
 
+const getFeedsToFetchForUser = `-- name: GetFeedsToFetchForUser :many
+SELECT feeds.id, feeds.created_at, feeds.updated_at, feeds.name, feeds.url, feeds.user_id, feeds.last_fetched_at, feeds.etag, feeds.last_modified, feeds.last_error, feeds.failure_count FROM feeds
+JOIN feed_follows ON feed_follows.feed_id = feeds.id
+WHERE feed_follows.user_id = $1
+ORDER BY feeds.last_fetched_at ASC NULLS FIRST
+`
+
+func (q *Queries) GetFeedsToFetchForUser(ctx context.Context, userID uuid.UUID) ([]Feed, error) {
+	rows, err := q.db.QueryContext(ctx, getFeedsToFetchForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Feed
+	for rows.Next() {
+		var i Feed
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Name,
+			&i.Url,
+			&i.UserID,
+			&i.LastFetchedAt,
+			&i.Etag,
+			&i.LastModified,
+			&i.LastError,
+			&i.FailureCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getNextFeedToFetch = `-- name: GetNextFeedToFetch :one
 SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at, etag, last_modified, last_error, failure_count FROM feeds
 ORDER BY last_fetched_at ASC NULLS FIRST
