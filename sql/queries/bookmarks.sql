@@ -1,7 +1,9 @@
 -- name: CreateBookmark :many
 INSERT INTO bookmarks (id, created_at, user_id, post_id)
 SELECT @id::uuid, @created_at::timestamp, @user_id::uuid, posts.id
-FROM posts WHERE posts.id = @post_id::uuid
+FROM posts
+JOIN feed_follows ON posts.feed_id = feed_follows.feed_id AND feed_follows.user_id = @user_id::uuid
+WHERE posts.id = @post_id::uuid
 ON CONFLICT (user_id, post_id) DO NOTHING
 RETURNING *;
 

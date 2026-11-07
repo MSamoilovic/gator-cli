@@ -280,6 +280,7 @@ func (db *DB) Bookmark(t *testing.T, userID, postID uuid.UUID) {
 	}); err != nil {
 		t.Fatalf("bookmarking: %v", err)
 	}
+	db.requireRow(t, "bookmarks", userID, postID)
 }
 
 func (db *DB) MarkRead(t *testing.T, userID, postID uuid.UUID) {
@@ -290,6 +291,15 @@ func (db *DB) MarkRead(t *testing.T, userID, postID uuid.UUID) {
 		ReadAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("marking read: %v", err)
+	}
+	db.requireRow(t, "post_reads", userID, postID)
+}
+
+func (db *DB) requireRow(t *testing.T, table string, userID, postID uuid.UUID) {
+	t.Helper()
+	query := fmt.Sprintf("SELECT count(*) FROM %s WHERE user_id = $1 AND post_id = $2", table)
+	if db.Count(t, query, userID, postID) == 0 {
+		t.Fatalf("no %s row for user %s and post %s: the user must follow the post's feed", table, userID, postID)
 	}
 }
 

@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -248,6 +249,7 @@ func TestRemoteAndLocalStoresAgree(t *testing.T) {
 	unfollowed := db.Feed(t, other.ID, "Elsewhere", "https://example.com/feed")
 	db.Follow(t, me.ID, golang.ID)
 	db.Follow(t, me.ID, rust.ID)
+	db.Follow(t, other.ID, rust.ID)
 
 	now := time.Now().Add(-time.Hour)
 	var all []uuid.UUID
@@ -378,6 +380,72 @@ func TestOneUserNeverSeesAnothersState(t *testing.T) {
 		if n != 0 {
 			t.Errorf("bob sees %d of alice's %s", n, name)
 		}
+	}
+}
+
+func TestAPostOutsideYourFeedsCannotBeReadOrMarked(t *testing.T) {
+	db := testdb.Open(t)
+	srv := serveAllowingPrivateFetch(t, db)
+
+	var hits int
+	page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		io.WriteString(w, "<html><body><article><p>"+strings.Repeat("Long article text. ", 200)+"</p></article></body></html>")
+	}))
+	defer page.Close()
+
+	alice := register(t, db, srv, "alice")
+	bob := register(t, db, srv, "bob")
+	aliceUser, _ := alice.Me(t.Context())
+	bobUser, _ := bob.Me(t.Context())
+
+	feed := db.Feed(t, aliceUser.ID, "Alice only", "https://example.com/alice")
+	db.Follow(t, aliceUser.ID, feed.ID)
+	post := db.Post(t, feed.ID, "Private to followers", page.URL+"/article", time.Now())
+	ctx := t.Context()
+
+	var apiErr *remote.Error
+	if _, err := bob.PostByURL(ctx, post.Url); !errors.As(err, &apiErr) || apiErr.Status != http.StatusNotFound {
+		t.Errorf("remote PostByURL of an unfollowed post = %v, want 404", err)
+	}
+	if _, err := local.NewFor(db.Queries, bobUser).PostByURL(ctx, post.Url); !errors.Is(err, sql.ErrNoRows) {
+		t.Errorf("local PostByURL of an unfollowed post = %v, want sql.ErrNoRows", err)
+	}
+
+	if _, err := bob.FullText(ctx, store.Post{ID: post.ID}); !errors.As(err, &apiErr) || apiErr.Status != http.StatusNotFound {
+		t.Errorf("remote FullText of an unfollowed post = %v, want 404", err)
+	}
+	if _, err := local.NewFor(db.Queries, bobUser).FullText(ctx, post); !errors.Is(err, sql.ErrNoRows) {
+		t.Errorf("local FullText of an unfollowed post = %v, want sql.ErrNoRows", err)
+	}
+	if hits != 0 {
+		t.Errorf("the article was fetched %d times for a user who does not follow its feed", hits)
+	}
+
+	if err := bob.SetRead(ctx, post.ID, true); err != nil {
+		t.Errorf("SetRead should be a quiet no-op: %v", err)
+	}
+	if err := bob.SetAllRead(ctx, []uuid.UUID{post.ID}); err != nil {
+		t.Errorf("SetAllRead should be a quiet no-op: %v", err)
+	}
+	created, err := bob.Bookmark(ctx, post.ID)
+	if err != nil || created {
+		t.Errorf("Bookmark = %v, %v; want a quiet no-op", created, err)
+	}
+	for _, table := range []string{"post_reads", "bookmarks"} {
+		if n := db.Count(t, "SELECT count(*) FROM "+table+" WHERE user_id = $1", bobUser.ID); n != 0 {
+			t.Errorf("bob has %d %s rows for a post he does not follow", n, table)
+		}
+	}
+
+	if _, err := alice.PostByURL(ctx, post.Url); err != nil {
+		t.Errorf("alice cannot find her own post: %v", err)
+	}
+	if _, err := alice.FullText(ctx, post); err != nil {
+		t.Errorf("alice cannot read her own post's full text: %v", err)
+	}
+	if hits != 1 {
+		t.Errorf("article fetched %d times for alice, want 1", hits)
 	}
 }
 
@@ -604,6 +672,11 @@ func TestTheServerRefusesToReadAnArticleAtAPrivateAddress(t *testing.T) {
 	owner := db.User(t, "owner")
 	feed := db.Feed(t, owner.ID, "Internal", "https://example.com/feed")
 	post := db.Post(t, feed.ID, "Instance credentials", internal.URL+"/latest/meta-data", time.Now())
+	attacker, err := remote.New(srv.URL, reg.Token).Me(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.Follow(t, attacker.ID, feed.ID)
 
 	res, body := raw(t, "GET", srv.URL+"/v1/posts/"+post.ID.String()+"/fulltext", reg.Token, nil)
 	if res.StatusCode != http.StatusUnprocessableEntity {

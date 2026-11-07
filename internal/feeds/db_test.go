@@ -439,6 +439,7 @@ func TestPruneStillProtectsABookmarkBeyondTheKeepWindow(t *testing.T) {
 	db := testdb.Open(t)
 	user := db.User(t, "alice")
 	feed := db.Feed(t, user.ID, "Go Blog", "https://go.test/rss")
+	db.Follow(t, user.ID, feed.ID)
 
 	var oldest uuid.UUID
 	for i := range 12 {

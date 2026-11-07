@@ -77,12 +77,19 @@ func (q *Queries) GetFeedKeepCutoff(ctx context.Context, arg GetFeedKeepCutoffPa
 	return cutoff, err
 }
 
-const getPostByID = `-- name: GetPostByID :one
-SELECT id, created_at, updated_at, title, url, description, published_at, feed_id, full_text FROM posts WHERE id = $1
+const getPostByIDForUser = `-- name: GetPostByIDForUser :one
+SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM posts
+JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
+WHERE posts.id = $1 AND feed_follows.user_id = $2
 `
 
-func (q *Queries) GetPostByID(ctx context.Context, id uuid.UUID) (Post, error) {
-	row := q.db.QueryRowContext(ctx, getPostByID, id)
+type GetPostByIDForUserParams struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+}
+
+func (q *Queries) GetPostByIDForUser(ctx context.Context, arg GetPostByIDForUserParams) (Post, error) {
+	row := q.db.QueryRowContext(ctx, getPostByIDForUser, arg.ID, arg.UserID)
 	var i Post
 	err := row.Scan(
 		&i.ID,
@@ -98,12 +105,19 @@ func (q *Queries) GetPostByID(ctx context.Context, id uuid.UUID) (Post, error) {
 	return i, err
 }
 
-const getPostByUrl = `-- name: GetPostByUrl :one
-SELECT id, created_at, updated_at, title, url, description, published_at, feed_id, full_text FROM posts WHERE url = $1
+const getPostByUrlForUser = `-- name: GetPostByUrlForUser :one
+SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.url, posts.description, posts.published_at, posts.feed_id, posts.full_text FROM posts
+JOIN feed_follows ON posts.feed_id = feed_follows.feed_id
+WHERE posts.url = $1 AND feed_follows.user_id = $2
 `
 
-func (q *Queries) GetPostByUrl(ctx context.Context, url string) (Post, error) {
-	row := q.db.QueryRowContext(ctx, getPostByUrl, url)
+type GetPostByUrlForUserParams struct {
+	Url    string
+	UserID uuid.UUID
+}
+
+func (q *Queries) GetPostByUrlForUser(ctx context.Context, arg GetPostByUrlForUserParams) (Post, error) {
+	row := q.db.QueryRowContext(ctx, getPostByUrlForUser, arg.Url, arg.UserID)
 	var i Post
 	err := row.Scan(
 		&i.ID,

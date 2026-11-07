@@ -101,7 +101,14 @@ func (s *Store) BookmarkedPosts(ctx context.Context) ([]store.Post, error) {
 }
 
 func (s *Store) PostByURL(ctx context.Context, url string) (store.Post, error) {
-	return s.q.GetPostByUrl(ctx, url)
+	user, err := s.resolve(ctx)
+	if err != nil {
+		return store.Post{}, err
+	}
+	return s.q.GetPostByUrlForUser(ctx, database.GetPostByUrlForUserParams{
+		Url:    url,
+		UserID: user.ID,
+	})
 }
 
 func (s *Store) BookmarkedIDs(ctx context.Context) ([]uuid.UUID, error) {
@@ -128,7 +135,20 @@ func (s *Store) UnreadCounts(ctx context.Context) ([]store.UnreadCount, error) {
 	return s.q.GetUnreadCountsForUser(ctx, user.ID)
 }
 
-func (s *Store) FullText(ctx context.Context, post store.Post) (string, error) {
+func (s *Store) FullText(ctx context.Context, requested store.Post) (string, error) {
+	user, err := s.resolve(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	post, err := s.q.GetPostByIDForUser(ctx, database.GetPostByIDForUserParams{
+		ID:     requested.ID,
+		UserID: user.ID,
+	})
+	if err != nil {
+		return "", err
+	}
+
 	got, err := article.Fetch(ctx, post.Url)
 	if err != nil {
 		return "", err

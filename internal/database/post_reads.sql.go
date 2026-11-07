@@ -84,7 +84,9 @@ func (q *Queries) GetUnreadCountsForUser(ctx context.Context, userID uuid.UUID) 
 const markPostRead = `-- name: MarkPostRead :exec
 INSERT INTO post_reads (user_id, post_id, read_at)
 SELECT $1::uuid, posts.id, $2::timestamp
-FROM posts WHERE posts.id = $3::uuid
+FROM posts
+JOIN feed_follows ON posts.feed_id = feed_follows.feed_id AND feed_follows.user_id = $1::uuid
+WHERE posts.id = $3::uuid
 ON CONFLICT (user_id, post_id) DO NOTHING
 `
 
@@ -117,7 +119,9 @@ func (q *Queries) MarkPostUnread(ctx context.Context, arg MarkPostUnreadParams) 
 const markPostsRead = `-- name: MarkPostsRead :exec
 INSERT INTO post_reads (user_id, post_id, read_at)
 SELECT $1::uuid, posts.id, $2::timestamp
-FROM posts WHERE posts.id = ANY($3::uuid[])
+FROM posts
+JOIN feed_follows ON posts.feed_id = feed_follows.feed_id AND feed_follows.user_id = $1::uuid
+WHERE posts.id = ANY($3::uuid[])
 ON CONFLICT (user_id, post_id) DO NOTHING
 `
 
