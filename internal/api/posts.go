@@ -217,17 +217,11 @@ func (s *Server) fullText(w http.ResponseWriter, r *http.Request, st store.Store
 		return
 	}
 
-	post, err := s.q.GetPostByID(r.Context(), id)
+	text, err := st.FullText(r.Context(), store.Post{ID: id})
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusNotFound, wire.CodeNotFound, "post not found")
 		return
 	}
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-
-	text, err := st.FullText(r.Context(), post)
 	if err != nil {
 		s.fail(w, r, err)
 		return
