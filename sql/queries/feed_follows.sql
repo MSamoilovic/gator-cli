@@ -13,9 +13,26 @@ FROM inserted
 JOIN users ON inserted.user_id = users.id
 JOIN feeds ON inserted.feed_id = feeds.id;
 
--- name: DeleteFeedFollow :exec
-DELETE FROM feed_follows
-WHERE user_id = $1 AND feed_id = $2;
+-- name: UnfollowFeed :one
+WITH removed_bookmarks AS (
+    DELETE FROM bookmarks
+    USING posts
+    WHERE bookmarks.post_id = posts.id
+      AND posts.feed_id = @feed_id
+      AND bookmarks.user_id = @user_id
+    RETURNING bookmarks.post_id
+), removed_reads AS (
+    DELETE FROM post_reads
+    USING posts
+    WHERE post_reads.post_id = posts.id
+      AND posts.feed_id = @feed_id
+      AND post_reads.user_id = @user_id
+), removed_follow AS (
+    DELETE FROM feed_follows
+    WHERE feed_follows.user_id = @user_id
+      AND feed_follows.feed_id = @feed_id
+)
+SELECT count(*) FROM removed_bookmarks;
 
 -- name: GetFeedFollowsForUser :many
 SELECT

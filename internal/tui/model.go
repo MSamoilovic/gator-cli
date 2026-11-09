@@ -261,8 +261,8 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
 		loadPosts(m.ctx, m.store, m.filter.params(), 0),
-		loadBookmarks(m.ctx, m.store),
-		loadReads(m.ctx, m.store),
+		loadBookmarks(m.ctx, m.store, false),
+		loadReads(m.ctx, m.store, false),
 		loadFeeds(m.ctx, m.store),
 		loadUnreadCounts(m.ctx, m.store),
 	)

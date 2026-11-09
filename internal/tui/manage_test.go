@@ -130,7 +130,7 @@ func TestUnfollowAsksBeforeDeleting(t *testing.T) {
 	if cmd != nil {
 		t.Error("d deleted without waiting for an answer")
 	}
-	if !strings.Contains(m.View(), "Unfollow BBC Sport?") {
+	if !strings.Contains(m.View(), "Unfollow BBC Sport? Its bookmarks") {
 		t.Errorf("confirmation not shown:\n%s", m.View())
 	}
 
@@ -197,6 +197,30 @@ func TestUnfollowingTheActiveFeedFallsBackToAll(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Error("unfollow did not refresh the panels")
+	}
+}
+
+func TestUnfollowNamesTheBookmarksItRemovedAndReloadsTheMarks(t *testing.T) {
+	m := loaded(t, fullPage("a"))
+	gone, kept := uuid.New(), uuid.New()
+	m.bookmarks[gone] = true
+	m.reads[gone] = true
+
+	m, cmd := step(t, m, feedUnfollowMsg{name: "BBC Sport", bookmarks: 2})
+	if !strings.Contains(m.status, "Unfollowed BBC Sport, removed 2 bookmarks") {
+		t.Errorf("status = %q", m.status)
+	}
+	if cmd == nil {
+		t.Fatal("unfollow reloaded nothing")
+	}
+
+	m, _ = step(t, m, bookmarksLoadedMsg{postIDs: []uuid.UUID{kept}, replace: true})
+	m, _ = step(t, m, readsLoadedMsg{postIDs: []uuid.UUID{kept}, replace: true})
+	if m.bookmarks[gone] || m.reads[gone] {
+		t.Error("the reload kept marks of the unfollowed feed")
+	}
+	if !m.bookmarks[kept] || !m.reads[kept] {
+		t.Error("the reload lost the marks it was given")
 	}
 }
 

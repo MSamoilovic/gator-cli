@@ -90,12 +90,12 @@ func (s *Server) categorize(w http.ResponseWriter, r *http.Request, st store.Sto
 }
 
 func (s *Server) unfollowURL(w http.ResponseWriter, r *http.Request, st store.Store) {
-	feed, err := st.UnfollowURL(r.Context(), r.URL.Query().Get("url"))
+	feed, removed, err := st.UnfollowURL(r.Context(), r.URL.Query().Get("url"))
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, wire.FeedResponse{Feed: wire.FromFeed(feed)})
+	writeJSON(w, http.StatusOK, wire.UnfollowResponse{Feed: wire.FromFeed(feed), RemovedBookmarks: removed})
 }
 
 func (s *Server) unfollow(w http.ResponseWriter, r *http.Request, st store.Store) {
@@ -103,11 +103,12 @@ func (s *Server) unfollow(w http.ResponseWriter, r *http.Request, st store.Store
 	if !ok {
 		return
 	}
-	if err := st.Unfollow(r.Context(), id); err != nil {
+	removed, err := st.Unfollow(r.Context(), id)
+	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, wire.UnfollowResponse{RemovedBookmarks: removed})
 }
 
 func (s *Server) stats(w http.ResponseWriter, r *http.Request, st store.Store) {

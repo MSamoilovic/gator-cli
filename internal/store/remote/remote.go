@@ -337,16 +337,20 @@ func (s *Store) FollowURL(ctx context.Context, feedURL string) (store.Follow, bo
 	return out.Follow, out.Created, nil
 }
 
-func (s *Store) UnfollowURL(ctx context.Context, feedURL string) (store.Feed, error) {
-	var out wire.FeedResponse
+func (s *Store) UnfollowURL(ctx context.Context, feedURL string) (store.Feed, int, error) {
+	var out wire.UnfollowResponse
 	if err := s.do(ctx, http.MethodDelete, "/v1/subscriptions", url.Values{"url": {feedURL}}, nil, &out); err != nil {
-		return store.Feed{}, err
+		return store.Feed{}, 0, err
 	}
-	return out.Feed.ToDatabase(), nil
+	return out.Feed.ToDatabase(), out.RemovedBookmarks, nil
 }
 
-func (s *Store) Unfollow(ctx context.Context, feedID uuid.UUID) error {
-	return s.do(ctx, http.MethodDelete, "/v1/subscriptions/"+feedID.String(), nil, nil, nil)
+func (s *Store) Unfollow(ctx context.Context, feedID uuid.UUID) (int, error) {
+	var out wire.UnfollowResponse
+	if err := s.do(ctx, http.MethodDelete, "/v1/subscriptions/"+feedID.String(), nil, nil, &out); err != nil {
+		return 0, err
+	}
+	return out.RemovedBookmarks, nil
 }
 
 func (s *Store) Categorize(ctx context.Context, feedURL, category string) (store.Feed, error) {

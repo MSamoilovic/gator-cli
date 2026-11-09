@@ -305,26 +305,28 @@ func (s *Store) feedByURL(ctx context.Context, url string) (store.Feed, error) {
 	return feed, nil
 }
 
-func (s *Store) UnfollowURL(ctx context.Context, url string) (store.Feed, error) {
+func (s *Store) UnfollowURL(ctx context.Context, url string) (store.Feed, int, error) {
 	feed, err := s.feedByURL(ctx, url)
 	if err != nil {
-		return store.Feed{}, err
+		return store.Feed{}, 0, err
 	}
-	if err := s.Unfollow(ctx, feed.ID); err != nil {
-		return store.Feed{}, err
+	removed, err := s.Unfollow(ctx, feed.ID)
+	if err != nil {
+		return store.Feed{}, 0, err
 	}
-	return feed, nil
+	return feed, removed, nil
 }
 
-func (s *Store) Unfollow(ctx context.Context, feedID uuid.UUID) error {
+func (s *Store) Unfollow(ctx context.Context, feedID uuid.UUID) (int, error) {
 	user, err := s.resolve(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return s.q.DeleteFeedFollow(ctx, database.DeleteFeedFollowParams{
+	removed, err := s.q.UnfollowFeed(ctx, database.UnfollowFeedParams{
 		UserID: user.ID,
 		FeedID: feedID,
 	})
+	return int(removed), err
 }
 
 func (s *Store) Categorize(ctx context.Context, url, category string) (store.Feed, error) {

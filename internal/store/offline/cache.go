@@ -109,6 +109,27 @@ func (snap *snapshot) apply(c change) {
 	}
 }
 
+func (snap *snapshot) forgetFeed(feedID uuid.UUID) {
+	ofFeed := func(p wire.Post) bool { return p.FeedID == feedID }
+	gone := make(map[uuid.UUID]bool)
+	for _, p := range slices.Concat(snap.Posts, snap.Bookmarked) {
+		if ofFeed(p) {
+			gone[p.ID] = true
+		}
+	}
+
+	snap.Posts = without(snap.Posts, ofFeed)
+	snap.Bookmarked = without(snap.Bookmarked, ofFeed)
+	snap.Read = without(snap.Read, func(id uuid.UUID) bool { return gone[id] })
+	snap.Saved = without(snap.Saved, func(id uuid.UUID) bool { return gone[id] })
+	snap.Subs = without(snap.Subs, func(sub store.Subscription) bool { return sub.FeedID == feedID })
+	snap.Unread = without(snap.Unread, func(c store.UnreadCount) bool { return c.FeedID == feedID })
+}
+
+func without[T any](s []T, drop func(T) bool) []T {
+	return slices.DeleteFunc(slices.Clone(s), drop)
+}
+
 func (snap *snapshot) setRead(id uuid.UUID, read bool) {
 	switch had := slices.Contains(snap.Read, id); {
 	case read && !had:
