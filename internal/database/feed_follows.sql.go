@@ -85,21 +85,6 @@ func (q *Queries) CreateFeedFollow(ctx context.Context, arg CreateFeedFollowPara
 	return items, nil
 }
 
-const deleteFeedFollow = `-- name: DeleteFeedFollow :exec
-DELETE FROM feed_follows
-WHERE user_id = $1 AND feed_id = $2
-`
-
-type DeleteFeedFollowParams struct {
-	UserID uuid.UUID
-	FeedID uuid.UUID
-}
-
-func (q *Queries) DeleteFeedFollow(ctx context.Context, arg DeleteFeedFollowParams) error {
-	_, err := q.db.ExecContext(ctx, deleteFeedFollow, arg.UserID, arg.FeedID)
-	return err
-}
-
 const getFeedFollowsForUser = `-- name: GetFeedFollowsForUser :many
 SELECT
     feed_follows.id, feed_follows.created_at, feed_follows.updated_at, feed_follows.user_id, feed_follows.feed_id, feed_follows.category,
@@ -175,4 +160,38 @@ type SetFeedFollowCategoryParams struct {
 func (q *Queries) SetFeedFollowCategory(ctx context.Context, arg SetFeedFollowCategoryParams) error {
 	_, err := q.db.ExecContext(ctx, setFeedFollowCategory, arg.UserID, arg.FeedID, arg.Category)
 	return err
+}
+
+const unfollowFeed = `-- name: UnfollowFeed :one
+WITH removed_bookmarks AS (
+    DELETE FROM bookmarks
+    USING posts
+    WHERE bookmarks.post_id = posts.id
+      AND posts.feed_id = $1
+      AND bookmarks.user_id = $2
+    RETURNING bookmarks.post_id
+), removed_reads AS (
+    DELETE FROM post_reads
+    USING posts
+    WHERE post_reads.post_id = posts.id
+      AND posts.feed_id = $1
+      AND post_reads.user_id = $2
+), removed_follow AS (
+    DELETE FROM feed_follows
+    WHERE feed_follows.user_id = $2
+      AND feed_follows.feed_id = $1
+)
+SELECT count(*) FROM removed_bookmarks
+`
+
+type UnfollowFeedParams struct {
+	FeedID uuid.UUID
+	UserID uuid.UUID
+}
+
+func (q *Queries) UnfollowFeed(ctx context.Context, arg UnfollowFeedParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, unfollowFeed, arg.FeedID, arg.UserID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }

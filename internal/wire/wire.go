@@ -118,6 +118,11 @@ type FeedResponse struct {
 	Feed Feed `json:"feed"`
 }
 
+type UnfollowResponse struct {
+	Feed             Feed `json:"feed"`
+	RemovedBookmarks int  `json:"removed_bookmarks"`
+}
+
 type MarkReadRequest struct {
 	PostIDs []uuid.UUID `json:"post_ids"`
 }

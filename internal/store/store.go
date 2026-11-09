@@ -107,8 +107,8 @@ type Store interface {
 	AddFeed(ctx context.Context, name, url string) (Feed, bool, error)
 	AddFeeds(ctx context.Context, entries []feeds.Entry, onResult func(feeds.AddResult)) []feeds.AddResult
 	FollowURL(ctx context.Context, url string) (Follow, bool, error)
-	UnfollowURL(ctx context.Context, url string) (Feed, error)
-	Unfollow(ctx context.Context, feedID uuid.UUID) error
+	UnfollowURL(ctx context.Context, url string) (Feed, int, error)
+	Unfollow(ctx context.Context, feedID uuid.UUID) (int, error)
 	Categorize(ctx context.Context, url, category string) (Feed, error)
 
 	Refresh(ctx context.Context, onProgress func(feeds.Progress)) (RefreshResult, error)

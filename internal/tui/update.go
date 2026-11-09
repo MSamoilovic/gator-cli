@@ -51,6 +51,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.fullTextLoaded(msg)
 
 	case readsLoadedMsg:
+		if msg.replace {
+			clear(m.reads)
+		}
 		for _, id := range msg.postIDs {
 			m.reads[id] = true
 		}
@@ -78,6 +81,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return next, cmd
 
 	case bookmarksLoadedMsg:
+		if msg.replace {
+			clear(m.bookmarks)
+		}
 		for _, id := range msg.postIDs {
 			m.bookmarks[id] = true
 		}
@@ -111,8 +117,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setPostsTitle()
 			m.feedList.ResetSelected()
 		}
-		next, cmd := m.withStatus("Unfollowed " + msg.name)
-		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad())
+		next, cmd := m.withStatus(unfollowedStatus(msg))
+		return next, tea.Batch(cmd, next.reloadFeeds(), next.startLoad(),
+			loadBookmarks(next.ctx, next.store, true), loadReads(next.ctx, next.store, true))
 
 	case feedCategorizedMsg:
 		m.expanded[msg.folder] = true

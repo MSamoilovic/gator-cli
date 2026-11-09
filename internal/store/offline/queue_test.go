@@ -422,3 +422,70 @@ func TestWhatNeedsTheNetworkIsRefusedAndNotQueued(t *testing.T) {
 		t.Errorf("pending = %d, want nothing queued for what needs the network", n)
 	}
 }
+
+func TestAnUnfollowLeavesNothingOfThatFeedInTheCache(t *testing.T) {
+	dir := t.TempDir()
+	gone, kept := uuid.New(), uuid.New()
+	g := post("gone", wallClock(time.Now()), gone)
+	k := post("kept", wallClock(time.Now().Add(-time.Hour)), kept)
+	fake, st := filled(t, dir, g, k)
+	fake.Subs = []store.Subscription{
+		{FeedID: gone, FeedName: "Gone", FeedUrl: feedURL},
+		{FeedID: kept, FeedName: "Kept", FeedUrl: "https://example.test/kept.xml"},
+	}
+	fake.Unread = []store.UnreadCount{{FeedID: gone, Unread: 1}, {FeedID: kept, Unread: 1}}
+	ctx := t.Context()
+
+	for _, p := range []store.Post{g, k} {
+		if _, err := st.Bookmark(ctx, p.ID); err != nil {
+			t.Fatal(err)
+		}
+		if err := st.SetRead(ctx, p.ID, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := st.Sync(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	_, removed, err := st.UnfollowURL(ctx, feedURL)
+	if err != nil || removed != 1 {
+		t.Fatalf("unfollow = %d, %v; want 1 bookmark removed", removed, err)
+	}
+
+	fake.Err = store.ErrUnreachable
+
+	only := func(what string, got []uuid.UUID) {
+		t.Helper()
+		if len(got) != 1 || got[0] != k.ID {
+			t.Errorf("%s offline = %v, want only the kept post", what, got)
+		}
+	}
+	read, _ := st.ReadIDs(ctx)
+	only("read ids", read)
+	saved, _ := st.BookmarkedIDs(ctx)
+	only("bookmark ids", saved)
+
+	var ids []uuid.UUID
+	posts, _ := st.Posts(ctx, store.PostQuery{})
+	for _, p := range posts {
+		ids = append(ids, p.ID)
+	}
+	only("posts", ids)
+
+	ids = nil
+	bookmarked, _ := st.BookmarkedPosts(ctx)
+	for _, p := range bookmarked {
+		ids = append(ids, p.ID)
+	}
+	only("bookmarked posts", ids)
+
+	subs, _ := st.Subscriptions(ctx)
+	if len(subs) != 1 || subs[0].FeedID != kept {
+		t.Errorf("subscriptions offline = %+v, want only Kept", subs)
+	}
+	unread, _ := st.UnreadCounts(ctx)
+	if len(unread) != 1 || unread[0].FeedID != kept {
+		t.Errorf("unread counts offline = %+v, want only Kept", unread)
+	}
+}

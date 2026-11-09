@@ -67,7 +67,7 @@ func handlerUnfollow(ctx context.Context, s *state, cmd command, _ store.User) e
 		return fmt.Errorf("usage: unfollow <url>")
 	}
 
-	feed, err := s.Store.UnfollowURL(ctx, cmd.Args[0])
+	feed, removed, err := s.Store.UnfollowURL(ctx, cmd.Args[0])
 	switch {
 	case errors.Is(err, store.ErrFeedNotFound):
 		return err
@@ -75,8 +75,19 @@ func handlerUnfollow(ctx context.Context, s *state, cmd command, _ store.User) e
 		return fmt.Errorf("error unfollowing feed: %w", err)
 	}
 
-	fmt.Printf("Unfollowed %s\n", feed.Name)
+	fmt.Println(unfollowed(feed.Name, removed))
 	return nil
+}
+
+func unfollowed(name string, bookmarks int) string {
+	switch bookmarks {
+	case 0:
+		return "Unfollowed " + name
+	case 1:
+		return "Unfollowed " + name + " (removed 1 bookmark)"
+	default:
+		return fmt.Sprintf("Unfollowed %s (removed %d bookmarks)", name, bookmarks)
+	}
 }
 
 func handlerBrowse(ctx context.Context, s *state, cmd command, user store.User) error {

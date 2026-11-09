@@ -275,6 +275,30 @@ func TestUnfollowReportsTheFeedItRemoved(t *testing.T) {
 	}
 }
 
+func TestUnfollowSaysHowManyBookmarksWentWithIt(t *testing.T) {
+	f := storetest.New("marko")
+	sub := f.Sub("Zed Blog", "https://zed.dev/blog/feed", "tools")
+	saved := f.Post("one", "https://zed.dev/blog/1")
+	other := f.Post("two", "https://zed.dev/blog/2")
+	saved.FeedID, other.FeedID = sub.FeedID, sub.FeedID
+	f.AllPosts = []store.Post{saved, other}
+	f.Bookmarked[saved.ID] = true
+	f.Read[other.ID] = true
+	s := fakeState(f)
+	cmd := command{Name: "unfollow", Args: []string{sub.FeedUrl}}
+
+	out, err := capture(t, func() error { return handlerUnfollow(context.Background(), s, cmd, f.Identity) })
+	if err != nil {
+		t.Fatalf("unfollow: %v", err)
+	}
+	if !strings.Contains(out, "Unfollowed Zed Blog (removed 1 bookmark)") {
+		t.Errorf("printed %q", out)
+	}
+	if len(f.Bookmarked) != 0 || len(f.Read) != 0 {
+		t.Errorf("left %d bookmarks and %d reads behind", len(f.Bookmarked), len(f.Read))
+	}
+}
+
 func TestAddFeedDistinguishesNewFromAlreadyKnown(t *testing.T) {
 	f := storetest.New("marko")
 	s := fakeState(f)

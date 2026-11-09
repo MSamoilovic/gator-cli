@@ -24,7 +24,10 @@ type (
 		offset int32
 		paged  bool
 	}
-	bookmarksLoadedMsg struct{ postIDs []uuid.UUID }
+	bookmarksLoadedMsg struct {
+		postIDs []uuid.UUID
+		replace bool
+	}
 	bookmarkToggledMsg struct {
 		postID     uuid.UUID
 		bookmarked bool
@@ -32,7 +35,10 @@ type (
 	feedsLoadedMsg struct {
 		feeds []database.GetFeedFollowsForUserRow
 	}
-	readsLoadedMsg  struct{ postIDs []uuid.UUID }
+	readsLoadedMsg struct {
+		postIDs []uuid.UUID
+		replace bool
+	}
 	unreadCountsMsg struct {
 		counts []database.GetUnreadCountsForUserRow
 	}
@@ -50,7 +56,10 @@ type (
 		name    string
 		created bool
 	}
-	feedUnfollowMsg    struct{ name string }
+	feedUnfollowMsg struct {
+		name      string
+		bookmarks int
+	}
 	feedCategorizedMsg struct {
 		name   string
 		folder string
@@ -140,23 +149,23 @@ func loadFeeds(ctx context.Context, st store.Store) tea.Cmd {
 	}
 }
 
-func loadBookmarks(ctx context.Context, st store.Store) tea.Cmd {
+func loadBookmarks(ctx context.Context, st store.Store, replace bool) tea.Cmd {
 	return func() tea.Msg {
 		ids, err := st.BookmarkedIDs(ctx)
 		if err != nil {
 			return errMsg{err}
 		}
-		return bookmarksLoadedMsg{postIDs: ids}
+		return bookmarksLoadedMsg{postIDs: ids, replace: replace}
 	}
 }
 
-func loadReads(ctx context.Context, st store.Store) tea.Cmd {
+func loadReads(ctx context.Context, st store.Store, replace bool) tea.Cmd {
 	return func() tea.Msg {
 		ids, err := st.ReadIDs(ctx)
 		if err != nil {
 			return errMsg{err}
 		}
-		return readsLoadedMsg{postIDs: ids}
+		return readsLoadedMsg{postIDs: ids, replace: replace}
 	}
 }
 
@@ -238,10 +247,11 @@ func addCatalogFeeds(ctx context.Context, st store.Store, entries []feeds.Entry)
 
 func unfollowFeed(ctx context.Context, st store.Store, feedID uuid.UUID, name string) tea.Cmd {
 	return func() tea.Msg {
-		if err := st.Unfollow(ctx, feedID); err != nil {
+		removed, err := st.Unfollow(ctx, feedID)
+		if err != nil {
 			return errMsg{err}
 		}
-		return feedUnfollowMsg{name: name}
+		return feedUnfollowMsg{name: name, bookmarks: removed}
 	}
 }
 

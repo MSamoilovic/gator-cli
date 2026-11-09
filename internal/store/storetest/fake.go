@@ -272,7 +272,7 @@ func (f *Fake) Subscriptions(context.Context) ([]store.Subscription, error) {
 	if f.Err != nil {
 		return nil, f.Err
 	}
-	return f.Subs, nil
+	return slices.Clone(f.Subs), nil
 }
 
 func (f *Fake) Stats(context.Context, time.Time) ([]store.FeedStat, error) {
@@ -344,36 +344,46 @@ func (f *Fake) FollowURL(_ context.Context, url string) (store.Follow, bool, err
 	return store.Follow{}, false, fmt.Errorf("%w: %s", store.ErrFeedNotFound, url)
 }
 
-func (f *Fake) UnfollowURL(_ context.Context, url string) (store.Feed, error) {
+func (f *Fake) UnfollowURL(_ context.Context, url string) (store.Feed, int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	if f.Err != nil {
-		return store.Feed{}, f.Err
+		return store.Feed{}, 0, f.Err
 	}
-	for i, s := range f.Subs {
-		if s.FeedUrl == url {
-			f.Subs = append(f.Subs[:i], f.Subs[i+1:]...)
-			return store.Feed{ID: s.FeedID, Name: s.FeedName, Url: url}, nil
-		}
+	i := slices.IndexFunc(f.Subs, func(s store.Subscription) bool { return s.FeedUrl == url })
+	if i < 0 {
+		return store.Feed{}, 0, fmt.Errorf("%w: %s", store.ErrFeedNotFound, url)
 	}
-	return store.Feed{}, fmt.Errorf("%w: %s", store.ErrFeedNotFound, url)
+	s := f.Subs[i]
+	return store.Feed{ID: s.FeedID, Name: s.FeedName, Url: url}, f.unfollow(s.FeedID), nil
 }
 
-func (f *Fake) Unfollow(_ context.Context, feedID uuid.UUID) error {
+func (f *Fake) Unfollow(_ context.Context, feedID uuid.UUID) (int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	if f.Err != nil {
-		return f.Err
+		return 0, f.Err
 	}
-	for i, s := range f.Subs {
-		if s.FeedID == feedID {
-			f.Subs = append(f.Subs[:i], f.Subs[i+1:]...)
-			return nil
+	return f.unfollow(feedID), nil
+}
+
+func (f *Fake) unfollow(feedID uuid.UUID) int {
+	f.Subs = slices.DeleteFunc(f.Subs, func(s store.Subscription) bool { return s.FeedID == feedID })
+
+	removed := 0
+	for _, p := range f.AllPosts {
+		if p.FeedID != feedID {
+			continue
 		}
+		if f.Bookmarked[p.ID] {
+			removed++
+		}
+		delete(f.Bookmarked, p.ID)
+		delete(f.Read, p.ID)
 	}
-	return nil
+	return removed
 }
 
 func (f *Fake) Categorize(_ context.Context, url, category string) (store.Feed, error) {

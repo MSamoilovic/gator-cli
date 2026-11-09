@@ -527,7 +527,7 @@ func TestSubscriptionsFollowCategorizeAndUnfollow(t *testing.T) {
 	if _, _, err := rs.FollowURL(ctx, "https://nowhere.example/feed"); !errors.Is(err, store.ErrFeedNotFound) {
 		t.Errorf("following an unknown feed = %v, want ErrFeedNotFound", err)
 	}
-	if _, err := rs.UnfollowURL(ctx, "https://nowhere.example/feed"); !errors.Is(err, store.ErrFeedNotFound) {
+	if _, _, err := rs.UnfollowURL(ctx, "https://nowhere.example/feed"); !errors.Is(err, store.ErrFeedNotFound) {
 		t.Errorf("unfollowing an unknown feed = %v, want ErrFeedNotFound", err)
 	}
 
@@ -536,11 +536,66 @@ func TestSubscriptionsFollowCategorizeAndUnfollow(t *testing.T) {
 		t.Errorf("categorizing an unfollowed feed = %v, want ErrNotFollowed", err)
 	}
 
-	if got, err := rs.UnfollowURL(ctx, feed.Url); err != nil || got.Name != "Go Blog" {
-		t.Fatalf("unfollow = %+v, %v", got, err)
+	if got, removed, err := rs.UnfollowURL(ctx, feed.Url); err != nil || got.Name != "Go Blog" || removed != 0 {
+		t.Fatalf("unfollow = %+v, %d, %v", got, removed, err)
 	}
 	if subs, _ := rs.Subscriptions(ctx); len(subs) != 0 {
 		t.Errorf("still following %d feeds", len(subs))
+	}
+}
+
+func TestUnfollowRemovesOnlyTheCallersMarksOnThatFeed(t *testing.T) {
+	db := testdb.Open(t)
+	srv := serve(t, db)
+	alice := register(t, db, srv, "alice")
+	bob := register(t, db, srv, "bob")
+	aliceUser, _ := alice.Me(t.Context())
+	bobUser, _ := bob.Me(t.Context())
+	ctx := t.Context()
+
+	gone := db.Feed(t, aliceUser.ID, "Gone", "https://example.com/gone")
+	kept := db.Feed(t, aliceUser.ID, "Kept", "https://example.com/kept")
+	for _, f := range []uuid.UUID{gone.ID, kept.ID} {
+		db.Follow(t, aliceUser.ID, f)
+		db.Follow(t, bobUser.ID, f)
+	}
+	g1 := db.Post(t, gone.ID, "G1", "https://example.com/gone/1", time.Now())
+	g2 := db.Post(t, gone.ID, "G2", "https://example.com/gone/2", time.Now())
+	k1 := db.Post(t, kept.ID, "K1", "https://example.com/kept/1", time.Now())
+
+	for _, u := range []uuid.UUID{aliceUser.ID, bobUser.ID} {
+		for _, p := range []uuid.UUID{g1.ID, g2.ID, k1.ID} {
+			db.Bookmark(t, u, p)
+			db.MarkRead(t, u, p)
+		}
+	}
+
+	feed, removed, err := alice.UnfollowURL(ctx, gone.Url)
+	if err != nil || feed.Name != "Gone" || removed != 2 {
+		t.Fatalf("unfollow = %q, %d, %v; want Gone with 2 bookmarks removed", feed.Name, removed, err)
+	}
+
+	count := func(table string, user uuid.UUID) int {
+		return db.Count(t, "SELECT count(*) FROM "+table+" WHERE user_id = $1", user)
+	}
+	for _, table := range []string{"bookmarks", "post_reads"} {
+		if n := count(table, aliceUser.ID); n != 1 {
+			t.Errorf("alice has %d %s rows, want 1 (only the kept feed)", n, table)
+		}
+		if n := count(table, bobUser.ID); n != 3 {
+			t.Errorf("bob has %d %s rows, want all 3 untouched", n, table)
+		}
+	}
+	if n := count("feed_follows", aliceUser.ID); n != 1 {
+		t.Errorf("alice follows %d feeds, want 1", n)
+	}
+
+	removed, err = bob.Unfollow(ctx, kept.ID)
+	if err != nil || removed != 1 {
+		t.Errorf("unfollow by id = %d, %v; want 1 bookmark removed", removed, err)
+	}
+	if removed, err := bob.Unfollow(ctx, kept.ID); err != nil || removed != 0 {
+		t.Errorf("unfollowing twice = %d, %v; want a quiet 0", removed, err)
 	}
 }
 

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -97,7 +98,18 @@ func (m model) confirmText() string {
 	if !ok {
 		return ""
 	}
-	return "Unfollow " + item.name + "? (y/n)"
+	return "Unfollow " + item.name + "? Its bookmarks and read marks go too (y/n)"
+}
+
+func unfollowedStatus(msg feedUnfollowMsg) string {
+	switch msg.bookmarks {
+	case 0:
+		return "Unfollowed " + msg.name
+	case 1:
+		return "Unfollowed " + msg.name + ", removed 1 bookmark"
+	default:
+		return fmt.Sprintf("Unfollowed %s, removed %d bookmarks", msg.name, msg.bookmarks)
+	}
 }
 
 func (m model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

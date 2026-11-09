@@ -398,16 +398,22 @@ func (s *Store) FollowURL(ctx context.Context, url string) (store.Follow, bool, 
 	return follow, created, err
 }
 
-func (s *Store) UnfollowURL(ctx context.Context, url string) (store.Feed, error) {
-	feed, err := s.inner.UnfollowURL(ctx, url)
+func (s *Store) UnfollowURL(ctx context.Context, url string) (store.Feed, int, error) {
+	feed, removed, err := s.inner.UnfollowURL(ctx, url)
 	s.answered(ctx, err)
-	return feed, err
+	if err == nil {
+		s.update(func(snap *snapshot) { snap.forgetFeed(feed.ID) })
+	}
+	return feed, removed, err
 }
 
-func (s *Store) Unfollow(ctx context.Context, feedID uuid.UUID) error {
-	err := s.inner.Unfollow(ctx, feedID)
+func (s *Store) Unfollow(ctx context.Context, feedID uuid.UUID) (int, error) {
+	removed, err := s.inner.Unfollow(ctx, feedID)
 	s.answered(ctx, err)
-	return err
+	if err == nil {
+		s.update(func(snap *snapshot) { snap.forgetFeed(feedID) })
+	}
+	return removed, err
 }
 
 func (s *Store) Categorize(ctx context.Context, url, category string) (store.Feed, error) {
