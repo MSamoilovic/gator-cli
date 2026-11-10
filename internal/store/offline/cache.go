@@ -20,6 +20,7 @@ const (
 
 type snapshot struct {
 	Server     string               `json:"server"`
+	Owner      string               `json:"owner"`
 	SyncedAt   time.Time            `json:"synced_at"`
 	User       *wire.User           `json:"user,omitempty"`
 	Posts      []wire.Post          `json:"posts,omitempty"`
@@ -31,15 +32,17 @@ type snapshot struct {
 	Dropped    int                  `json:"dropped,omitempty"`
 }
 
-func load(path, server string) snapshot {
+func load(path, server, owner string) snapshot {
+	empty := snapshot{Server: server, Owner: owner}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return snapshot{Server: server}
+		return empty
 	}
 
 	var snap snapshot
-	if err := json.Unmarshal(data, &snap); err != nil || snap.Server != server {
-		return snapshot{Server: server}
+	if err := json.Unmarshal(data, &snap); err != nil || snap.Server != server || snap.Owner != owner {
+		return empty
 	}
 	return snap
 }

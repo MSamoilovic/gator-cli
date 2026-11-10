@@ -172,7 +172,7 @@ func open(schema fs.FS) (*state, func() error, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("not logged in to %s (gator login --server %s <name>): %w", cfg.ServerURL, cfg.ServerURL, err)
 		}
-		st, err := offline.Open(remote.New(cfg.ServerURL, token), cfg.ServerURL)
+		st, err := offline.Open(remote.New(cfg.ServerURL, token), cfg.ServerURL, cfg.CurrentUserName)
 		if err != nil {
 			return nil, nil, err
 		}

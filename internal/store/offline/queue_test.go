@@ -154,7 +154,7 @@ func TestTheFirstNetworkErrorStopsThePassAndKeepsTheRest(t *testing.T) {
 	dir := t.TempDir()
 	fake := storetest.New("marko")
 	inner := &failingWrites{Store: fake}
-	st := Wrap(inner, server, dir)
+	st := Wrap(inner, server, "marko", dir)
 
 	if _, err := st.Me(t.Context()); err != nil {
 		t.Fatal(err)
@@ -203,7 +203,7 @@ func TestTheSameChangeReplayedTwiceLeavesOneState(t *testing.T) {
 		}
 	}
 
-	again := Wrap(fake, server, dir)
+	again := Wrap(fake, server, "marko", dir)
 	if n := again.State().Pending; n != 2 {
 		t.Fatalf("pending = %d, want the 2 changes a crash left behind", n)
 	}

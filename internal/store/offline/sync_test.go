@@ -68,7 +68,7 @@ func TestSyncFillsTheCacheThatBrowsingAloneWouldNotHave(t *testing.T) {
 
 	fake := storetest.New("marko", posts...)
 	fake.Subs = []store.Subscription{{FeedID: feed, FeedName: "Example", FeedUrl: feedURL}}
-	st := Wrap(fake, server, dir)
+	st := Wrap(fake, server, "marko", dir)
 
 	if _, err := st.Posts(t.Context(), store.PostQuery{Limit: 2}); err != nil {
 		t.Fatal(err)
@@ -134,7 +134,7 @@ func TestLostWritesSurviveARestartAndAreClearedOnceReported(t *testing.T) {
 		t.Fatalf("dropped = %d, want 1", got)
 	}
 
-	again := Wrap(fake, server, dir)
+	again := Wrap(fake, server, "marko", dir)
 	if got := again.State().Dropped; got != 1 {
 		t.Errorf("dropped = %d after a restart, want 1 — the loss happened in the process that is now gone, "+
 			"so an in-memory count can never be reported", got)
@@ -152,7 +152,7 @@ func TestLostWritesSurviveARestartAndAreClearedOnceReported(t *testing.T) {
 		t.Errorf("dropped = %d after being reported, want it cleared", got)
 	}
 
-	third := Wrap(fake, server, dir)
+	third := Wrap(fake, server, "marko", dir)
 	if got := third.State().Dropped; got != 0 {
 		t.Errorf("dropped = %d after a restart, want the cleared count to have reached the disk", got)
 	}
