@@ -20,6 +20,7 @@ import (
 type Store struct {
 	inner  store.Store
 	server string
+	user   string
 	path   string
 
 	mu       sync.Mutex
@@ -31,21 +32,22 @@ type Store struct {
 
 var _ store.Store = (*Store)(nil)
 
-func Open(inner store.Store, server string) (*Store, error) {
+func Open(inner store.Store, server, user string) (*Store, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("finding the home directory: %w", err)
 	}
-	return Wrap(inner, server, home), nil
+	return Wrap(inner, server, user, home), nil
 }
 
-func Wrap(inner store.Store, server, dir string) *Store {
+func Wrap(inner store.Store, server, user, dir string) *Store {
 	path := filepath.Join(dir, FileName)
 	return &Store{
 		inner:  inner,
 		server: server,
+		user:   user,
 		path:   path,
-		snap:   load(path, server),
+		snap:   load(path, server, user),
 		queue:  loadQueue(filepath.Join(dir, QueueFileName)),
 		online: true,
 	}
@@ -211,6 +213,7 @@ func (s *Store) update(fn func(*snapshot)) {
 
 	fn(&s.snap)
 	s.snap.Server = s.server
+	s.snap.Owner = s.user
 	s.snap.SyncedAt = time.Now()
 	_ = s.snap.save(s.path)
 }

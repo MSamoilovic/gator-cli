@@ -12,6 +12,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/config"
 	"github.com/MSamoilovic/gator-cli/internal/credentials"
 	"github.com/MSamoilovic/gator-cli/internal/invite"
+	"github.com/MSamoilovic/gator-cli/internal/store/offline"
 	"github.com/MSamoilovic/gator-cli/internal/store/remote"
 	"github.com/MSamoilovic/gator-cli/internal/wire"
 
@@ -161,6 +162,18 @@ func registerRemote(ctx context.Context, server, name, email, password, invite s
 }
 
 func saveSession(server string, res wire.TokenResponse) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("finding the home directory: %w", err)
+	}
+	lost, err := offline.ClearUnlessOwnedBy(home, server, res.User.Name)
+	if err != nil {
+		return fmt.Errorf("clearing the previous account's offline data: %w", err)
+	}
+	if lost > 0 {
+		fmt.Fprintf(os.Stderr, "Discarded %s made offline by the previous account\n", plural(int64(lost), "change"))
+	}
+
 	if err := credentials.Save(credentials.Credentials{ServerURL: server, Token: res.Token}); err != nil {
 		return fmt.Errorf("saving token: %w", err)
 	}
@@ -195,6 +208,18 @@ func handlerLogout(ctx context.Context, _ *state, _ command) error {
 		}
 		fmt.Printf("Logged out %s\n", name)
 		return nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("finding the home directory: %w", err)
+	}
+	lost, err := offline.Clear(home)
+	if err != nil {
+		return fmt.Errorf("clearing offline data: %w", err)
+	}
+	if lost > 0 {
+		fmt.Fprintf(os.Stderr, "Discarded %s that never reached %s\n", plural(int64(lost), "change"), cfg.ServerURL)
 	}
 
 	if token, err := credentials.Load(cfg.ServerURL); err == nil {

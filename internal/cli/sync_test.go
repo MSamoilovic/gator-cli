@@ -112,7 +112,7 @@ func TestSyncCountsWhatItSentAlthoughSigningInWouldHaveFlushedItFirst(t *testing
 	const server = "https://reader.example.test"
 
 	fake := storetest.New("marko")
-	st := offline.Wrap(fake, server, dir)
+	st := offline.Wrap(fake, server, "marko", dir)
 
 	fake.Err = store.ErrUnreachable
 	if err := st.SetRead(context.Background(), uuid.New(), true); err != nil {

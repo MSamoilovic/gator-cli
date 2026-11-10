@@ -34,7 +34,7 @@ func filled(t *testing.T, dir string, posts ...store.Post) (*storetest.Fake, *St
 	t.Helper()
 
 	fake := storetest.New("marko", posts...)
-	st := Wrap(fake, server, dir)
+	st := Wrap(fake, server, "marko", dir)
 	if _, err := st.Me(t.Context()); err != nil {
 		t.Fatalf("Me online: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestMeOfflineAnswersFromTheCacheSoTheReaderStarts(t *testing.T) {
 func TestAnEmptyCacheOfflineSaysItWasNeverSynced(t *testing.T) {
 	fake := storetest.New("marko")
 	fake.Err = store.ErrUnreachable
-	st := Wrap(fake, server, t.TempDir())
+	st := Wrap(fake, server, "marko", t.TempDir())
 
 	_, err := st.Me(t.Context())
 	if !errors.Is(err, store.ErrNeverSynced) {
@@ -128,7 +128,7 @@ func TestACacheWrittenForAnotherServerIsDiscarded(t *testing.T) {
 
 	elsewhere := storetest.New("marko")
 	elsewhere.Err = store.ErrUnreachable
-	st := Wrap(elsewhere, "https://other.example.test", dir)
+	st := Wrap(elsewhere, "https://other.example.test", "marko", dir)
 
 	if _, err := st.Me(t.Context()); !errors.Is(err, store.ErrNeverSynced) {
 		t.Fatalf("Me against another server = %v, want ErrNeverSynced", err)
