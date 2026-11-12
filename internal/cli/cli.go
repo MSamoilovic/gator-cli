@@ -46,6 +46,8 @@ type entry struct {
 	localOnly  bool
 	remoteOnly bool
 	inReader   bool
+	admin      bool
+	bootstraps bool
 }
 
 func (e entry) needsLogin() bool { return e.runAuth != nil }
@@ -70,7 +72,7 @@ func allCommands() []entry {
 		{group: "feeds", name: "discover", args: "[category]", summary: "Pick feeds from the built-in catalog", runAuth: handlerDiscover, inReader: true},
 		{group: "feeds", name: "following", summary: "List the feeds you follow, grouped by folder", runAuth: handlerFollowing},
 		{group: "feeds", name: "addfeed", args: "[name] <url>", summary: "Add a feed and follow it", runAuth: handlerAddFeed, inReader: true},
-		{group: "feeds", name: "feeds", summary: "List every feed in the database", run: handlerFeeds, localOnly: true},
+		{group: "feeds", name: "feeds", summary: "List every feed in the database", run: handlerFeeds, localOnly: true, admin: true},
 		{group: "feeds", name: "stats", args: "[flags]", summary: "Which feeds you actually read, and which just arrive", runAuth: handlerStats},
 		{group: "feeds", name: "follow", args: "<url>", summary: "Follow a feed someone else added", runAuth: handlerFollow, inReader: true},
 		{group: "feeds", name: "unfollow", args: "<url>", summary: "Stop following a feed", runAuth: handlerUnfollow, inReader: true},
@@ -80,8 +82,8 @@ func allCommands() []entry {
 
 		{group: "aggregation", name: "agg", args: "<duration>", summary: "Fetch every feed in a loop, e.g. 15m", run: handlerAgg, localOnly: true},
 		{group: "aggregation", name: "supervise", args: "<duration>", summary: "Keep agg running, restart it on crash", run: handlerSupervise, localOnly: true},
-		{group: "aggregation", name: "prune", args: "[flags]", summary: "Delete posts older than the retention window", run: handlerPrune, localOnly: true},
-		{group: "aggregation", name: "refetch", args: "[flags]", summary: "Forget what feeds told us last time so the next fetch reads them in full", run: handlerRefetch, localOnly: true},
+		{group: "aggregation", name: "prune", args: "[flags]", summary: "Delete posts older than the retention window", run: handlerPrune, localOnly: true, admin: true},
+		{group: "aggregation", name: "refetch", args: "[flags]", summary: "Forget what feeds told us last time so the next fetch reads them in full", run: handlerRefetch, localOnly: true, admin: true},
 
 		{group: "aggregation", name: "serve", args: "[flags]", summary: "Serve the HTTP API so gator works from other machines", run: handlerServe, localOnly: true},
 
@@ -89,8 +91,9 @@ func allCommands() []entry {
 		{group: "account", name: "login", args: "[flags] <username>", summary: "Log in as an existing user, or to a server with --server", run: handlerLogin, guest: true, guestOnly: true, noDB: true},
 		{group: "account", name: "sync", summary: "Send queued changes and refill the offline cache", run: handlerSync, remoteOnly: true},
 		{group: "account", name: "logout", summary: "Disconnect from a server and go back to the local database", run: handlerLogout, noDB: true},
-		{group: "account", name: "invite", args: "[flags]", summary: "Hand out a one-time registration link for this server", run: handlerInvite, localOnly: true},
-		{group: "account", name: "reset", args: "[flags]", summary: "Delete every row in the database", run: handlerReset, hidden: true, localOnly: true},
+		{group: "account", name: "invite", args: "[flags]", summary: "Hand out a one-time registration link for this server", run: handlerInvite, localOnly: true, admin: true},
+		{group: "account", name: "admin", args: "[flags] [name]", summary: "List, grant or revoke the admin role, or read the admin log", run: handlerAdmin, localOnly: true, admin: true, bootstraps: true},
+		{group: "account", name: "reset", args: "[flags]", summary: "Delete every row in the database", run: handlerReset, hidden: true, localOnly: true, admin: true},
 
 		{group: "setup", name: "init", args: "[flags]", summary: "Create the config and the database schema", run: handlerInit, guest: true, noDB: true},
 		{group: "setup", name: "migrate", args: "[flags]", summary: "Apply any database migrations this build carries", run: handlerMigrate, localOnly: true},
@@ -231,6 +234,9 @@ func defaultCommands() commands {
 
 func guardMode(e entry) handlerFunc {
 	h := e.handler()
+	if e.admin {
+		h = guardAdmin(e, h)
+	}
 	switch {
 	case e.localOnly:
 		return func(ctx context.Context, s *state, cmd command) error {

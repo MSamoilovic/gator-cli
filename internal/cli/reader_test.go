@@ -7,10 +7,11 @@ import (
 
 	"github.com/MSamoilovic/gator-cli/internal/config"
 	"github.com/MSamoilovic/gator-cli/internal/menu"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 )
 
 func TestTheReaderMenuLeavesOutWhatTheReaderAlreadyDoes(t *testing.T) {
-	items := readerMenu(&state{Cfg: &config.Config{}})
+	items := readerMenu(&state{Cfg: &config.Config{}}, store.User{IsAdmin: true})
 
 	offered := map[string]bool{}
 	for _, it := range items {
@@ -45,9 +46,14 @@ func TestEveryCommandIsEitherInTheReaderOrInItsMenu(t *testing.T) {
 			"command from the menu, so it has to be deliberate", inReader, want)
 	}
 
-	items := readerMenu(&state{Cfg: &config.Config{}})
-	if got, want := len(items), 16; got != want {
-		t.Errorf("the reader's menu offers %d commands, want %d", got, want)
+	items := readerMenu(&state{Cfg: &config.Config{}}, store.User{IsAdmin: true})
+	if got, want := len(items), 17; got != want {
+		t.Errorf("the reader's menu offers an admin %d commands, want %d", got, want)
+	}
+
+	items = readerMenu(&state{Cfg: &config.Config{}}, store.User{})
+	if got, want := len(items), 12; got != want {
+		t.Errorf("the reader's menu offers a user who is not an admin %d commands, want %d", got, want)
 	}
 }
 

@@ -59,7 +59,7 @@ VALUES (
     $5,
     $6
 )
-RETURNING id, created_at, updated_at, name, email, password_hash
+RETURNING id, created_at, updated_at, name, email, password_hash, is_admin
 `
 
 type CreateUserWithCredentialsParams struct {
@@ -88,6 +88,7 @@ func (q *Queries) CreateUserWithCredentials(ctx context.Context, arg CreateUserW
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
+		&i.IsAdmin,
 	)
 	return i, err
 }
@@ -105,7 +106,7 @@ func (q *Queries) DeleteAPIToken(ctx context.Context, tokenHash string) (int64, 
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, created_at, updated_at, name, email, password_hash FROM users
+SELECT id, created_at, updated_at, name, email, password_hash, is_admin FROM users
 WHERE lower(email) = lower($1)
 `
 
@@ -119,12 +120,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (User, error
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
+		&i.IsAdmin,
 	)
 	return i, err
 }
 
 const getUserByTokenHash = `-- name: GetUserByTokenHash :one
-SELECT users.id, users.created_at, users.updated_at, users.name, users.email, users.password_hash FROM users
+SELECT users.id, users.created_at, users.updated_at, users.name, users.email, users.password_hash, users.is_admin FROM users
 JOIN api_tokens ON api_tokens.user_id = users.id
 WHERE api_tokens.token_hash = $1
 `
@@ -139,6 +141,7 @@ func (q *Queries) GetUserByTokenHash(ctx context.Context, tokenHash string) (Use
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
+		&i.IsAdmin,
 	)
 	return i, err
 }

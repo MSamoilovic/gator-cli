@@ -2,6 +2,7 @@ package cli
 
 import (
 	"github.com/MSamoilovic/gator-cli/internal/menu"
+	"github.com/MSamoilovic/gator-cli/internal/store"
 )
 
 type runNext struct {
@@ -21,8 +22,8 @@ func readerChoice(choice menu.Choice, chosen bool, err error) error {
 	return runNext{cmd: command{Name: choice.Name, Args: choice.Args}}
 }
 
-func readerMenu(s *state) []menu.Item {
-	items := reachable(s, offered(true, true))
+func readerMenu(s *state, user store.User) []menu.Item {
+	items := reachable(s, offered(true, true, user.IsAdmin))
 
 	out := make([]menu.Item, 0, len(items))
 	for _, it := range items {
