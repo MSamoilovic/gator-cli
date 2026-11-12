@@ -11,6 +11,15 @@ import (
 	"github.com/google/uuid"
 )
 
+type AdminLog struct {
+	ID       uuid.UUID
+	At       time.Time
+	UserID   uuid.NullUUID
+	UserName string
+	Command  string
+	Args     string
+}
+
 type ApiToken struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
@@ -84,4 +93,5 @@ type User struct {
 	Name         string
 	Email        sql.NullString
 	PasswordHash string
+	IsAdmin      bool
 }

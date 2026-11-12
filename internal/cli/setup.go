@@ -100,6 +100,18 @@ func handlerInit(ctx context.Context, s *state, cmd command) error {
 	}
 
 	fmt.Printf("Registered and logged in as %s\n", user.Name)
+
+	made, err := database.New(db).GrantAdmin(ctx, database.GrantAdminParams{
+		UpdatedAt:  time.Now(),
+		ID:         user.ID,
+		OnlyIfNone: true,
+	})
+	if err != nil {
+		return fmt.Errorf("making %s an admin: %w", user.Name, err)
+	}
+	if made == 1 {
+		fmt.Printf("%s is the admin of this database\n", user.Name)
+	}
 	fmt.Println("\nNext: gator discover")
 	return nil
 }
@@ -123,6 +135,14 @@ func handlerMigrate(ctx context.Context, s *state, cmd command) error {
 		return err
 	}
 	reportMigration(res)
+
+	admins, err := database.New(s.DB).CountAdmins(ctx)
+	if err != nil {
+		return fmt.Errorf("checking for an admin: %w", err)
+	}
+	if admins == 0 {
+		fmt.Println("No admin yet — run: gator admin <you>")
+	}
 	return nil
 }
 

@@ -120,7 +120,7 @@ func TestHiddenCommandsAreNeverOffered(t *testing.T) {
 }
 
 func TestReadingComesFirstForALoggedInUser(t *testing.T) {
-	items := offered(true, true)
+	items := offered(true, true, true)
 	if len(items) == 0 {
 		t.Fatal("nothing offered")
 	}
@@ -130,7 +130,7 @@ func TestReadingComesFirstForALoggedInUser(t *testing.T) {
 }
 
 func TestWithoutAConfigOnlyDatabaseFreeCommandsAreOffered(t *testing.T) {
-	names := namesOf(offered(false, false))
+	names := namesOf(offered(false, false, false))
 
 	for _, want := range []string{"help", "version"} {
 		if !names[want] {
@@ -213,7 +213,7 @@ func TestPrintUsageIsPlainText(t *testing.T) {
 }
 
 func offeredNames(loggedIn bool) map[string]bool {
-	return namesOf(offered(loggedIn, true))
+	return namesOf(offered(loggedIn, true, loggedIn))
 }
 
 func namesOf(items []menu.Item) map[string]bool {
@@ -225,7 +225,7 @@ func namesOf(items []menu.Item) map[string]bool {
 }
 
 func TestTheMenuOffersOnlyTheCommandsThisInstallCanRun(t *testing.T) {
-	items := offered(true, true)
+	items := offered(true, true, true)
 
 	local := reachable(&state{Cfg: &config.Config{DBURL: "postgres://localhost/gator"}}, items)
 	remote := reachable(&state{Cfg: &config.Config{ServerURL: "https://reader.example.test"}}, items)
@@ -255,7 +255,7 @@ func TestTheMenuOffersOnlyTheCommandsThisInstallCanRun(t *testing.T) {
 
 func TestALoggedInUserIsNotOfferedRegisterOrLogin(t *testing.T) {
 	names := map[string]bool{}
-	for _, it := range offered(true, true) {
+	for _, it := range offered(true, true, true) {
 		names[it.Name] = true
 	}
 	for _, gone := range []string{"register", "login"} {

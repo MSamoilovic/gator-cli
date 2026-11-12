@@ -38,7 +38,7 @@ func runMenu(ctx context.Context, cmds commands, s *state, user store.User, logg
 	choice, ok, err := menu.Select(menu.Config{
 		Title:    "gator",
 		Greeting: greeting(user, loggedIn, configured),
-		Items:    reachable(s, offered(loggedIn, configured)),
+		Items:    reachable(s, offered(loggedIn, configured, user.IsAdmin)),
 	})
 	if err != nil {
 		return fmt.Errorf("opening the command menu: %w", err)
@@ -85,7 +85,7 @@ func greeting(user store.User, loggedIn, configured bool) string {
 	}
 }
 
-func offered(loggedIn, configured bool) []menu.Item {
+func offered(loggedIn, configured, admin bool) []menu.Item {
 	cmds := allCommands()
 	items := make([]menu.Item, 0, len(cmds))
 	for _, e := range cmds {
@@ -97,6 +97,8 @@ func offered(loggedIn, configured bool) []menu.Item {
 		case !loggedIn && !e.guest:
 			continue
 		case loggedIn && e.guestOnly:
+			continue
+		case e.admin && !admin:
 			continue
 		}
 		items = append(items, menu.Item{
