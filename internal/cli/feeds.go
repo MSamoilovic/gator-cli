@@ -33,11 +33,11 @@ func handlerAddFeed(ctx context.Context, s *state, cmd command, _ store.User) er
 		return fmt.Errorf("error adding feed: %w", err)
 	}
 	if !created {
-		fmt.Printf("Following existing feed %q (%s)\n", feed.Name, feed.Url)
+		fmt.Printf("Following existing feed %q (%s)\n", feed.Name, text.Printable(feed.Url))
 		return nil
 	}
 
-	fmt.Printf("Added feed %q (%s)\n", feed.Name, feed.Url)
+	fmt.Printf("Added feed %q (%s)\n", feed.Name, text.Printable(feed.Url))
 	return nil
 }
 
@@ -54,11 +54,11 @@ func handlerFollow(ctx context.Context, s *state, cmd command, _ store.User) err
 		return fmt.Errorf("error following feed: %w", err)
 	}
 	if !created {
-		fmt.Printf("Already following %s\n", follow.FeedName)
+		fmt.Printf("Already following %s\n", text.Printable(follow.FeedName))
 		return nil
 	}
 
-	fmt.Printf("Feed: %s\nUser: %s\n", follow.FeedName, follow.UserName)
+	fmt.Printf("Feed: %s\nUser: %s\n", text.Printable(follow.FeedName), text.Printable(follow.UserName))
 	return nil
 }
 
@@ -75,7 +75,7 @@ func handlerUnfollow(ctx context.Context, s *state, cmd command, _ store.User) e
 		return fmt.Errorf("error unfollowing feed: %w", err)
 	}
 
-	fmt.Println(unfollowed(feed.Name, removed))
+	fmt.Println(unfollowed(text.Printable(feed.Name), removed))
 	return nil
 }
 
@@ -175,13 +175,13 @@ func handlerFeeds(ctx context.Context, s *state, _ command) error {
 
 	broken := 0
 	for _, f := range feeds {
-		fmt.Printf("Name: %s\nURL: %s\n", f.Name, f.Url)
+		fmt.Printf("Name: %s\nURL: %s\n", text.Printable(f.Name), text.Printable(f.Url))
 		if f.UserName != "" {
-			fmt.Printf("Added by: %s\n", f.UserName)
+			fmt.Printf("Added by: %s\n", text.Printable(f.UserName))
 		}
 		if f.FailureCount > 0 {
 			broken++
-			fmt.Printf("%s failing since %d attempt(s): %s\n", brokenMark, f.FailureCount, f.LastError)
+			fmt.Printf("%s failing since %d attempt(s): %s\n", brokenMark, f.FailureCount, text.Printable(f.LastError))
 		}
 		fmt.Println()
 	}
@@ -197,8 +197,8 @@ const brokenMark = "⚠"
 const previewLen = 400
 
 func printPost(p store.Post) {
-	fmt.Printf("--- %s ---\n", p.Title)
-	fmt.Printf("URL: %s\n", p.Url)
+	fmt.Printf("--- %s ---\n", text.Printable(p.Title))
+	fmt.Printf("URL: %s\n", text.Printable(p.Url))
 	if body := postPreview(p); body != "" {
 		fmt.Printf("%s\n", body)
 	}
@@ -220,17 +220,17 @@ func scrapeFeeds(ctx context.Context, s *state) {
 		at := fmt.Sprintf("[%d/%d]", r.Done, r.Total)
 		switch {
 		case r.Err != nil:
-			fmt.Fprintln(os.Stderr, at, "error:", r.Err)
+			fmt.Fprintln(os.Stderr, at, "error:", text.Printable(r.Err.Error()))
 		case r.NotModified:
-			fmt.Printf("%s Unchanged: %s\n", at, r.Feed.Name)
+			fmt.Printf("%s Unchanged: %s\n", at, text.Printable(r.Feed.Name))
 		case r.Skipped > 0:
 			fmt.Printf("%s Fetched %d posts from %s (%d new, %d already past retention)\n",
-				at, r.Items, r.Feed.Name, r.Saved, r.Skipped)
+				at, r.Items, text.Printable(r.Feed.Name), r.Saved, r.Skipped)
 		default:
-			fmt.Printf("%s Fetched %d posts from %s (%d new)\n", at, r.Items, r.Feed.Name, r.Saved)
+			fmt.Printf("%s Fetched %d posts from %s (%d new)\n", at, r.Items, text.Printable(r.Feed.Name), r.Saved)
 		}
 		if r.MovedTo != "" {
-			fmt.Printf("Moved: %s now lives at %s\n", r.Feed.Name, r.MovedTo)
+			fmt.Printf("Moved: %s now lives at %s\n", text.Printable(r.Feed.Name), text.Printable(r.MovedTo))
 		}
 	})
 	if err != nil {

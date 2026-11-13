@@ -266,6 +266,7 @@ func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 
 	resolveBody(feed)
 	unescapeString(feed)
+	printable(feed)
 	return feed, nil
 }
 
@@ -317,6 +318,17 @@ func unescapeString(rss *RSSFeed) *RSSFeed {
 		rss.Channel.Item[i].Description = html.UnescapeString(rss.Channel.Item[i].Description)
 	}
 	return rss
+}
+
+func printable(f *RSSFeed) {
+	f.Channel.Title = text.Printable(f.Channel.Title)
+	f.Channel.Description = text.Printable(f.Channel.Description)
+	for i := range f.Channel.Item {
+		it := &f.Channel.Item[i]
+		it.Title = text.Printable(it.Title)
+		it.Link = text.Printable(it.Link)
+		it.Description = text.Printable(it.Description)
+	}
 }
 
 func finalURL(res *http.Response, requested string) string {

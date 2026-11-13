@@ -121,3 +121,46 @@ func TestOneLineCollapsesWhitespace(t *testing.T) {
 		}
 	}
 }
+
+func TestPrintableDropsWhatATerminalWouldObey(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"escape sequence", "red \x1b[31malert\x1b[0m", "red [31malert[0m"},
+		{"eight-bit CSI", "a\u009b2Jb", "a2Jb"},
+		{"OSC 52 clipboard write", "x\x1b]52;c;cm0gLXJmIH4=\x07y", "x]52;c;cm0gLXJmIH4=y"},
+		{"bell", "ding\x07", "ding"},
+		{"delete", "a\x7fb", "ab"},
+		{"carriage return", "fake\rreal", "fakereal"},
+		{"bidi override", "evil‮gnp.exe", "evilgnp.exe"},
+		{"bidi isolate", "a⁦b⁩c", "abc"},
+		{"newline and tab stay", "line one\n\tline two", "line one\n\tline two"},
+		{"ordinary unicode stays", "Ćevapi — ★ ● 日本", "Ćevapi — ★ ● 日本"},
+		{"invalid UTF-8 cannot pass as C1", "a\x9bb", "a�b"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := Printable(c.input); got != c.want {
+				t.Errorf("Printable(%q) = %q, want %q", c.input, got, c.want)
+			}
+		})
+	}
+}
+
+func TestTheHelpersNeverReturnAnEscape(t *testing.T) {
+	evil := "a&#27;]52;c;eA==&#7;b\x1b[2J\u009b"
+	for name, got := range map[string]string{
+		"StripHTML": StripHTML("<p>" + evil + "</p>"),
+		"OneLine":   OneLine(evil),
+		"Truncate":  Truncate(evil, 400),
+	} {
+		for _, r := range got {
+			if hidden(r) {
+				t.Errorf("%s(%q) = %q, still carries %U", name, evil, got, r)
+			}
+		}
+	}
+}

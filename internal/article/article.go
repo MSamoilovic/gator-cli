@@ -88,18 +88,18 @@ func Extract(r io.Reader, pageURL string) (Article, error) {
 
 	body := normalise(text.StripHTML(parsed.Content))
 	if body == "" {
-		body = normalise(parsed.TextContent)
+		body = normalise(text.Printable(parsed.TextContent))
 	}
 	if body == "" {
 		return Article{}, fmt.Errorf("no article text found at %s", pageURL)
 	}
 
 	return Article{
-		Title:  strings.TrimSpace(parsed.Title),
+		Title:  strings.TrimSpace(text.Printable(parsed.Title)),
 		Text:   body,
 		HTML:   parsed.Content,
-		Byline: strings.TrimSpace(parsed.Byline),
-		Site:   strings.TrimSpace(parsed.SiteName),
+		Byline: strings.TrimSpace(text.Printable(parsed.Byline)),
+		Site:   strings.TrimSpace(text.Printable(parsed.SiteName)),
 	}, nil
 }
 

@@ -16,13 +16,38 @@ var (
 func StripHTML(s string) string {
 	s = blockTagRe.ReplaceAllString(s, "\n")
 	s = anyTagRe.ReplaceAllString(s, "")
-	s = html.UnescapeString(s)
+	s = Printable(html.UnescapeString(s))
 	s = blankLineRe.ReplaceAllString(s, "\n\n")
 	return strings.TrimSpace(s)
 }
 
 func OneLine(s string) string {
-	return strings.Join(strings.Fields(s), " ")
+	return strings.Join(strings.Fields(Printable(s)), " ")
+}
+
+func Printable(s string) string {
+	return strings.Map(func(r rune) rune {
+		if hidden(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+func hidden(r rune) bool {
+	switch {
+	case r == '\n', r == '\t':
+		return false
+	case r < 0x20, r == 0x7f:
+		return true
+	case r >= 0x80 && r <= 0x9f:
+		return true
+	case r >= 0x202a && r <= 0x202e:
+		return true
+	case r >= 0x2066 && r <= 0x2069:
+		return true
+	}
+	return false
 }
 
 func Truncate(s string, max int) string {
@@ -30,6 +55,7 @@ func Truncate(s string, max int) string {
 		return ""
 	}
 
+	s = Printable(s)
 	runes := []rune(s)
 	if len(runes) <= max {
 		return s

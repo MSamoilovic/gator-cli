@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/store"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 )
 
 const statsWindow = 7 * 24 * time.Hour
@@ -83,7 +84,7 @@ func printStatsTable(rows []store.FeedStat, now time.Time) {
 	fmt.Fprintln(w, "FEED\tPOSTS\t/WEEK\tREAD\tUNREAD\tLAST POST\tLAST READ")
 
 	for _, r := range rows {
-		name := r.FeedName
+		name := text.Printable(r.FeedName)
 		if r.FailureCount > 0 {
 			name = brokenMark + " " + name
 		}
@@ -119,7 +120,7 @@ func printStatsAdvice(rows []store.FeedStat) {
 	fmt.Printf("\nArriving but never opened:\n")
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for _, r := range noisy {
-		fmt.Fprintf(w, "  %s\t%d/week\t%s\n", r.FeedName, r.RecentCount, r.FeedUrl)
+		fmt.Fprintf(w, "  %s\t%d/week\t%s\n", text.Printable(r.FeedName), r.RecentCount, text.Printable(r.FeedUrl))
 	}
 	w.Flush()
 	fmt.Println("\nDrop one with: gator unfollow <url>")

@@ -10,6 +10,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/MSamoilovic/gator-cli/internal/store"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 )
 
 const rootLabel = "(uncategorized)"
@@ -29,10 +30,10 @@ func handlerCategorize(ctx context.Context, s *state, cmd command, _ store.User)
 	}
 
 	if category == "" {
-		fmt.Printf("Moved %s to the root\n", feed.Name)
+		fmt.Printf("Moved %s to the root\n", text.Printable(feed.Name))
 		return nil
 	}
-	fmt.Printf("Moved %s to %s\n", feed.Name, category)
+	fmt.Printf("Moved %s to %s\n", text.Printable(feed.Name), text.Printable(category))
 	return nil
 }
 
@@ -60,7 +61,7 @@ func handlerFollowing(ctx context.Context, s *state, _ command, _ store.User) er
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for _, name := range names {
-		label := name
+		label := text.Printable(name)
 		if label == "" {
 			label = rootLabel
 		}
@@ -73,7 +74,7 @@ func handlerFollowing(ctx context.Context, s *state, _ command, _ store.User) er
 			if f.FeedFailures > 0 {
 				mark = brokenMark
 			}
-			fmt.Fprintf(w, "  %s %s\t\n", mark, f.FeedName)
+			fmt.Fprintf(w, "  %s %s\t\n", mark, text.Printable(f.FeedName))
 		}
 	}
 	return w.Flush()

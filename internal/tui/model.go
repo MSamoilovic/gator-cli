@@ -8,6 +8,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/menu"
 	"github.com/MSamoilovic/gator-cli/internal/store"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 	"github.com/MSamoilovic/gator-cli/internal/theme"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -223,7 +224,7 @@ func newModel(ctx context.Context, st store.Store, user store.User, saved uiStat
 		ctx:          ctx,
 		store:        st,
 		sync:         syncer,
-		userName:     user.Name,
+		userName:     text.Printable(user.Name),
 		server:       server,
 		keys:         defaultKeyMap(),
 		help:         help.New(),
@@ -278,9 +279,9 @@ func (m *model) stopFetching() {
 	m.fetchCh = nil
 }
 
-func (m model) withStatus(text string) (model, tea.Cmd) {
+func (m model) withStatus(line string) (model, tea.Cmd) {
 	m.statusToken++
-	m.status = text
+	m.status = text.Printable(line)
 	return m, expireStatus(m.statusToken)
 }
 

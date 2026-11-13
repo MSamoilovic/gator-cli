@@ -14,6 +14,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/invite"
 	"github.com/MSamoilovic/gator-cli/internal/store/offline"
 	"github.com/MSamoilovic/gator-cli/internal/store/remote"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 	"github.com/MSamoilovic/gator-cli/internal/wire"
 
 	"golang.org/x/term"
@@ -188,7 +189,7 @@ func saveSession(server string, res wire.TokenResponse) error {
 		return fmt.Errorf("saving config: %w", err)
 	}
 
-	fmt.Printf("Logged in to %s as %s\n", server, res.User.Name)
+	fmt.Printf("Logged in to %s as %s\n", server, text.Printable(res.User.Name))
 	return nil
 }
 
