@@ -12,6 +12,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/feeds"
 	"github.com/MSamoilovic/gator-cli/internal/store"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
@@ -115,7 +116,7 @@ func loadPosts(ctx context.Context, st store.Store, f postFilter, offset int32) 
 		if err != nil {
 			return errMsg{err}
 		}
-		return postsLoadedMsg{posts: posts, offset: offset, paged: true}
+		return postsLoadedMsg{posts: printablePosts(posts), offset: offset, paged: true}
 	}
 }
 
@@ -125,7 +126,7 @@ func loadBookmarkedPosts(ctx context.Context, st store.Store) tea.Cmd {
 		if err != nil {
 			return errMsg{err}
 		}
-		return postsLoadedMsg{posts: posts}
+		return postsLoadedMsg{posts: printablePosts(posts)}
 	}
 }
 
@@ -135,7 +136,7 @@ func searchPosts(ctx context.Context, st store.Store, query string) tea.Cmd {
 		if err != nil {
 			return errMsg{err}
 		}
-		return postsLoadedMsg{posts: posts}
+		return postsLoadedMsg{posts: printablePosts(posts)}
 	}
 }
 
@@ -145,7 +146,7 @@ func loadFeeds(ctx context.Context, st store.Store) tea.Cmd {
 		if err != nil {
 			return errMsg{err}
 		}
-		return feedsLoadedMsg{feeds: subs}
+		return feedsLoadedMsg{feeds: printableSubscriptions(subs)}
 	}
 }
 
@@ -224,7 +225,7 @@ func addFeed(ctx context.Context, st store.Store, url string) tea.Cmd {
 		if err != nil {
 			return errMsg{err}
 		}
-		return feedAddedMsg{name: feed.Name, created: created}
+		return feedAddedMsg{name: text.Printable(feed.Name), created: created}
 	}
 }
 
@@ -292,7 +293,7 @@ func fetchFullText(ctx context.Context, st store.Store, post database.Post) tea.
 		if err != nil {
 			return errMsg{err}
 		}
-		return fullTextMsg{postID: post.ID, body: body}
+		return fullTextMsg{postID: post.ID, body: text.Printable(body)}
 	}
 }
 
@@ -372,6 +373,6 @@ func categorizeFeed(ctx context.Context, st store.Store, url, folder string) tea
 		if err != nil {
 			return errMsg{err}
 		}
-		return feedCategorizedMsg{name: feed.Name, folder: folder}
+		return feedCategorizedMsg{name: text.Printable(feed.Name), folder: folder}
 	}
 }

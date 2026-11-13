@@ -26,7 +26,7 @@ func handlerArticle(ctx context.Context, s *state, cmd command, _ store.User) er
 	}
 
 	if post.FullText != "" && !*refetch {
-		fmt.Println(post.FullText)
+		fmt.Println(text.Printable(post.FullText))
 		return nil
 	}
 
@@ -35,7 +35,7 @@ func handlerArticle(ctx context.Context, s *state, cmd command, _ store.User) er
 		return err
 	}
 
-	fmt.Println(body)
+	fmt.Println(text.Printable(body))
 	feedGave := text.StripHTML(post.Description.String)
 	fmt.Fprintf(os.Stderr, "\n%d characters, where the feed gave %d\n",
 		len([]rune(body)), len([]rune(feedGave)))

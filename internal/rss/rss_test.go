@@ -629,3 +629,37 @@ func TestFetchFeedReadsDublinCoreDates(t *testing.T) {
 		t.Errorf("item with both carried %q, want pubDate to win", got)
 	}
 }
+
+func TestFetchFeedDropsTerminalEscapesTheEntitiesSmuggledIn(t *testing.T) {
+	srv := serve(t, http.StatusOK, `<?xml version="1.0"?>
+<rss version="2.0"><channel>
+<title>Evil&amp;#27;]0;pwned&amp;#7; feed</title>
+<description>d&amp;#27;[2J</description>
+<item>
+<title>Free &amp;#27;]52;c;cm0gLXJmIH4=&amp;#7;money&#x9b;</title>
+<link>https://example.com/a&amp;#27;[31m</link>
+<description>&lt;p&gt;body&amp;#27;[2J&amp;#x202e;&lt;/p&gt;</description>
+</item>
+</channel></rss>`)
+
+	feed, err := get(t, srv.URL)
+	if err != nil {
+		t.Fatalf("FetchFeed: %v", err)
+	}
+
+	it := feed.Channel.Item[0]
+	for field, got := range map[string]string{
+		"channel title":       feed.Channel.Title,
+		"channel description": feed.Channel.Description,
+		"item title":          it.Title,
+		"item link":           it.Link,
+		"item description":    it.Description,
+	} {
+		if strings.ContainsAny(got, "\x1b\x07\u009b‮") {
+			t.Errorf("%s = %q, still carries a control character", field, got)
+		}
+	}
+	if got, want := it.Title, "Free ]52;c;cm0gLXJmIH4=money"; got != want {
+		t.Errorf("item title = %q, want %q", got, want)
+	}
+}

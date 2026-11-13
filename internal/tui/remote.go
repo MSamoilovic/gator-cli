@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/MSamoilovic/gator-cli/internal/store"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 )
 
 const remoteMark = "⇅"
@@ -45,7 +46,7 @@ func (m model) explain(err error) string {
 	case errors.Is(err, store.ErrUnauthorized):
 		return "Signed out — run: gator login --server " + m.serverName()
 	case errors.Is(err, store.ErrPlanLimit):
-		return "Plan limit reached — " + err.Error()
+		return "Plan limit reached — " + text.Printable(err.Error())
 	case errors.Is(err, store.ErrNeverSynced):
 		return "Never synced with " + m.serverName() + " — connect once, then press r"
 	case errors.Is(err, store.ErrUnreachable):
@@ -53,7 +54,7 @@ func (m model) explain(err error) string {
 	case errors.Is(err, errors.ErrUnsupported):
 		return m.serverName() + " refreshes feeds on its own — press r to reload"
 	}
-	return "Error: " + err.Error()
+	return "Error: " + text.Printable(err.Error())
 }
 
 func (m model) fatalView() string {

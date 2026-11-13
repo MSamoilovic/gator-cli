@@ -11,6 +11,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/catalog"
 	"github.com/MSamoilovic/gator-cli/internal/feeds"
 	"github.com/MSamoilovic/gator-cli/internal/store"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 	"github.com/MSamoilovic/gator-cli/internal/tui"
 )
 
@@ -113,7 +114,7 @@ func addCategories(ctx context.Context, s *state, ids []string) error {
 	results := s.Store.AddFeeds(ctx, entries, func(r feeds.AddResult) {
 		switch {
 		case r.Err != nil:
-			fmt.Fprintf(os.Stderr, "  x %s: %v\n", r.Entry.Name, r.Err)
+			fmt.Fprintf(os.Stderr, "  x %s: %s\n", text.Printable(r.Entry.Name), text.Printable(r.Err.Error()))
 		case r.Created:
 			fmt.Printf("  + %s\n", r.Entry.Name)
 		default:
