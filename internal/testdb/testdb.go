@@ -52,7 +52,7 @@ func Open(t *testing.T) *DB {
 		t.Fatalf("clearing tables before the test: %v", err)
 	}
 	t.Cleanup(func() {
-		shared.Exec("TRUNCATE users, feeds, posts, feed_follows, bookmarks, post_reads, api_tokens, invites")
+		shared.Exec("TRUNCATE users, feeds, posts, feed_follows, bookmarks, post_reads, api_tokens, invites, admin_log")
 	})
 
 	return db

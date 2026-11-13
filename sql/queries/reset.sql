@@ -7,7 +7,8 @@ SELECT
     (SELECT count(*) FROM bookmarks)    AS bookmarks,
     (SELECT count(*) FROM post_reads)   AS post_reads,
     (SELECT count(*) FROM api_tokens)   AS api_tokens,
-    (SELECT count(*) FROM invites)      AS invites;
+    (SELECT count(*) FROM invites)      AS invites,
+    (SELECT count(*) FROM admin_log)    AS admin_log;
 
 -- name: TruncateAll :exec
-TRUNCATE users, feeds, posts, feed_follows, bookmarks, post_reads, api_tokens, invites;
+TRUNCATE users, feeds, posts, feed_follows, bookmarks, post_reads, api_tokens, invites, admin_log;

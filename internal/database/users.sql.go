@@ -20,7 +20,7 @@ VALUES (
     $3,
     $4
 )
-RETURNING id, created_at, updated_at, name, email, password_hash
+RETURNING id, created_at, updated_at, name, email, password_hash, is_admin
 `
 
 type CreateUserParams struct {
@@ -45,12 +45,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
+		&i.IsAdmin,
 	)
 	return i, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, created_at, updated_at, name, email, password_hash FROM users
+SELECT id, created_at, updated_at, name, email, password_hash, is_admin FROM users
 WHERE name = $1
 `
 
@@ -64,6 +65,7 @@ func (q *Queries) GetUser(ctx context.Context, name string) (User, error) {
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
+		&i.IsAdmin,
 	)
 	return i, err
 }
