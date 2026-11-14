@@ -100,10 +100,18 @@ func confirm(in io.Reader, out io.Writer, dbName string) error {
 	return nil
 }
 
+func withoutDBURL(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return fmt.Errorf("db_url is not a valid URL: %w", ue.Err)
+	}
+	return err
+}
+
 func localDatabaseName(dbURL string) (string, error) {
 	u, err := url.Parse(dbURL)
 	if err != nil {
-		return "", fmt.Errorf("parsing db_url: %w", err)
+		return "", withoutDBURL(err)
 	}
 	if host := u.Hostname(); !isLoopback(host) {
 		return "", fmt.Errorf("refusing to delete: db_url points at %s, not a local database", host)
@@ -114,7 +122,7 @@ func localDatabaseName(dbURL string) (string, error) {
 func databaseName(dbURL string) (string, error) {
 	u, err := url.Parse(dbURL)
 	if err != nil {
-		return "", fmt.Errorf("parsing db_url: %w", err)
+		return "", withoutDBURL(err)
 	}
 
 	name := strings.TrimPrefix(u.Path, "/")

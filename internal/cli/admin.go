@@ -13,6 +13,7 @@ import (
 	"github.com/MSamoilovic/gator-cli/internal/auth"
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/store"
+	"github.com/MSamoilovic/gator-cli/internal/text"
 
 	"github.com/google/uuid"
 	"golang.org/x/term"
@@ -198,7 +199,7 @@ func printAdmins(ctx context.Context, q *database.Queries) error {
 		return errNoAdmin
 	}
 	for _, a := range admins {
-		fmt.Println(a.Name)
+		fmt.Println(text.Printable(a.Name))
 	}
 	return nil
 }
@@ -216,9 +217,9 @@ func printAdminLog(ctx context.Context, q *database.Queries, limit int) error {
 		return nil
 	}
 	for _, r := range rows {
-		line := r.At.Format("2006-01-02 15:04") + "  " + r.UserName + "  " + r.Command
+		line := r.At.Format("2006-01-02 15:04") + "  " + text.Printable(r.UserName) + "  " + r.Command
 		if r.Args != "" {
-			line += " " + r.Args
+			line += " " + text.Printable(r.Args)
 		}
 		fmt.Println(line)
 	}

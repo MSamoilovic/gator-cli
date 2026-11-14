@@ -171,6 +171,9 @@ func open(schema fs.FS) (*state, func() error, error) {
 	}
 
 	if cfg.ServerURL != "" {
+		if _, err := normalizeServerURL(cfg.ServerURL); err != nil {
+			return nil, nil, fmt.Errorf("server_url in %s: %w", config.Path(), err)
+		}
 		token, err := credentials.Load(cfg.ServerURL)
 		if err != nil {
 			return nil, nil, fmt.Errorf("not logged in to %s (gator login --server %s <name>): %w", cfg.ServerURL, cfg.ServerURL, err)
@@ -210,7 +213,7 @@ const (
 func connect(dbURL string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		return nil, fmt.Errorf("opening database: %w", err)
+		return nil, fmt.Errorf("opening database: %w", withoutDBURL(err))
 	}
 
 	db.SetMaxOpenConns(maxOpenConns)
@@ -219,7 +222,7 @@ func connect(dbURL string) (*sql.DB, error) {
 
 	if err := db.Ping(); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("connecting to database: %w", err)
+		return nil, fmt.Errorf("connecting to database: %w", withoutDBURL(err))
 	}
 	return db, nil
 }

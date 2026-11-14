@@ -49,7 +49,7 @@ func normalizeServerURL(raw string) (string, error) {
 	case "https":
 	case "http":
 		if !loopbackHost(u.Hostname()) {
-			return "", fmt.Errorf("refusing to send a password over plain http to %s; use https", u.Host)
+			return "", fmt.Errorf("refusing to send a password or token over plain http to %s; use https", u.Host)
 		}
 	default:
 		return "", fmt.Errorf("server address must start with https:// (got %q)", raw)
@@ -223,7 +223,9 @@ func handlerLogout(ctx context.Context, _ *state, _ command) error {
 		fmt.Fprintf(os.Stderr, "Discarded %s that never reached %s\n", plural(int64(lost), "change"), cfg.ServerURL)
 	}
 
-	if token, err := credentials.Load(cfg.ServerURL); err == nil {
+	if _, err := normalizeServerURL(cfg.ServerURL); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: not revoking the token on the server: %v\n", err)
+	} else if token, err := credentials.Load(cfg.ServerURL); err == nil {
 		if err := remote.New(cfg.ServerURL, token).Logout(ctx); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: the server did not confirm the logout: %v\n", err)
 		}

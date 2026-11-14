@@ -31,7 +31,7 @@ func handlerSupervise(ctx context.Context, _ *state, cmd command) error {
 		return fmt.Errorf("cannot locate own executable: %v", err)
 	}
 
-	logFile, err := os.OpenFile(superviseLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile(superviseLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return fmt.Errorf("cannot open log file: %v", err)
 	}
