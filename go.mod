@@ -2,6 +2,8 @@ module github.com/MSamoilovic/gator-cli
 
 go 1.26.2
 
+toolchain go1.27.4
+
 require (
 	github.com/atotto/clipboard v0.1.4
 	github.com/charmbracelet/bubbles v1.0.0
@@ -12,10 +14,10 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/muesli/termenv v0.16.0
 	github.com/pressly/goose/v3 v3.28.0
-	golang.org/x/crypto v0.57.0
-	golang.org/x/net v0.58.0
-	golang.org/x/term v0.46.0
-	golang.org/x/text v0.42.0
+	golang.org/x/crypto v0.58.0
+	golang.org/x/net v0.62.0
+	golang.org/x/term v0.47.0
+	golang.org/x/text v0.43.0
 )
 
 require (
@@ -44,6 +46,6 @@ require (
 	github.com/sethvargo/go-retry v0.4.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 )
