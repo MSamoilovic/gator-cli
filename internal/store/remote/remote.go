@@ -27,6 +27,8 @@ const (
 	maxParallelAdd = 8
 )
 
+var ErrResponseTooLarge = errors.New("response too large")
+
 type Error struct {
 	Status  int
 	Code    string
@@ -67,9 +69,14 @@ var _ store.Store = (*Store)(nil)
 
 func New(serverURL, token string) *Store {
 	return &Store{
-		base:   strings.TrimRight(serverURL, "/"),
-		token:  token,
-		client: &http.Client{Timeout: requestTimeout},
+		base:  strings.TrimRight(serverURL, "/"),
+		token: token,
+		client: &http.Client{
+			Timeout: requestTimeout,
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 	}
 }
 
@@ -123,9 +130,17 @@ func (s *Store) do(ctx context.Context, method, path string, query url.Values, b
 	}
 	defer res.Body.Close()
 
-	data, err := io.ReadAll(io.LimitReader(res.Body, maxResponse))
+	if res.StatusCode >= 300 && res.StatusCode < 400 {
+		return fmt.Errorf("%s answered %s and tried to send the request to %q; gator does not follow a server's redirects, so set the server address to where it should go",
+			s.base, res.Status, res.Header.Get("Location"))
+	}
+
+	data, err := io.ReadAll(io.LimitReader(res.Body, maxResponse+1))
 	if err != nil {
 		return fmt.Errorf("reading response: %w", err)
+	}
+	if len(data) > maxResponse {
+		return fmt.Errorf("reading a response from %s: %w: over %d bytes", s.base, ErrResponseTooLarge, maxResponse)
 	}
 
 	if res.StatusCode >= 400 {

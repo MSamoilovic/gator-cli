@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
@@ -297,36 +298,64 @@ func fetchFullText(ctx context.Context, st store.Store, post database.Post) tea.
 	}
 }
 
-func copyToClipboard(url string) tea.Cmd {
+func webLink(raw string) (string, error) {
+	link := strings.TrimSpace(raw)
+	u, err := url.Parse(link)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", fmt.Errorf("refusing a link that is not a web address: %q", raw)
+	}
+	return link, nil
+}
+
+var (
+	writeClipboard = clipboard.WriteAll
+	startBrowser   = launchBrowser
+)
+
+func copyToClipboard(raw string) tea.Cmd {
 	return func() tea.Msg {
-		if err := clipboard.WriteAll(url); err != nil {
+		link, err := webLink(raw)
+		if err != nil {
+			return errMsg{err}
+		}
+		if err := writeClipboard(link); err != nil {
 			return errMsg{fmt.Errorf("copying to clipboard: %w", err)}
 		}
-		return copiedMsg{url: url}
+		return copiedMsg{url: link}
 	}
 }
 
-func openInBrowser(url string) tea.Cmd {
+func openInBrowser(raw string) tea.Cmd {
 	return func() tea.Msg {
-		var cmd *exec.Cmd
-		switch runtime.GOOS {
-		case "linux":
-			cmd = exec.Command("xdg-open", url)
-		case "darwin":
-			cmd = exec.Command("open", url)
-		case "windows":
-			cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-		default:
-			return errMsg{fmt.Errorf("opening a browser is not supported on %s", runtime.GOOS)}
+		link, err := webLink(raw)
+		if err != nil {
+			return errMsg{err}
 		}
-
-		if err := cmd.Start(); err != nil {
-			return errMsg{fmt.Errorf("opening %s: %w", url, err)}
+		if err := startBrowser(link); err != nil {
+			return errMsg{err}
 		}
-		go cmd.Wait()
-
-		return openedMsg{url: url}
+		return openedMsg{url: link}
 	}
+}
+
+func launchBrowser(link string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "linux":
+		cmd = exec.Command("xdg-open", link)
+	case "darwin":
+		cmd = exec.Command("open", link)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", link)
+	default:
+		return fmt.Errorf("opening a browser is not supported on %s", runtime.GOOS)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("opening %s: %w", link, err)
+	}
+	go cmd.Wait()
+	return nil
 }
 
 func readInPager(p database.Post, feed string, width int) tea.Cmd {

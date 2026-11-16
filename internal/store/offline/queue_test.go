@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -487,5 +488,27 @@ func TestAnUnfollowLeavesNothingOfThatFeedInTheCache(t *testing.T) {
 	unread, _ := st.UnreadCounts(ctx)
 	if len(unread) != 1 || unread[0].FeedID != kept {
 		t.Errorf("unread counts offline = %+v, want only Kept", unread)
+	}
+}
+
+func TestAppendingTightensAQueueFileLeftWithLooserPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no group or other permission bits")
+	}
+	path := filepath.Join(t.TempDir(), QueueFileName)
+	if err := os.WriteFile(path, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := loadQueue(path).add(change{Op: opRead, PostID: uuid.New(), Value: true, At: time.Now()}); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mode := info.Mode().Perm(); mode != 0600 {
+		t.Errorf("mode = %o, want 600", mode)
 	}
 }

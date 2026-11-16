@@ -37,7 +37,8 @@ func (s *state) withDB() (*state, func() error, error) {
 func handlerLogin(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("login", flag.ContinueOnError)
 	serverFlag := fs.String("server", "", "log in to a gator server instead of the local database")
-	passwordFlag := fs.String("password", "", "password for the server (prompted when omitted)")
+	passwordFlag := fs.String("password", "", "password for the server (prompted when omitted; "+visiblePassword+")")
+	fromStdin := fs.Bool("password-stdin", false, "read the password from standard input")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
 	}
@@ -46,7 +47,11 @@ func handlerLogin(ctx context.Context, s *state, cmd command) error {
 	}
 
 	if server := serverTarget(*serverFlag); server != "" {
-		return loginRemote(ctx, server, fs.Arg(0), *passwordFlag)
+		password, err := passwordInput(*passwordFlag, *fromStdin, os.Stdin)
+		if err != nil {
+			return err
+		}
+		return loginRemote(ctx, server, fs.Arg(0), password)
 	}
 
 	s, closeDB, err := s.withDB()
@@ -87,24 +92,29 @@ func printNextStep(ctx context.Context, s *state, user database.User) {
 func handlerRegister(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
 	emailFlag := fs.String("email", "", "email for a future server login (optional)")
-	passwordFlag := fs.String("password", "", "password (required; asked for when omitted)")
+	passwordFlag := fs.String("password", "", "password (required; asked for when omitted; "+visiblePassword+")")
+	fromStdin := fs.Bool("password-stdin", false, "read the password from standard input")
 	serverFlag := fs.String("server", "", "register on a gator server instead of the local database (email and password required)")
 	linkFlag := fs.String("link", "", "invite link the server was handed out with")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
-		return fmt.Errorf("usage: register [--email=...] [--password=...] [--link=...] <username>")
+		return fmt.Errorf("usage: register [--email=...] [--password=... | --password-stdin] [--link=...] <username>")
 	}
 	username := fs.Arg(0)
 
-	email, password := *emailFlag, *passwordFlag
-	if isTerminal(os.Stdin) {
+	email := *emailFlag
+	password, err := passwordInput(*passwordFlag, *fromStdin, os.Stdin)
+	if err != nil {
+		return err
+	}
+	if !*fromStdin && isTerminal(os.Stdin) {
 		email = resolveEmail(email, os.Stdin)
 		password = resolvePassword(password)
 	}
 	if password == "" {
-		return errors.New("a password is required (pass --password, or run from a terminal)")
+		return errors.New("a password is required (pass --password-stdin, or run from a terminal)")
 	}
 
 	server, token, err := registrationTarget(*serverFlag, *linkFlag)
@@ -159,6 +169,34 @@ func resolveEmail(given string, in io.Reader) string {
 	fmt.Print("Email (optional, enter to skip): ")
 	line, _ := bufio.NewReader(in).ReadString('\n')
 	return strings.TrimSpace(line)
+}
+
+const (
+	visiblePassword  = "visible in ps and shell history, prefer --password-stdin"
+	maxPasswordInput = 1024
+)
+
+func passwordInput(given string, fromStdin bool, in io.Reader) (string, error) {
+	if !fromStdin {
+		return given, nil
+	}
+	if given != "" {
+		return "", errors.New("pass --password or --password-stdin, not both")
+	}
+
+	data, err := io.ReadAll(io.LimitReader(in, maxPasswordInput+1))
+	if err != nil {
+		return "", fmt.Errorf("reading the password from standard input: %w", err)
+	}
+	if len(data) > maxPasswordInput {
+		return "", fmt.Errorf("the password on standard input is over %d bytes", maxPasswordInput)
+	}
+
+	password := strings.TrimSuffix(strings.TrimSuffix(string(data), "\n"), "\r")
+	if password == "" {
+		return "", errors.New("no password on standard input")
+	}
+	return password, nil
 }
 
 func resolvePassword(given string) string {

@@ -67,3 +67,58 @@ func TestCleaningPostsLeavesTheStoresSliceAlone(t *testing.T) {
 		t.Error("printablePosts rewrote the slice it was handed; the offline cache holds that slice")
 	}
 }
+
+func TestOnlyWebLinksAreOpenedOrCopied(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{"https://go.dev/blog", "https://go.dev/blog"},
+		{"http://example.com/a?b=c", "http://example.com/a?b=c"},
+		{"\thttps://example.com/tabbed", "https://example.com/tabbed"},
+		{"file:///etc/passwd", ""},
+		{"javascript:alert(1)", ""},
+		{"-a", ""},
+		{"--help", ""},
+		{"/relative/path", ""},
+		{"https:///no-host", ""},
+		{"", ""},
+	}
+
+	for _, c := range cases {
+		got, err := webLink(c.raw)
+		switch {
+		case c.want == "" && err == nil:
+			t.Errorf("webLink(%q) = %q, want it refused", c.raw, got)
+		case c.want != "" && (err != nil || got != c.want):
+			t.Errorf("webLink(%q) = %q, %v; want %q", c.raw, got, err, c.want)
+		}
+	}
+
+	var launched []string
+	startBrowser = func(link string) error {
+		launched = append(launched, "open "+link)
+		return nil
+	}
+	writeClipboard = func(link string) error {
+		launched = append(launched, "copy "+link)
+		return nil
+	}
+
+	if _, ok := openInBrowser("file:///etc/passwd")().(errMsg); !ok {
+		t.Error("openInBrowser accepted a file: link")
+	}
+	if _, ok := copyToClipboard("javascript:alert(1)")().(errMsg); !ok {
+		t.Error("copyToClipboard accepted a javascript: link")
+	}
+	if len(launched) != 0 {
+		t.Errorf("a refused link still reached the system: %q", launched)
+	}
+
+	if _, ok := openInBrowser(" https://go.dev/blog")().(openedMsg); !ok {
+		t.Error("openInBrowser refused a web link")
+	}
+	if want := []string{"open https://go.dev/blog"}; len(launched) != 1 || launched[0] != want[0] {
+		t.Errorf("launched = %q, want %q", launched, want)
+	}
+}

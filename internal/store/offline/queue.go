@@ -74,6 +74,10 @@ func (q *queue) add(c change) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	if err := f.Chmod(0600); err != nil {
+		f.Close()
+		return 0, err
+	}
 	if _, err := f.Write(append(line, '\n')); err != nil {
 		f.Close()
 		return 0, err

@@ -25,13 +25,14 @@ func handlerInit(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	dbURL := fs.String("db-url", "", "PostgreSQL connection string")
 	username := fs.String("user", "", "username to create and log in as")
-	passwordFlag := fs.String("password", "", "password for --user (required with --user; asked for when omitted)")
+	passwordFlag := fs.String("password", "", "password for --user (required with --user; asked for when omitted; "+visiblePassword+")")
+	fromStdin := fs.Bool("password-stdin", false, "read the password for --user from standard input")
 	force := fs.Bool("force", false, "overwrite an existing config")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
 	}
 	if fs.NArg() != 0 {
-		return errors.New("usage: init [--db-url url] [--user name] [--password pw] [--force]")
+		return errors.New("usage: init [--db-url url] [--user name] [--password pw | --password-stdin] [--force]")
 	}
 
 	if existing, err := config.Read(); err == nil && !*force {
@@ -46,12 +47,15 @@ func handlerInit(ctx context.Context, s *state, cmd command) error {
 
 	passwordHash := ""
 	if *username != "" {
-		password := *passwordFlag
-		if isTerminal(os.Stdin) {
+		password, err := passwordInput(*passwordFlag, *fromStdin, os.Stdin)
+		if err != nil {
+			return err
+		}
+		if !*fromStdin && isTerminal(os.Stdin) {
 			password = resolvePassword(password)
 		}
 		if password == "" {
-			return errors.New("a password is required with --user (pass --password, or run from a terminal)")
+			return errors.New("a password is required with --user (pass --password-stdin, or run from a terminal)")
 		}
 		hash, err := auth.HashPassword(password)
 		if err != nil {

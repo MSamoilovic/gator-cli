@@ -2,6 +2,7 @@ package tui
 
 import (
 	"encoding/json"
+	"github.com/MSamoilovic/gator-cli/internal/atomicfile"
 	"github.com/MSamoilovic/gator-cli/internal/store"
 	"os"
 	"path/filepath"
@@ -82,7 +83,7 @@ func (s uiState) save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	return atomicfile.Write(path, data)
 }
 
 func (s uiState) feedUUID() uuid.UUID {
