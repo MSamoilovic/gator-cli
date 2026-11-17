@@ -19,7 +19,6 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-      - darwin
       - windows
     goarch:
       - amd64
@@ -39,26 +38,6 @@ archives:
     files:
       - README.md
       - LICENSE*
-
-homebrew_casks:
-  - name: gator
-    repository:
-      owner: MSamoilovic
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    homepage: https://github.com/MSamoilovic/gator-cli
-    description: A terminal RSS reader backed by PostgreSQL
-    caveats: |
-      gator needs a PostgreSQL database. Once one is running:
-
-        createdb gator
-        gator init --user <your-name>
-    hooks:
-      post:
-        install_steps: |
-          on_macos do
-            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/gator"]
-          end
 
 checksum:
   name_template: checksums.txt

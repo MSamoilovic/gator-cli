@@ -13,22 +13,18 @@ A CLI RSS feed aggregator. Follow feeds, aggregate posts, and manage subscriptio
 
 ## Installation
 
-Homebrew (macOS):
+Download an archive for Linux or Windows from the
+[releases page](https://github.com/MSamoilovic/gator-cli/releases), unpack it
+and put `gator` on your PATH.
 
-```bash
-brew install --cask MSamoilovic/tap/gator
-```
-
-From source, if you have Go:
+Or, from source, if you have Go:
 
 ```bash
 go install github.com/MSamoilovic/gator-cli/cmd/gator@latest
 ```
 
-Or download an archive for your platform from the
-[releases page](https://github.com/MSamoilovic/gator-cli/releases), unpack it
-and put `gator` on your PATH. Every build carries the database schema inside it,
-so none of these routes needs a clone of this repository.
+Every build carries the database schema inside it, so neither route needs a
+clone of this repository.
 
 ## Setup
 
@@ -36,14 +32,12 @@ so none of these routes needs a clone of this repository.
 
 ```bash
 sudo service postgresql start       # Linux / WSL
-brew services start postgresql@15   # macOS
 ```
 
 ### 2. Create the database
 
 ```bash
 sudo -u postgres psql               # Linux
-psql postgres                       # macOS
 ```
 
 ```sql
