@@ -18,7 +18,10 @@ const (
 	CodeBadRequest   = "bad_request"
 	CodeConflict     = "conflict"
 	CodeInternal     = "internal"
+	CodeRateLimited  = "rate_limited"
 )
+
+const MaxReadBatch = 500
 
 type Error struct {
 	Error string `json:"error"`

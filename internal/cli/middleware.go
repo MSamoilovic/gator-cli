@@ -32,6 +32,8 @@ func signInError(s *state, err error) error {
 		return fmt.Errorf("never synced with %s — connect once so gator can work offline later", server)
 	case errors.Is(err, store.ErrUnauthorized):
 		return fmt.Errorf("not signed in to %s — run: gator login <your-name>", server)
+	case errors.Is(err, store.ErrRateLimited):
+		return fmt.Errorf("%s is limiting how fast you can go — %w", server, err)
 	case errors.Is(err, store.ErrUnreachable):
 		return fmt.Errorf("cannot reach %s — check the connection, or run gator logout to go back to the local database", server)
 	}

@@ -8,6 +8,7 @@ import (
 	"net/mail"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/MSamoilovic/gator-cli/internal/auth"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -48,8 +50,8 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(req.Name)
 	email := strings.TrimSpace(req.Email)
 	switch {
-	case name == "" || utf8.RuneCountInString(name) > maxNameLength:
-		writeError(w, http.StatusBadRequest, wire.CodeBadRequest, "name must be 1-20 characters")
+	case !validName(name):
+		writeError(w, http.StatusBadRequest, wire.CodeBadRequest, "name must be 1-20 letters, digits, dots, dashes or underscores")
 		return
 	case !validEmail(email):
 		writeError(w, http.StatusBadRequest, wire.CodeBadRequest, "a valid email is required")
@@ -60,8 +62,12 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hash, err := auth.HashPassword(req.Password)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, wire.CodeBadRequest, err.Error())
+	switch {
+	case errors.Is(err, bcrypt.ErrPasswordTooLong):
+		writeError(w, http.StatusBadRequest, wire.CodeBadRequest, "password must be at most 72 bytes")
+		return
+	case err != nil:
+		s.fail(w, r, err)
 		return
 	}
 
@@ -132,6 +138,12 @@ func (s *Server) issueToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	login := strings.TrimSpace(req.Login)
+	attempts := "login:" + strings.ToLower(login)
+	if wait := s.login.wait(attempts); wait > 0 {
+		tooMany(w, wait)
+		return
+	}
+
 	var (
 		user database.User
 		err  error
@@ -153,6 +165,7 @@ func (s *Server) issueToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil || user.PasswordHash == "" || !verified {
+		s.login.spend(attempts)
 		writeError(w, http.StatusUnauthorized, wire.CodeUnauthorized, "wrong name, email or password")
 		return
 	}
@@ -196,6 +209,18 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request, st store.Store) {
 		return
 	}
 	writeJSON(w, http.StatusOK, wire.FromUser(user))
+}
+
+func validName(name string) bool {
+	if name == "" || utf8.RuneCountInString(name) > maxNameLength {
+		return false
+	}
+	for _, r := range name {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && !strings.ContainsRune("._-", r) {
+			return false
+		}
+	}
+	return true
 }
 
 func validEmail(s string) bool {

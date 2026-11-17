@@ -14,6 +14,8 @@ import (
 )
 
 func (s *Server) joinPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Referrer-Policy", "no-referrer")
+
 	token := r.PathValue("token")
 	inv, err := s.q.GetInvite(r.Context(), database.GetInviteParams{
 		Now:       time.Now(),
@@ -29,7 +31,7 @@ func (s *Server) joinPage(w http.ResponseWriter, r *http.Request) {
 	case inv.Expired:
 		writeText(w, http.StatusGone, "This invite link expired on "+inv.ExpiresAt.Format(invite.TimeFormat)+".\n")
 	default:
-		writeText(w, http.StatusOK, joinInstructions(invite.Link(externalBase(r), token), inv.ExpiresAt))
+		writeText(w, http.StatusOK, joinInstructions(invite.Link(s.externalBase(r), token), inv.ExpiresAt))
 	}
 }
 
@@ -44,7 +46,10 @@ The link is good for one account and expires on %s.
 `, link, expires.Format(invite.TimeFormat))
 }
 
-func externalBase(r *http.Request) string {
+func (s *Server) externalBase(r *http.Request) string {
+	if s.publicURL != "" {
+		return s.publicURL
+	}
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"

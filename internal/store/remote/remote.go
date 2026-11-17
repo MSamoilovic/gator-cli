@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,6 +26,9 @@ const (
 	requestTimeout = 60 * time.Second
 	maxResponse    = 32 << 20
 	maxParallelAdd = 8
+	maxAddAttempts = 30
+	minRetryWait   = time.Second
+	maxRetryWait   = 2 * time.Minute
 )
 
 var ErrResponseTooLarge = errors.New("response too large")
@@ -141,6 +145,10 @@ func (s *Store) do(ctx context.Context, method, path string, query url.Values, b
 	}
 	if len(data) > maxResponse {
 		return fmt.Errorf("reading a response from %s: %w: over %d bytes", s.base, ErrResponseTooLarge, maxResponse)
+	}
+
+	if res.StatusCode == http.StatusTooManyRequests {
+		return &store.RateLimitError{RetryAfter: retryAfter(res.Header.Get("Retry-After"))}
 	}
 
 	if res.StatusCode >= 400 {
@@ -266,10 +274,12 @@ func (s *Store) SetRead(ctx context.Context, postID uuid.UUID, read bool) error 
 }
 
 func (s *Store) SetAllRead(ctx context.Context, postIDs []uuid.UUID) error {
-	if len(postIDs) == 0 {
-		return nil
+	for batch := range slices.Chunk(postIDs, wire.MaxReadBatch) {
+		if err := s.do(ctx, http.MethodPost, "/v1/posts/read", nil, wire.MarkReadRequest{PostIDs: batch}, nil); err != nil {
+			return err
+		}
 	}
-	return s.do(ctx, http.MethodPost, "/v1/posts/read", nil, wire.MarkReadRequest{PostIDs: postIDs}, nil)
+	return nil
 }
 
 func (s *Store) Bookmark(ctx context.Context, postID uuid.UUID) (bool, error) {
@@ -318,9 +328,10 @@ func (s *Store) AddFeeds(ctx context.Context, entries []feeds.Entry, onResult fu
 	results := make([]feeds.AddResult, len(entries))
 
 	var (
-		wg  sync.WaitGroup
-		mu  sync.Mutex
-		sem = make(chan struct{}, maxParallelAdd)
+		wg    sync.WaitGroup
+		mu    sync.Mutex
+		sem   = make(chan struct{}, maxParallelAdd)
+		turns = &pacer{}
 	)
 	for i, e := range entries {
 		wg.Add(1)
@@ -329,7 +340,7 @@ func (s *Store) AddFeeds(ctx context.Context, entries []feeds.Entry, onResult fu
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			feed, created, err := s.addEntry(ctx, e)
+			feed, created, err := s.addPatiently(ctx, e, turns)
 			r := feeds.AddResult{Entry: e, Feed: feed, Created: created, Err: err}
 			results[i] = r
 
@@ -386,4 +397,47 @@ func nilIfEmpty[T any](s []T) []T {
 		return nil
 	}
 	return s
+}
+
+type pacer struct {
+	mu   sync.Mutex
+	next time.Time
+}
+
+func (p *pacer) turn(wait time.Duration) time.Duration {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	now := time.Now()
+	if p.next.Before(now) {
+		p.next = now
+	}
+	p.next = p.next.Add(wait)
+	return p.next.Sub(now)
+}
+
+func (s *Store) addPatiently(ctx context.Context, e feeds.Entry, turns *pacer) (store.Feed, bool, error) {
+	for attempt := 1; ; attempt++ {
+		feed, created, err := s.addEntry(ctx, e)
+		wait, limited := store.RetryAfter(err)
+		if !limited || attempt == maxAddAttempts {
+			return feed, created, err
+		}
+
+		timer := time.NewTimer(turns.turn(min(max(wait, minRetryWait), maxRetryWait)))
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return feed, created, err
+		case <-timer.C:
+		}
+	}
+}
+
+func retryAfter(header string) time.Duration {
+	seconds, err := strconv.Atoi(strings.TrimSpace(header))
+	if err != nil || seconds < 0 {
+		return 0
+	}
+	return min(time.Duration(seconds)*time.Second, maxRetryWait)
 }

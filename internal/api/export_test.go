@@ -8,5 +8,9 @@ import (
 )
 
 func NewAllowingPrivateFetch(q *database.Queries, logger *log.Logger) http.Handler {
-	return newServer(&Server{q: q, log: logger, allowPrivateFetch: true})
+	return newServer(&Server{q: q, log: logger, allowPrivateFetch: true}, Options{})
+}
+
+func NewForTest(q *database.Queries, logger *log.Logger, opts Options) http.Handler {
+	return newServer(&Server{q: q, log: logger, allowPrivateFetch: true}, opts)
 }

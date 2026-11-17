@@ -26,7 +26,7 @@ import (
 
 func serve(t *testing.T, db *testdb.DB) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(api.New(db.Queries, log.New(io.Discard, "", 0)))
+	srv := httptest.NewServer(api.New(db.Queries, log.New(io.Discard, "", 0), api.Options{}))
 	t.Cleanup(srv.Close)
 	return srv
 }
