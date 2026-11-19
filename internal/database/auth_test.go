@@ -93,10 +93,11 @@ func TestGetUserByTokenHashResolvesTheOwner(t *testing.T) {
 	db.User(t, "bob")
 
 	if _, err := db.CreateAPIToken(t.Context(), database.CreateAPITokenParams{
-		ID:        uuid.New(),
-		UserID:    alice.ID,
-		TokenHash: "alice-token-hash",
-		CreatedAt: time.Now(),
+		ID:           uuid.New(),
+		UserID:       alice.ID,
+		TokenHash:    "alice-token-hash",
+		CreatedAt:    time.Now(),
+		LifetimeDays: 90,
 	}); err != nil {
 		t.Fatalf("CreateAPIToken: %v", err)
 	}

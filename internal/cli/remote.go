@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"net"
 	"net/url"
@@ -193,12 +194,24 @@ func saveSession(server string, res wire.TokenResponse) error {
 	return nil
 }
 
-func handlerLogout(ctx context.Context, _ *state, _ command) error {
+func handlerLogout(ctx context.Context, _ *state, cmd command) error {
+	fs := flag.NewFlagSet("logout", flag.ContinueOnError)
+	everywhere := fs.Bool("all", false, "also sign out every other device on the server")
+	if err := fs.Parse(cmd.Args); err != nil {
+		return err
+	}
+	if fs.NArg() > 0 {
+		return errors.New("usage: logout [--all]")
+	}
+
 	cfg, err := config.Read()
 	if err != nil {
 		return fmt.Errorf("reading config: %w", err)
 	}
 	if cfg.ServerURL == "" {
+		if *everywhere {
+			return errors.New("--all signs out the devices connected to a server, and this install is local")
+		}
 		if cfg.CurrentUserName == "" {
 			return errors.New("not logged in")
 		}
@@ -209,6 +222,13 @@ func handlerLogout(ctx context.Context, _ *state, _ command) error {
 		}
 		fmt.Printf("Logged out %s\n", name)
 		return nil
+	}
+
+	revoked := int64(-1)
+	if *everywhere {
+		if revoked, err = logoutEverywhere(ctx, cfg.ServerURL); err != nil {
+			return err
+		}
 	}
 
 	home, err := os.UserHomeDir()
@@ -223,12 +243,8 @@ func handlerLogout(ctx context.Context, _ *state, _ command) error {
 		fmt.Fprintf(os.Stderr, "Discarded %s that never reached %s\n", plural(int64(lost), "change"), cfg.ServerURL)
 	}
 
-	if _, err := normalizeServerURL(cfg.ServerURL); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: not revoking the token on the server: %v\n", err)
-	} else if token, err := credentials.Load(cfg.ServerURL); err == nil {
-		if err := remote.New(cfg.ServerURL, token).Logout(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: the server did not confirm the logout: %v\n", err)
-		}
+	if !*everywhere {
+		revokeThisDevice(ctx, cfg.ServerURL)
 	}
 	if err := credentials.Delete(); err != nil {
 		return fmt.Errorf("removing saved token: %w", err)
@@ -241,6 +257,41 @@ func handlerLogout(ctx context.Context, _ *state, _ command) error {
 		return fmt.Errorf("saving config: %w", err)
 	}
 
+	if revoked >= 0 {
+		fmt.Printf("Signed out %s on %s\n", plural(revoked, "session"), server)
+	}
 	fmt.Printf("Disconnected from %s\n", server)
 	return nil
+}
+
+func revokeThisDevice(ctx context.Context, server string) {
+	if _, err := normalizeServerURL(server); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: not revoking the token on the server: %v\n", err)
+		return
+	}
+	token, err := credentials.Load(server)
+	if err != nil {
+		return
+	}
+	if err := remote.New(server, token).Logout(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: the server did not confirm the logout: %v\n", err)
+	}
+}
+
+func logoutEverywhere(ctx context.Context, server string) (int64, error) {
+	if _, err := normalizeServerURL(server); err != nil {
+		return 0, fmt.Errorf("not signing out everywhere: %w", err)
+	}
+	token, err := credentials.Load(server)
+	switch {
+	case errors.Is(err, credentials.ErrNoToken):
+		return 0, fmt.Errorf("no saved sign-in for %s, so there is nothing to sign out with — run: gator login <name>, then gator logout --all", server)
+	case err != nil:
+		return 0, err
+	}
+	n, err := remote.New(server, token).LogoutAll(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("%s did not sign out the other devices, so nothing was changed here: %w", server, err)
+	}
+	return n, nil
 }

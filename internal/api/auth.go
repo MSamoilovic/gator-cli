@@ -25,6 +25,7 @@ import (
 const (
 	minPasswordLength = 8
 	maxNameLength     = 20
+	tokenLifetimeDays = 90
 )
 
 var decoyHash = func() string {
@@ -181,10 +182,11 @@ func (s *Server) respondWithToken(w http.ResponseWriter, r *http.Request, user d
 	}
 
 	if _, err := s.q.CreateAPIToken(r.Context(), database.CreateAPITokenParams{
-		ID:        uuid.New(),
-		UserID:    user.ID,
-		TokenHash: auth.HashToken(token),
-		CreatedAt: time.Now(),
+		ID:           uuid.New(),
+		UserID:       user.ID,
+		TokenHash:    auth.HashToken(token),
+		CreatedAt:    time.Now(),
+		LifetimeDays: tokenLifetimeDays,
 	}); err != nil {
 		s.fail(w, r, err)
 		return
@@ -200,6 +202,29 @@ func (s *Server) revokeToken(w http.ResponseWriter, r *http.Request, _ store.Sto
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) revokeAllTokens(w http.ResponseWriter, r *http.Request, st store.Store) {
+	user, err := st.Me(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	n, err := s.q.DeleteAPITokensForUser(r.Context(), user.ID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, wire.RevokeResponse{Revoked: n})
+}
+
+func (s *Server) touchToken(ctx context.Context, tokenHash string) {
+	if _, err := s.q.TouchAPIToken(ctx, database.TouchAPITokenParams{
+		LifetimeDays: tokenLifetimeDays,
+		TokenHash:    tokenHash,
+	}); err != nil {
+		s.log.Printf("extending a token: %v", err)
+	}
 }
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request, st store.Store) {

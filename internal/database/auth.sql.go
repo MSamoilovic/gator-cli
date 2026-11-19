@@ -14,21 +14,23 @@ import (
 )
 
 const createAPIToken = `-- name: CreateAPIToken :one
-INSERT INTO api_tokens (id, user_id, token_hash, created_at)
+INSERT INTO api_tokens (id, user_id, token_hash, created_at, expires_at)
 VALUES (
     $1,
     $2,
     $3,
-    $4
+    $4,
+    now() + make_interval(days => $5::int)
 )
-RETURNING id, user_id, token_hash, created_at, last_used_at
+RETURNING id, user_id, token_hash, created_at, last_used_at, expires_at
 `
 
 type CreateAPITokenParams struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	TokenHash string
-	CreatedAt time.Time
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	TokenHash    string
+	CreatedAt    time.Time
+	LifetimeDays int32
 }
 
 func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) (ApiToken, error) {
@@ -37,6 +39,7 @@ func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) 
 		arg.UserID,
 		arg.TokenHash,
 		arg.CreatedAt,
+		arg.LifetimeDays,
 	)
 	var i ApiToken
 	err := row.Scan(
@@ -45,6 +48,7 @@ func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) 
 		&i.TokenHash,
 		&i.CreatedAt,
 		&i.LastUsedAt,
+		&i.ExpiresAt,
 	)
 	return i, err
 }
@@ -105,6 +109,33 @@ func (q *Queries) DeleteAPIToken(ctx context.Context, tokenHash string) (int64, 
 	return result.RowsAffected()
 }
 
+const deleteAPITokensForUser = `-- name: DeleteAPITokensForUser :one
+WITH gone AS (
+    DELETE FROM api_tokens WHERE user_id = $1
+    RETURNING expires_at
+)
+SELECT count(*) FILTER (WHERE expires_at > now()) FROM gone
+`
+
+func (q *Queries) DeleteAPITokensForUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, deleteAPITokensForUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteExpiredAPITokens = `-- name: DeleteExpiredAPITokens :execrows
+DELETE FROM api_tokens WHERE expires_at <= now()
+`
+
+func (q *Queries) DeleteExpiredAPITokens(ctx context.Context) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteExpiredAPITokens)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, created_at, updated_at, name, email, password_hash, is_admin FROM users
 WHERE lower(email) = lower($1)
@@ -129,6 +160,7 @@ const getUserByTokenHash = `-- name: GetUserByTokenHash :one
 SELECT users.id, users.created_at, users.updated_at, users.name, users.email, users.password_hash, users.is_admin FROM users
 JOIN api_tokens ON api_tokens.user_id = users.id
 WHERE api_tokens.token_hash = $1
+  AND api_tokens.expires_at > now()
 `
 
 func (q *Queries) GetUserByTokenHash(ctx context.Context, tokenHash string) (User, error) {
@@ -144,4 +176,25 @@ func (q *Queries) GetUserByTokenHash(ctx context.Context, tokenHash string) (Use
 		&i.IsAdmin,
 	)
 	return i, err
+}
+
+const touchAPIToken = `-- name: TouchAPIToken :execrows
+UPDATE api_tokens
+SET last_used_at = now(),
+    expires_at = now() + make_interval(days => $1::int)
+WHERE token_hash = $2
+  AND (last_used_at IS NULL OR last_used_at < now() - interval '1 day')
+`
+
+type TouchAPITokenParams struct {
+	LifetimeDays int32
+	TokenHash    string
+}
+
+func (q *Queries) TouchAPIToken(ctx context.Context, arg TouchAPITokenParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, touchAPIToken, arg.LifetimeDays, arg.TokenHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

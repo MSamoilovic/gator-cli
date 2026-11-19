@@ -26,6 +26,7 @@ type ApiToken struct {
 	TokenHash  string
 	CreatedAt  time.Time
 	LastUsedAt sql.NullTime
+	ExpiresAt  time.Time
 }
 
 type Bookmark struct {

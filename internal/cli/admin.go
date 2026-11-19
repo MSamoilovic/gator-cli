@@ -104,23 +104,38 @@ func logAdminAction(ctx context.Context, q *database.Queries, user store.User, c
 func handlerAdmin(ctx context.Context, s *state, cmd command) error {
 	fs := flag.NewFlagSet("admin", flag.ContinueOnError)
 	revoke := fs.Bool("revoke", false, "take the admin role away from <name>")
+	revokeTokens := fs.Bool("revoke-tokens", false, "sign <name> out of every device")
 	showLog := fs.Bool("log", false, "print the latest admin actions")
 	limit := fs.Int("limit", 50, "how many actions --log prints")
 	if err := fs.Parse(cmd.Args); err != nil {
 		return err
 	}
 
+	modes := 0
+	for _, on := range []bool{*revoke, *revokeTokens, *showLog} {
+		if on {
+			modes++
+		}
+	}
+
+	usage := errors.New("usage: admin [<name> | --revoke <name> | --revoke-tokens <name> | --log [--limit N]]")
+	if modes > 1 {
+		return usage
+	}
+
 	switch {
-	case *showLog && fs.NArg() == 0 && !*revoke:
+	case *showLog && fs.NArg() == 0:
 		return printAdminLog(ctx, s.Db, *limit)
 	case *revoke && fs.NArg() == 1:
 		return revokeAdmin(ctx, s.Db, fs.Arg(0))
-	case !*revoke && !*showLog && fs.NArg() == 1:
+	case *revokeTokens && fs.NArg() == 1:
+		return revokeTokensOf(ctx, s.Db, fs.Arg(0))
+	case modes == 0 && fs.NArg() == 1:
 		return grantAdmin(ctx, s.Db, fs.Arg(0))
-	case !*revoke && !*showLog && fs.NArg() == 0:
+	case modes == 0 && fs.NArg() == 0:
 		return printAdmins(ctx, s.Db)
 	}
-	return errors.New("usage: admin [<name> | --revoke <name> | --log [--limit N]]")
+	return usage
 }
 
 func grantAdmin(ctx context.Context, q *database.Queries, name string) error {
@@ -187,6 +202,30 @@ func revokeAdmin(ctx context.Context, q *database.Queries, name string) error {
 		return fmt.Errorf("%s is the last admin; make someone else an admin first", name)
 	}
 	fmt.Printf("%s is no longer an admin\n", name)
+	return nil
+}
+
+func revokeTokensOf(ctx context.Context, q *database.Queries, name string) error {
+	switch admins, err := q.CountAdmins(ctx); {
+	case err != nil:
+		return fmt.Errorf("checking for an admin: %w", err)
+	case admins == 0:
+		return errNoAdmin
+	}
+
+	target, err := q.GetUser(ctx, name)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return fmt.Errorf("no user named %s", name)
+	case err != nil:
+		return fmt.Errorf("looking up %s: %w", name, err)
+	}
+
+	n, err := q.DeleteAPITokensForUser(ctx, target.ID)
+	if err != nil {
+		return fmt.Errorf("revoking the tokens of %s: %w", name, err)
+	}
+	fmt.Printf("Signed %s out of %s\n", name, plural(n, "session"))
 	return nil
 }
 

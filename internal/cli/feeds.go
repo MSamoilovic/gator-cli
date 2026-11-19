@@ -244,6 +244,13 @@ func scrapeFeeds(ctx context.Context, s *state) {
 		fmt.Printf("Deleted %d posts older than %s, keeping the newest %d per feed\n",
 			n, policy.Retention, policy.KeepPerFeed)
 	}
+
+	switch n, err := s.Db.DeleteExpiredAPITokens(ctx); {
+	case err != nil:
+		fmt.Fprintln(os.Stderr, "error: deleting expired tokens:", err)
+	case n > 0:
+		fmt.Printf("Deleted %s that had expired\n", plural(n, "sign-in token"))
+	}
 }
 
 func handlerAgg(ctx context.Context, s *state, cmd command) error {
