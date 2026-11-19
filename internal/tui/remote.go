@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/store"
 	"github.com/MSamoilovic/gator-cli/internal/text"
@@ -47,6 +48,8 @@ func (m model) explain(err error) string {
 		return "Signed out — run: gator login --server " + m.serverName()
 	case errors.Is(err, store.ErrPlanLimit):
 		return "Plan limit reached — " + text.Printable(err.Error())
+	case errors.Is(err, store.ErrRateLimited):
+		return "Slow down — " + m.serverName() + " " + waitFor(err)
 	case errors.Is(err, store.ErrNeverSynced):
 		return "Never synced with " + m.serverName() + " — connect once, then press r"
 	case errors.Is(err, store.ErrUnreachable):
@@ -62,8 +65,16 @@ func (m model) fatalView() string {
 	switch {
 	case errors.Is(m.err, store.ErrUnauthorized):
 		hint = "Quit with q, sign in again, then start the reader."
-	case errors.Is(m.err, store.ErrUnreachable):
+	case errors.Is(m.err, store.ErrUnreachable), errors.Is(m.err, store.ErrRateLimited):
 		hint = "Press r to try again, or q to quit."
 	}
 	return "\n  " + m.explain(m.err) + "\n\n  " + hint + "\n"
+}
+
+func waitFor(err error) string {
+	wait, _ := store.RetryAfter(err)
+	if wait <= 0 {
+		return "asks you to wait a moment"
+	}
+	return "asks you to wait " + wait.Round(time.Second).String()
 }

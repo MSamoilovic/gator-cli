@@ -78,7 +78,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           GATOR_SERVER_URL: ${{ vars.GATOR_SERVER_URL }}
 
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6

@@ -124,6 +124,13 @@ func (s *Store) answered(ctx context.Context, err error) bool {
 	return reached
 }
 
+func (s *Store) postpone(ctx context.Context, err error) bool {
+	if !s.answered(ctx, err) {
+		return true
+	}
+	return errors.Is(err, store.ErrRateLimited)
+}
+
 func (s *Store) drain(ctx context.Context) int {
 	s.mu.Lock()
 	owed := len(s.queue.pending) > 0 && !s.flushing
@@ -350,7 +357,7 @@ func (s *Store) Stats(ctx context.Context, since time.Time) ([]store.FeedStat, e
 
 func (s *Store) SetRead(ctx context.Context, postID uuid.UUID, read bool) error {
 	err := s.inner.SetRead(ctx, postID, read)
-	if s.answered(ctx, err) {
+	if !s.postpone(ctx, err) {
 		return err
 	}
 	return s.enqueue(change{Op: opRead, PostID: postID, Value: read, At: time.Now()})
@@ -358,7 +365,7 @@ func (s *Store) SetRead(ctx context.Context, postID uuid.UUID, read bool) error 
 
 func (s *Store) SetAllRead(ctx context.Context, postIDs []uuid.UUID) error {
 	err := s.inner.SetAllRead(ctx, postIDs)
-	if s.answered(ctx, err) {
+	if !s.postpone(ctx, err) {
 		return err
 	}
 	return s.enqueue(change{Op: opReadAll, PostIDs: postIDs, At: time.Now()})
@@ -366,7 +373,7 @@ func (s *Store) SetAllRead(ctx context.Context, postIDs []uuid.UUID) error {
 
 func (s *Store) Bookmark(ctx context.Context, postID uuid.UUID) (bool, error) {
 	created, err := s.inner.Bookmark(ctx, postID)
-	if s.answered(ctx, err) {
+	if !s.postpone(ctx, err) {
 		return created, err
 	}
 
@@ -379,7 +386,7 @@ func (s *Store) Bookmark(ctx context.Context, postID uuid.UUID) (bool, error) {
 
 func (s *Store) Unbookmark(ctx context.Context, postID uuid.UUID) error {
 	err := s.inner.Unbookmark(ctx, postID)
-	if s.answered(ctx, err) {
+	if !s.postpone(ctx, err) {
 		return err
 	}
 	return s.enqueue(change{Op: opBookmark, PostID: postID, At: time.Now()})
@@ -421,7 +428,7 @@ func (s *Store) Unfollow(ctx context.Context, feedID uuid.UUID) (int, error) {
 
 func (s *Store) Categorize(ctx context.Context, url, category string) (store.Feed, error) {
 	feed, err := s.inner.Categorize(ctx, url, category)
-	if s.answered(ctx, err) {
+	if !s.postpone(ctx, err) {
 		return feed, err
 	}
 

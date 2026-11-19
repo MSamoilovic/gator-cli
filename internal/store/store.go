@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/database"
@@ -84,7 +85,29 @@ var (
 	ErrPlanLimit    = errors.New("your plan does not allow that")
 	ErrUnreachable  = errors.New("cannot reach the server")
 	ErrNeverSynced  = errors.New("never synced with the server")
+	ErrRateLimited  = errors.New("the server is limiting how fast you can go")
 )
+
+type RateLimitError struct {
+	RetryAfter time.Duration
+}
+
+func (e *RateLimitError) Error() string {
+	if e.RetryAfter <= 0 {
+		return ErrRateLimited.Error() + "; try again shortly"
+	}
+	return fmt.Sprintf("%s; try again in %s", ErrRateLimited, e.RetryAfter.Round(time.Second))
+}
+
+func (e *RateLimitError) Is(target error) bool { return target == ErrRateLimited }
+
+func RetryAfter(err error) (time.Duration, bool) {
+	var limited *RateLimitError
+	if !errors.As(err, &limited) {
+		return 0, false
+	}
+	return limited.RetryAfter, true
+}
 
 type Store interface {
 	Me(ctx context.Context) (User, error)

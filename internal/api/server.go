@@ -7,7 +7,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/netip"
 	"strings"
+	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/auth"
 	"github.com/MSamoilovic/gator-cli/internal/database"
@@ -22,26 +24,46 @@ const (
 	blockedMessage = "that address is not on the public internet"
 )
 
+type Options struct {
+	TrustedProxies []netip.Prefix
+	PublicURL      string
+}
+
 type Server struct {
 	q   *database.Queries
 	log *log.Logger
+
+	trustedProxies []netip.Prefix
+	publicURL      string
+
+	anonymous *limiter
+	login     *limiter
+	costly    *limiter
+	user      *limiter
 
 	allowPrivateFetch bool
 }
 
 type tokenKey struct{}
 
-func New(q *database.Queries, logger *log.Logger) http.Handler {
-	return newServer(&Server{q: q, log: logger})
+func New(q *database.Queries, logger *log.Logger, opts Options) http.Handler {
+	return newServer(&Server{q: q, log: logger}, opts)
 }
 
-func newServer(s *Server) http.Handler {
+func newServer(s *Server, opts Options) http.Handler {
+	s.trustedProxies = opts.TrustedProxies
+	s.publicURL = strings.TrimRight(opts.PublicURL, "/")
+	s.anonymous = newLimiter(anonymousLimit, time.Now)
+	s.login = newLimiter(loginLimit, time.Now)
+	s.costly = newLimiter(costlyLimit, time.Now)
+	s.user = newLimiter(userLimit, time.Now)
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /v1/healthz", s.healthz)
-	mux.HandleFunc("GET /join/{token}", s.joinPage)
-	mux.HandleFunc("POST /v1/users", s.register)
-	mux.HandleFunc("POST /v1/tokens", s.issueToken)
+	mux.Handle("GET /join/{token}", s.perIP(s.joinPage))
+	mux.Handle("POST /v1/users", s.perIP(s.register))
+	mux.Handle("POST /v1/tokens", s.perIP(s.issueToken))
 	mux.Handle("DELETE /v1/tokens/current", s.authed(s.revokeToken))
 	mux.Handle("GET /v1/me", s.authed(s.me))
 
@@ -55,18 +77,25 @@ func newServer(s *Server) http.Handler {
 	mux.Handle("DELETE /v1/posts/{id}/read", s.authed(s.markUnread))
 	mux.Handle("POST /v1/posts/{id}/bookmark", s.authed(s.bookmark))
 	mux.Handle("DELETE /v1/posts/{id}/bookmark", s.authed(s.unbookmark))
-	mux.Handle("GET /v1/posts/{id}/fulltext", s.authed(s.fullText))
+	mux.Handle("GET /v1/posts/{id}/fulltext", s.authed(s.fullText, s.costly))
 
 	mux.Handle("GET /v1/subscriptions", s.authed(s.subscriptions))
-	mux.Handle("POST /v1/subscriptions", s.authed(s.addFeed))
-	mux.Handle("POST /v1/subscriptions/follow", s.authed(s.follow))
+	mux.Handle("POST /v1/subscriptions", s.authed(s.addFeed, s.costly))
+	mux.Handle("POST /v1/subscriptions/follow", s.authed(s.follow, s.costly))
 	mux.Handle("PATCH /v1/subscriptions", s.authed(s.categorize))
 	mux.Handle("DELETE /v1/subscriptions", s.authed(s.unfollowURL))
 	mux.Handle("DELETE /v1/subscriptions/{feed_id}", s.authed(s.unfollow))
 	mux.Handle("GET /v1/subscriptions/stats", s.authed(s.stats))
 	mux.Handle("GET /v1/unread", s.authed(s.unread))
 
-	return s.recoverer(s.publicFetchOnly(mux))
+	return s.recoverer(headers(s.publicFetchOnly(mux)))
+}
+
+func headers(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) publicFetchOnly(next http.Handler) http.Handler {
@@ -90,8 +119,11 @@ func (s *Server) recoverer(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) authed(next func(http.ResponseWriter, *http.Request, store.Store)) http.Handler {
+func (s *Server) authed(next func(http.ResponseWriter, *http.Request, store.Store), extra ...*limiter) http.Handler {
+	limiters := append([]*limiter{s.user}, extra...)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+
 		token, ok := bearer(r)
 		if !ok {
 			writeError(w, http.StatusUnauthorized, wire.CodeUnauthorized, "missing bearer token")
@@ -102,6 +134,13 @@ func (s *Server) authed(next func(http.ResponseWriter, *http.Request, store.Stor
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, wire.CodeUnauthorized, "invalid token")
 			return
+		}
+
+		for _, l := range limiters {
+			if wait := l.take(user.ID.String()); wait > 0 {
+				tooMany(w, wait)
+				return
+			}
 		}
 
 		ctx := context.WithValue(r.Context(), tokenKey{}, token)

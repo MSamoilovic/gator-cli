@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/MSamoilovic/gator-cli/internal/store"
 	"github.com/MSamoilovic/gator-cli/internal/wire"
@@ -14,8 +15,11 @@ import (
 )
 
 const (
-	maxPostLimit = 1000
-	maxPerFeed   = 50
+	defaultPostLimit = 50
+	maxPostLimit     = 1000
+	maxPerFeed       = 50
+	maxOffset        = 100_000
+	maxQueryLength   = 200
 )
 
 func (s *Server) posts(w http.ResponseWriter, r *http.Request, st store.Store) {
@@ -39,6 +43,9 @@ func postQuery(r *http.Request) (store.PostQuery, error) {
 		FeedName: v.Get("feed_name"),
 		Query:    v.Get("q"),
 		SortDir:  v.Get("sort"),
+	}
+	if utf8.RuneCountInString(q.Query) > maxQueryLength {
+		return q, errors.New("q must be at most " + strconv.Itoa(maxQueryLength) + " characters")
 	}
 
 	if raw := v.Get("feed_id"); raw != "" {
@@ -77,6 +84,12 @@ func postQuery(r *http.Request) (store.PostQuery, error) {
 	}
 	if perFeed > maxPerFeed {
 		return q, errors.New("per_feed must be at most " + strconv.Itoa(maxPerFeed))
+	}
+	if offset > maxOffset {
+		return q, errors.New("offset must be at most " + strconv.Itoa(maxOffset))
+	}
+	if limit == 0 {
+		limit = defaultPostLimit
 	}
 
 	q.Limit, q.Offset, q.PerFeed = min(limit, maxPostLimit), offset, perFeed
@@ -173,6 +186,10 @@ func (s *Server) setRead(w http.ResponseWriter, r *http.Request, st store.Store,
 func (s *Server) markAllRead(w http.ResponseWriter, r *http.Request, st store.Store) {
 	var req wire.MarkReadRequest
 	if !decode(w, r, &req) {
+		return
+	}
+	if len(req.PostIDs) > wire.MaxReadBatch {
+		writeError(w, http.StatusBadRequest, wire.CodeBadRequest, "post_ids holds at most "+strconv.Itoa(wire.MaxReadBatch)+" ids")
 		return
 	}
 	if err := st.SetAllRead(r.Context(), req.PostIDs); err != nil {
