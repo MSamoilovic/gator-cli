@@ -90,7 +90,7 @@ func allCommands() []entry {
 		{group: "account", name: "register", args: "[flags] <username>", summary: "Create a new user and log in", run: handlerRegister, guest: true, guestOnly: true, noDB: true},
 		{group: "account", name: "login", args: "[flags] <username>", summary: "Log in as an existing user, or to a server with --server", run: handlerLogin, guest: true, guestOnly: true, noDB: true},
 		{group: "account", name: "sync", summary: "Send queued changes and refill the offline cache", run: handlerSync, remoteOnly: true},
-		{group: "account", name: "logout", summary: "Disconnect from a server and go back to the local database", run: handlerLogout, noDB: true},
+		{group: "account", name: "logout", args: "[--all]", summary: "Disconnect from a server and go back to the local database", run: handlerLogout, noDB: true},
 		{group: "account", name: "invite", args: "[flags]", summary: "Hand out a one-time registration link for this server", run: handlerInvite, localOnly: true, admin: true},
 		{group: "account", name: "admin", args: "[flags] [name]", summary: "List, grant or revoke the admin role, or read the admin log", run: handlerAdmin, localOnly: true, admin: true, bootstraps: true},
 		{group: "account", name: "reset", args: "[flags]", summary: "Delete every row in the database", run: handlerReset, hidden: true, localOnly: true, admin: true},

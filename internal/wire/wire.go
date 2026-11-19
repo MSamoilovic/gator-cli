@@ -126,6 +126,10 @@ type UnfollowResponse struct {
 	RemovedBookmarks int  `json:"removed_bookmarks"`
 }
 
+type RevokeResponse struct {
+	Revoked int64 `json:"revoked"`
+}
+
 type MarkReadRequest struct {
 	PostIDs []uuid.UUID `json:"post_ids"`
 }

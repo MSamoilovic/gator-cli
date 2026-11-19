@@ -65,6 +65,7 @@ func newServer(s *Server, opts Options) http.Handler {
 	mux.Handle("POST /v1/users", s.perIP(s.register))
 	mux.Handle("POST /v1/tokens", s.perIP(s.issueToken))
 	mux.Handle("DELETE /v1/tokens/current", s.authed(s.revokeToken))
+	mux.Handle("DELETE /v1/tokens", s.authed(s.revokeAllTokens))
 	mux.Handle("GET /v1/me", s.authed(s.me))
 
 	mux.Handle("GET /v1/posts", s.authed(s.posts))
@@ -130,11 +131,13 @@ func (s *Server) authed(next func(http.ResponseWriter, *http.Request, store.Stor
 			return
 		}
 
-		user, err := s.q.GetUserByTokenHash(r.Context(), auth.HashToken(token))
+		tokenHash := auth.HashToken(token)
+		user, err := s.q.GetUserByTokenHash(r.Context(), tokenHash)
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, wire.CodeUnauthorized, "invalid token")
 			return
 		}
+		s.touchToken(r.Context(), tokenHash)
 
 		for _, l := range limiters {
 			if wait := l.take(user.ID.String()); wait > 0 {

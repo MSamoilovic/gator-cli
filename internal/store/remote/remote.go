@@ -102,6 +102,14 @@ func (s *Store) Logout(ctx context.Context) error {
 	return s.do(ctx, http.MethodDelete, "/v1/tokens/current", nil, nil, nil)
 }
 
+func (s *Store) LogoutAll(ctx context.Context) (int64, error) {
+	var res wire.RevokeResponse
+	if err := s.do(ctx, http.MethodDelete, "/v1/tokens", nil, nil, &res); err != nil {
+		return 0, err
+	}
+	return res.Revoked, nil
+}
+
 func (s *Store) do(ctx context.Context, method, path string, query url.Values, body, out any) error {
 	var reader io.Reader
 	if body != nil {
