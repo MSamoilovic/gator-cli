@@ -55,17 +55,37 @@ release:
   footer: |
     ## Getting started
 
-    Unpack the archive and put `gator` on your PATH. You need a PostgreSQL
-    database; everything else `gator` does itself:
+    Unpack the archive and put `gator` on your PATH.
+
+    **Someone runs a gator server for you?** They will send you an invite link.
+    That is all you need:
+
+    ```
+    gator register --link <the link> --email you@example.com <your-name>
+    gator discover                   # pick some feeds
+    gator tui                        # read
+    ```
+
+    **Keeping your feeds on your own machine?** You need a PostgreSQL database;
+    everything else `gator` does itself:
 
     ```
     createdb gator
     gator init --user <your-name>    # writes the config, creates the schema
-    gator discover                   # pick some feeds
-    gator tui                        # read
+    gator discover
+    gator tui
     ```
 
     `gator init` asks for the connection string (or take `--db-url`), proves it
     works, applies the schema from inside the binary, and only then writes
     `~/.gatorconfig.json` at 0600. After upgrading, `gator migrate` applies any
     new migrations the build carries.
+
+    ## Verifying the download
+
+    ```
+    gh attestation verify <archive> --repo MSamoilovic/gator-cli
+    ```
+
+    Report security problems privately, as described in
+    [SECURITY.md](https://github.com/MSamoilovic/gator-cli/blob/main/SECURITY.md).

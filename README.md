@@ -8,7 +8,9 @@ A CLI RSS feed aggregator. Follow feeds, aggregate posts, and manage subscriptio
 
 ## Prerequisites
 
-- **PostgreSQL** 15+
+- **PostgreSQL** 15+ — to keep your feeds on your own machine, or to run a
+  server for others. Signing in to someone else's gator server needs nothing
+  but the binary.
 - **Go** 1.26+ — only if you install from source
 
 ## Installation
@@ -25,6 +27,16 @@ go install github.com/MSamoilovic/gator-cli/cmd/gator@latest
 
 Every build carries the database schema inside it, so neither route needs a
 clone of this repository.
+
+Each archive comes with a signed build-provenance attestation. To check that the
+one you downloaded was built from this repository by its release workflow:
+
+```bash
+gh attestation verify gator_<version>_linux_amd64.tar.gz --repo MSamoilovic/gator-cli
+```
+
+If someone runs a gator server for you, they will send you an invite link. With
+that you can skip the setup below; see [Using a server](#using-a-server-extra).
 
 ## Setup
 
@@ -49,7 +61,7 @@ ALTER USER postgres PASSWORD 'postgres';
 ### 3. Initialise gator
 
 ```bash
-gator init --user <your-name>   # asks for a password
+gator init --user <your-name>   # asks for a password; you become the admin
 ```
 
 `init` asks for the connection string (or pass `--db-url`), proves it works,
@@ -107,29 +119,63 @@ gator agg 15m                     # the server does not fetch feeds by itself; k
 ```
 
 `serve` speaks plain HTTP and does no TLS of its own. Put a reverse proxy such
-as Caddy in front of it for anything that leaves the machine.
+as Caddy in front of it for anything that leaves the machine, and tell `serve`
+where that proxy is and where the world reaches it:
+
+```bash
+gator serve --addr 0.0.0.0:8080 \
+  --trusted-proxy 172.30.0.0/24 \
+  --public-url https://gator.example.com
+```
+
+`--trusted-proxy` is the only address whose `X-Forwarded-For` is believed, so
+the range must hold the proxy and never the clients. `--public-url` (or
+`GATOR_SERVER_URL`) is the address the invite page prints.
+
+Nobody can register on a server until you invite them. On the server machine,
+as the admin:
+
+```bash
+gator invite --note "ana"         # prints a one-time link, valid for 72h (--ttl to change)
+gator invite --list               # what you handed out, and which were used
+gator invite --revoke <id>        # take back a link nobody has used yet
+```
 
 On any other machine:
 
 ```bash
-gator register --server https://gator.example.com --email you@example.com <username>
+gator register --link https://gator.example.com/join/gatinv_… --email you@example.com <username>
 gator login --server https://gator.example.com <username-or-email>
 gator logout                      # forget the server and go back to your own database
+gator logout --all                # ...and sign out every other device too
 ```
 
-Both prompt for a password (at least 8 characters) unless you pass
-`--password`. Flags go before the username. The token is saved in
+Both prompt for a password (at least 8 characters). For scripts, pipe it in
+with `--password-stdin`; `--password` also works but shows up in `ps` and in
+your shell history. Flags go before the username. The token is saved in
 `~/.gatorcredentials.json` with mode `0600`, and `gator` refuses to send a
-password over plain `http://` unless the server is on the loopback address.
+password over plain `http://` unless the server is on the loopback address. A
+token you do not use for 90 days expires, and `gator login` brings you back.
 
 Once logged in, `tui`, `browse`, `search`, `bookmark`, `follow`, `addfeed`,
 `import`, `export`, `stats` and the rest work as before. Commands that operate
 on the database itself — `agg`, `supervise`, `prune`, `feeds`,
 `migrate`, `reset` and `serve` — are refused until you `logout`.
 
-> **Not ready for strangers.** `addfeed` makes the server fetch whatever URL it
-> is given, and there is no SSRF protection or rate limit yet. Run `serve` for
-> yourself and people you trust, not on the open internet.
+What the server does to keep invited strangers from hurting it or each other:
+
+- **Feeds and articles are fetched only from public addresses.** A feed URL or
+  a redirect that points at the server's own network is refused.
+- **Requests are rate-limited** per address for sign-in and registration, per
+  account name for wrong passwords, and per user for everything else. A refused
+  request gets `429` with `Retry-After`, and the client waits instead of losing
+  the change.
+- **Every account sees only its own feeds, bookmarks and read markers**,
+  including posts: a post in a feed you do not follow does not exist for you.
+- **A stolen token can be revoked**: `gator logout --all` by its owner, or
+  `gator admin --revoke-tokens <name>` by the admin.
+
+See [SECURITY.md](SECURITY.md) for what is in scope and how to report a problem.
 
 ### Finding feeds to follow (extra)
 
@@ -339,9 +385,14 @@ gator reset             # delete every row, after typing the database name
 gator reset --yes       # delete every row without asking (for scripts)
 ```
 
-`reset` empties all six tables — users, feeds, posts, feed_follows, bookmarks
-and post_reads. The schema and goose's migration history are left alone, so the
-database is immediately usable again.
+`reset` empties all nine tables — users, feeds, posts, feed_follows,
+bookmarks, post_reads, api_tokens, invites and admin_log. The schema and goose's
+migration history are left alone, so the database is immediately usable again.
+
+`reset`, `prune`, `refetch`, `feeds`, `invite` and `admin` are for the admin,
+and each asks for the admin's password before it runs, because a local login
+checks none. `gator init --user` makes that user the admin; `gator admin <name>`
+makes another, and `gator admin --log` shows who ran what.
 
 Three things stand between it and an accident: it refuses to run unless
 `db_url` points at a loopback address, it prints the row counts first, and it
