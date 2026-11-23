@@ -16,7 +16,7 @@ import (
 func withQueuedWrite(t *testing.T, dir string) {
 	t.Helper()
 
-	one := post("one", wallClock(time.Now()), uuid.New())
+	one := post("one", time.Now().UTC(), uuid.New())
 	fake, st := subscribed(t, dir, one)
 	fake.Err = store.ErrUnreachable
 	if err := st.SetRead(t.Context(), one.ID, true); err != nil {

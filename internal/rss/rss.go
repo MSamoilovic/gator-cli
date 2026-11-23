@@ -265,6 +265,7 @@ func parseFeed(data []byte, feedURL string) (*RSSFeed, error) {
 	}
 
 	resolveBody(feed)
+	resolveLinks(feed, feedURL)
 	unescapeString(feed)
 	printable(feed)
 	return feed, nil
@@ -278,6 +279,32 @@ func resolveBody(f *RSSFeed) {
 		it.Description = firstNonEmpty(it.Content, it.Description)
 		it.PubDate = firstNonEmpty(it.PubDate, it.Date)
 	}
+}
+
+func resolveLinks(f *RSSFeed, feedURL string) {
+	base, err := url.Parse(feedURL)
+	if err != nil {
+		base = &url.URL{}
+	}
+	f.Channel.Link = resolveLink(base, f.Channel.Link)
+	if site, err := url.Parse(f.Channel.Link); err == nil && site.IsAbs() {
+		base = site
+	}
+	for i := range f.Channel.Item {
+		f.Channel.Item[i].Link = resolveLink(base, f.Channel.Item[i].Link)
+	}
+}
+
+func resolveLink(base *url.URL, raw string) string {
+	link := strings.TrimSpace(raw)
+	if link == "" {
+		return ""
+	}
+	ref, err := url.Parse(link)
+	if err != nil {
+		return link
+	}
+	return base.ResolveReference(ref).String()
 }
 
 func rootElement(data []byte) (string, error) {
@@ -299,6 +326,7 @@ func rootElement(data []byte) (string, error) {
 func newDecoder(data []byte) *xml.Decoder {
 	d := xml.NewDecoder(bytes.NewReader(data))
 	d.CharsetReader = charsetReader
+	d.Entity = xml.HTMLEntity
 	return d
 }
 

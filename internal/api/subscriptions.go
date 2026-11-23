@@ -119,7 +119,7 @@ func (s *Server) stats(w http.ResponseWriter, r *http.Request, st store.Store) {
 			writeError(w, http.StatusBadRequest, wire.CodeBadRequest, "since must be an RFC 3339 timestamp")
 			return
 		}
-		since = t.In(time.Local)
+		since = t
 	}
 
 	stats, err := st.Stats(r.Context(), since)

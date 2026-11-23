@@ -20,7 +20,6 @@ func (snap snapshot) selectPosts(q store.PostQuery) []store.Post {
 
 	needle := strings.ToLower(q.Query)
 	feedName := strings.ToLower(q.FeedName)
-	since := wallClock(q.Since)
 
 	out := make([]store.Post, 0, len(snap.Posts))
 	for _, p := range wire.ToPosts(snap.Posts) {
@@ -35,7 +34,7 @@ func (snap snapshot) selectPosts(q store.PostQuery) []store.Post {
 			continue
 		case q.Read == store.ReadOnly && !read[p.ID]:
 			continue
-		case !q.Since.IsZero() && postTime(p).Before(since):
+		case !q.Since.IsZero() && postTime(p).Before(q.Since):
 			continue
 		}
 		out = append(out, p)
@@ -101,12 +100,6 @@ func postTime(p store.Post) time.Time {
 		return p.PublishedAt.Time
 	}
 	return p.CreatedAt
-}
-
-func wallClock(t time.Time) time.Time {
-	local := t.In(time.Local)
-	return time.Date(local.Year(), local.Month(), local.Day(),
-		local.Hour(), local.Minute(), local.Second(), local.Nanosecond(), time.UTC)
 }
 
 func idSet(ids []uuid.UUID) map[uuid.UUID]bool {

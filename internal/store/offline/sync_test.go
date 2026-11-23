@@ -15,7 +15,7 @@ import (
 
 func TestSyncSendsWhatWasQueuedAndReportsHowMuch(t *testing.T) {
 	dir := t.TempDir()
-	one := post("one", wallClock(time.Now()), uuid.New())
+	one := post("one", utc(time.Now()), uuid.New())
 	fake, st := subscribed(t, dir, one)
 
 	fake.Err = store.ErrUnreachable
@@ -63,7 +63,7 @@ func TestSyncFillsTheCacheThatBrowsingAloneWouldNotHave(t *testing.T) {
 	feed := uuid.New()
 	var posts []store.Post
 	for i := range 5 {
-		posts = append(posts, post(string(rune('a'+i)), wallClock(time.Now().Add(-time.Duration(i)*time.Hour)), feed))
+		posts = append(posts, post(string(rune('a'+i)), utc(time.Now().Add(-time.Duration(i)*time.Hour)), feed))
 	}
 
 	fake := storetest.New("marko", posts...)
@@ -97,7 +97,7 @@ func TestSyncFillsTheCacheThatBrowsingAloneWouldNotHave(t *testing.T) {
 
 func TestSyncOfflineSaysSoAndKeepsTheQueue(t *testing.T) {
 	dir := t.TempDir()
-	one := post("one", wallClock(time.Now()), uuid.New())
+	one := post("one", utc(time.Now()), uuid.New())
 	fake, st := subscribed(t, dir, one)
 
 	fake.Err = store.ErrUnreachable
