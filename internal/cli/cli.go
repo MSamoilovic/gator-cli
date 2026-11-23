@@ -104,6 +104,7 @@ func allCommands() []entry {
 }
 
 func Run(schema fs.FS, args []string) error {
+	defer stopLocalServer()
 	ctx := context.Background()
 	cmds := defaultCommands()
 
@@ -169,11 +170,15 @@ func open(schema fs.FS) (*state, func() error, error) {
 	if err := theme.Apply(cfg.Theme); err != nil {
 		return nil, nil, fmt.Errorf("%s: %w", config.Path(), err)
 	}
+	if runsLocally() {
+		cfg.ServerURL = ""
+	}
 
 	if cfg.ServerURL != "" {
 		if _, err := normalizeServerURL(cfg.ServerURL); err != nil {
 			return nil, nil, fmt.Errorf("server_url in %s: %w", config.Path(), err)
 		}
+		ensureLocalServer(cfg.ServerURL, cfg.DBURL)
 		token, err := credentials.Load(cfg.ServerURL)
 		if err != nil {
 			return nil, nil, fmt.Errorf("not logged in to %s (gator login --server %s <name>): %w", cfg.ServerURL, cfg.ServerURL, err)

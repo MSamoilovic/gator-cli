@@ -73,7 +73,7 @@ func (s *Store) Posts(ctx context.Context, q store.PostQuery) ([]store.Post, err
 			FeedID:     q.FeedID,
 			FeedName:   q.FeedName,
 			ReadFilter: string(q.Read),
-			Since:      q.Since,
+			Since:      q.Since.UTC(),
 			PerFeed:    q.PerFeed,
 			PostLimit:  q.Limit,
 			PostOffset: q.Offset,
@@ -86,7 +86,7 @@ func (s *Store) Posts(ctx context.Context, q store.PostQuery) ([]store.Post, err
 		FeedName:   q.FeedName,
 		SortDir:    q.SortDir,
 		ReadFilter: string(q.Read),
-		Since:      q.Since,
+		Since:      q.Since.UTC(),
 		PostLimit:  q.Limit,
 		PostOffset: q.Offset,
 	})
@@ -248,7 +248,7 @@ func (s *Store) Stats(ctx context.Context, since time.Time) ([]store.FeedStat, e
 	}
 	return s.q.GetFeedStatsForUser(ctx, database.GetFeedStatsForUserParams{
 		UserID: user.ID,
-		Since:  since,
+		Since:  since.UTC(),
 	})
 }
 

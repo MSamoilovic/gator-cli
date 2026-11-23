@@ -275,3 +275,14 @@ func TestFeedItemUnreadCount(t *testing.T) {
 		t.Errorf("FilterValue() = %q, want the bare name %q", got, want)
 	}
 }
+
+func TestThePublishDateIsShownInTheReadersOwnTime(t *testing.T) {
+	saved := time.Local
+	time.Local = time.FixedZone("CEST", 2*3600)
+	t.Cleanup(func() { time.Local = saved })
+
+	p := database.Post{PublishedAt: sql.NullTime{Time: time.Date(2026, 7, 27, 18, 55, 0, 0, time.UTC), Valid: true}}
+	if got, want := publishedOn(p), "2026-07-27 20:55"; got != want {
+		t.Errorf("publishedOn = %q, want %q: the stored instant is UTC and the reader lives at +02:00", got, want)
+	}
+}

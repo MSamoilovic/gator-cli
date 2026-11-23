@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/MSamoilovic/gator-cli/internal/database"
 	"github.com/MSamoilovic/gator-cli/internal/text"
@@ -60,7 +61,7 @@ func publishedOn(p database.Post) string {
 	if !p.PublishedAt.Valid {
 		return "no date"
 	}
-	return p.PublishedAt.Time.Format("2006-01-02 15:04")
+	return p.PublishedAt.Time.In(time.Local).Format("2006-01-02 15:04")
 }
 
 func renderDetailBody(p database.Post, width int) string {

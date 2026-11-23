@@ -38,7 +38,7 @@ func Prune(ctx context.Context, q *database.Queries, p Policy) (int64, error) {
 	}
 
 	n, err := q.PrunePosts(ctx, database.PrunePostsParams{
-		Before:      time.Now().Add(-p.Retention),
+		Before:      time.Now().UTC().Add(-p.Retention),
 		KeepPerFeed: p.KeepPerFeed,
 	})
 	if err != nil {

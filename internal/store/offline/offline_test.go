@@ -18,6 +18,8 @@ import (
 
 const server = "https://gator.example.test"
 
+func utc(t time.Time) time.Time { return t.UTC() }
+
 func post(title string, published time.Time, feedID uuid.UUID) store.Post {
 	return store.Post{
 		ID:          uuid.New(),
@@ -72,8 +74,8 @@ func TestReadsFallBackToTheCacheWhenTheServerIsGone(t *testing.T) {
 func TestASecondViewAddsToTheCacheInsteadOfReplacingIt(t *testing.T) {
 	sport, tech := uuid.New(), uuid.New()
 	now := time.Now()
-	fresh := post("fresh", wallClock(now.Add(-time.Hour)), sport)
-	other := post("other", wallClock(now.Add(-2*time.Hour)), tech)
+	fresh := post("fresh", utc(now.Add(-time.Hour)), sport)
+	other := post("other", utc(now.Add(-2*time.Hour)), tech)
 
 	fake, st := filled(t, t.TempDir(), fresh, other)
 
@@ -156,7 +158,7 @@ func TestTheCacheKeepsTheNewestPostsAndNoMoreThanTheCap(t *testing.T) {
 	feed := uuid.New()
 	var posts []store.Post
 	for i := range maxPosts + 50 {
-		published := wallClock(time.Now().Add(-time.Duration(i) * time.Minute))
+		published := utc(time.Now().Add(-time.Duration(i) * time.Minute))
 		posts = append(posts, post(fmt.Sprintf("post-%03d", i), published, feed))
 	}
 
@@ -185,10 +187,10 @@ func TestOfflinePostsHonourTheQuery(t *testing.T) {
 
 	now := time.Now()
 	sport, tech := uuid.New(), uuid.New()
-	fresh := post("fresh", wallClock(now.Add(-time.Hour)), sport)
-	stale := post("stale", wallClock(now.Add(-72*time.Hour)), sport)
-	other := post("other", wallClock(now.Add(-2*time.Hour)), tech)
-	edge := post("edge", wallClock(now.Add(-25*time.Hour)), tech)
+	fresh := post("fresh", utc(now.Add(-time.Hour)), sport)
+	stale := post("stale", utc(now.Add(-72*time.Hour)), sport)
+	other := post("other", utc(now.Add(-2*time.Hour)), tech)
+	edge := post("edge", utc(now.Add(-25*time.Hour)), tech)
 
 	dir := t.TempDir()
 	fake, st := filled(t, dir, fresh, stale, other, edge)

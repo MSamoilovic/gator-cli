@@ -64,7 +64,7 @@ func postQuery(r *http.Request) (store.PostQuery, error) {
 		if err != nil {
 			return q, errors.New("since must be an RFC 3339 timestamp")
 		}
-		q.Since = t.In(time.Local)
+		q.Since = t
 	}
 	if q.SortDir != "" && q.SortDir != "asc" && q.SortDir != "desc" {
 		return q, errors.New("sort must be asc or desc")

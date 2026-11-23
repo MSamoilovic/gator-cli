@@ -115,6 +115,7 @@ func loginRemote(ctx context.Context, server, login, password string) error {
 	if err != nil {
 		return err
 	}
+	ensureLocalServerFor(server)
 	password, err = serverPassword(password)
 	if err != nil {
 		return err
@@ -139,6 +140,7 @@ func registerRemote(ctx context.Context, server, name, email, password, invite s
 	if email == "" {
 		return errors.New("an email is required to register on a server (--email)")
 	}
+	ensureLocalServerFor(server)
 	password, err = serverPassword(password)
 	if err != nil {
 		return err
@@ -273,6 +275,7 @@ func revokeThisDevice(ctx context.Context, server string) {
 	if err != nil {
 		return
 	}
+	ensureLocalServerFor(server)
 	if err := remote.New(server, token).Logout(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: the server did not confirm the logout: %v\n", err)
 	}
@@ -289,6 +292,7 @@ func logoutEverywhere(ctx context.Context, server string) (int64, error) {
 	case err != nil:
 		return 0, err
 	}
+	ensureLocalServerFor(server)
 	n, err := remote.New(server, token).LogoutAll(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("%s did not sign out the other devices, so nothing was changed here: %w", server, err)

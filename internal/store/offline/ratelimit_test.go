@@ -16,7 +16,7 @@ func limited() error {
 
 func TestARateLimitedWriteWaitsInTheQueueInsteadOfFailing(t *testing.T) {
 	dir := t.TempDir()
-	one := post("one", wallClock(time.Now()), uuid.New())
+	one := post("one", utc(time.Now()), uuid.New())
 	fake, st := subscribed(t, dir, one)
 
 	fake.Err = limited()
@@ -51,8 +51,8 @@ func TestARateLimitedWriteWaitsInTheQueueInsteadOfFailing(t *testing.T) {
 
 func TestARateLimitedReplayStopsAndLosesNothing(t *testing.T) {
 	dir := t.TempDir()
-	one := post("one", wallClock(time.Now()), uuid.New())
-	two := post("two", wallClock(time.Now()), one.FeedID)
+	one := post("one", utc(time.Now()), uuid.New())
+	two := post("two", utc(time.Now()), one.FeedID)
 	fake, st := subscribed(t, dir, one, two)
 
 	fake.Err = store.ErrUnreachable

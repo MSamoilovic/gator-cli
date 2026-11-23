@@ -49,7 +49,7 @@ func queued(t *testing.T, dir string) []change {
 
 func TestWritesMadeOfflineReachTheServerOnTheNextGoodCall(t *testing.T) {
 	dir := t.TempDir()
-	one := post("one", wallClock(time.Now()), uuid.New())
+	one := post("one", utc(time.Now()), uuid.New())
 	fake, st := subscribed(t, dir, one)
 
 	fake.Err = store.ErrUnreachable
@@ -111,7 +111,7 @@ func TestWritesMadeOfflineReachTheServerOnTheNextGoodCall(t *testing.T) {
 
 func TestAChangeTheServerRefusesIsDroppedAndTheRestStillGoes(t *testing.T) {
 	dir := t.TempDir()
-	one := post("one", wallClock(time.Now()), uuid.New())
+	one := post("one", utc(time.Now()), uuid.New())
 	fake, st := subscribed(t, dir, one)
 
 	fake.Err = store.ErrUnreachable
@@ -193,7 +193,7 @@ func TestTheFirstNetworkErrorStopsThePassAndKeepsTheRest(t *testing.T) {
 
 func TestTheSameChangeReplayedTwiceLeavesOneState(t *testing.T) {
 	dir := t.TempDir()
-	one := post("one", wallClock(time.Now()), uuid.New())
+	one := post("one", utc(time.Now()), uuid.New())
 	fake, st := subscribed(t, dir, one)
 
 	twice := change{Op: opRead, PostID: one.ID, Value: true, At: time.Now()}
@@ -291,8 +291,8 @@ func TestTheQueueFileIsOnlyReadableByItsOwner(t *testing.T) {
 func TestMarkingReadOfflineKeepsTheUnreadCountersHonest(t *testing.T) {
 	dir := t.TempDir()
 	feed := uuid.New()
-	one := post("one", wallClock(time.Now()), feed)
-	two := post("two", wallClock(time.Now().Add(-time.Hour)), feed)
+	one := post("one", utc(time.Now()), feed)
+	two := post("two", utc(time.Now().Add(-time.Hour)), feed)
 	fake, st := subscribed(t, dir, one, two)
 
 	fake.Err = store.ErrUnreachable
@@ -341,7 +341,7 @@ func TestCategorizingAFeedTheCacheNeverSawIsRefusedNotQueued(t *testing.T) {
 
 func TestBookmarkingOfflineTwiceOnlySaysNewOnce(t *testing.T) {
 	dir := t.TempDir()
-	one := post("one", wallClock(time.Now()), uuid.New())
+	one := post("one", utc(time.Now()), uuid.New())
 	fake, st := subscribed(t, dir, one)
 	fake.Err = store.ErrUnreachable
 
@@ -376,7 +376,7 @@ func TestBookmarkingOfflineTwiceOnlySaysNewOnce(t *testing.T) {
 
 func TestAnOfflineUnbookmarkReachesTheServerAsARemoval(t *testing.T) {
 	dir := t.TempDir()
-	one := post("one", wallClock(time.Now()), uuid.New())
+	one := post("one", utc(time.Now()), uuid.New())
 	fake, st := subscribed(t, dir, one)
 
 	if _, err := st.Bookmark(t.Context(), one.ID); err != nil {
@@ -406,7 +406,7 @@ func TestAnOfflineUnbookmarkReachesTheServerAsARemoval(t *testing.T) {
 
 func TestWhatNeedsTheNetworkIsRefusedAndNotQueued(t *testing.T) {
 	dir := t.TempDir()
-	one := post("one", wallClock(time.Now()), uuid.New())
+	one := post("one", utc(time.Now()), uuid.New())
 	fake, st := subscribed(t, dir, one)
 	fake.Err = store.ErrUnreachable
 
@@ -427,8 +427,8 @@ func TestWhatNeedsTheNetworkIsRefusedAndNotQueued(t *testing.T) {
 func TestAnUnfollowLeavesNothingOfThatFeedInTheCache(t *testing.T) {
 	dir := t.TempDir()
 	gone, kept := uuid.New(), uuid.New()
-	g := post("gone", wallClock(time.Now()), gone)
-	k := post("kept", wallClock(time.Now().Add(-time.Hour)), kept)
+	g := post("gone", utc(time.Now()), gone)
+	k := post("kept", utc(time.Now().Add(-time.Hour)), kept)
 	fake, st := filled(t, dir, g, k)
 	fake.Subs = []store.Subscription{
 		{FeedID: gone, FeedName: "Gone", FeedUrl: feedURL},
